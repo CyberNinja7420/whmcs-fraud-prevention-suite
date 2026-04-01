@@ -1904,6 +1904,80 @@
   };
 
   /* ------------------------------------------------------------------
+     FpsGdpr -- GDPR Data Removal Request Admin Controller
+  ------------------------------------------------------------------ */
+
+  window.FpsGdpr = {
+    loadRequests: function(page) {
+      page = page || 1;
+      var statusFilter = document.getElementById('fps-gdpr-status-filter');
+      var status = statusFilter ? statusFilter.value : '';
+
+      ajax('gdpr_get_requests', {page: page, status: status}, function(err, data) {
+        if (err || !data || data.error) { toast(data ? data.error : 'Failed to load', 'error'); return; }
+
+        var tbody = document.getElementById('fps-gdpr-tbody');
+        if (!tbody) return;
+
+        var requests = data.requests || [];
+        if (requests.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;opacity:0.5;">No requests found</td></tr>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < requests.length; i++) {
+          var r = requests[i];
+          var statusBadge = r.status === 'verified' ? '<span class="fps-badge fps-badge-high">Verified</span>' :
+                           r.status === 'completed' ? '<span class="fps-badge fps-badge-low">Completed</span>' :
+                           r.status === 'denied' ? '<span class="fps-badge fps-badge-critical">Denied</span>' :
+                           r.status === 'pending' ? '<span class="fps-badge fps-badge-medium">Pending</span>' :
+                           '<span class="fps-badge">' + _esc(r.status) + '</span>';
+          var verified = r.email_verified == 1 ? '<i class="fas fa-check-circle" style="color:#38ef7d;"></i>' : '<i class="fas fa-clock" style="opacity:0.3;"></i>';
+
+          var actions = '';
+          if (r.status === 'verified' || r.status === 'pending') {
+            actions = '<button class="fps-btn fps-btn-xs" style="background:#38ef7d;color:#000;" onclick="FpsGdpr.review(' + r.id + ',\'approve\')"><i class="fas fa-check"></i> Approve</button> ' +
+                      '<button class="fps-btn fps-btn-xs" style="background:#eb3349;" onclick="FpsGdpr.review(' + r.id + ',\'deny\')"><i class="fas fa-times"></i> Deny</button>';
+          } else if (r.status === 'completed') {
+            actions = '<span style="font-size:0.8rem;opacity:0.6;">' + (r.records_purged || 0) + ' purged</span>';
+          } else {
+            actions = '<span style="font-size:0.8rem;opacity:0.6;">' + _esc(r.status) + '</span>';
+          }
+
+          html += '<tr>' +
+            '<td>#' + r.id + '</td>' +
+            '<td style="font-size:0.85rem;">' + _esc(r.email) + '</td>' +
+            '<td>' + _esc(r.name || '-') + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + verified + '</td>' +
+            '<td>' + (r.intel_records || 0) + '</td>' +
+            '<td style="font-size:0.8rem;">' + _esc(r.created_at || '') + '</td>' +
+            '<td>' + actions + '</td>' +
+            '</tr>';
+        }
+        tbody.innerHTML = html;
+      });
+    },
+
+    review: function(requestId, action) {
+      var label = action === 'approve'
+        ? 'APPROVE this request and DELETE all matching fraud intel records?'
+        : 'DENY this data removal request?';
+
+      confirm(label, function() {
+        var notes = prompt('Admin notes (optional):') || '';
+        ajax('gdpr_review_request', {request_id: requestId, review_action: action, admin_notes: notes}, function(err, data) {
+          if (err || !data) { toast('Review failed', 'error'); return; }
+          if (data.error) { toast(data.error, 'error'); return; }
+          toast(data.message || 'Done', 'success');
+          FpsGdpr.loadRequests();
+        });
+      });
+    },
+  };
+
+  /* ------------------------------------------------------------------
      PRIVATE HELPER: HTML escape (shared)
   ------------------------------------------------------------------ */
   function _esc(str) {

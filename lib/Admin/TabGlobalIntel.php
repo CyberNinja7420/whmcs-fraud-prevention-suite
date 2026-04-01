@@ -28,6 +28,7 @@ class TabGlobalIntel
         $this->renderConnectionCard($ajaxUrl);
         $this->renderSettingsCard($ajaxUrl);
         $this->renderStatsCard($ajaxUrl);
+        $this->renderGdprRequestsCard($ajaxUrl);
         $this->renderBrowserCard($ajaxUrl);
         $this->renderPrivacyCard($ajaxUrl);
     }
@@ -186,6 +187,69 @@ HTML;
     /**
      * Intel browser with search/filter/pagination.
      */
+    /**
+     * GDPR data removal requests -- admin review queue.
+     */
+    private function renderGdprRequestsCard(string $ajaxUrl): void
+    {
+        $pendingCount = 0;
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_gdpr_requests')) {
+                $pendingCount = Capsule::table('mod_fps_gdpr_requests')
+                    ->whereIn('status', ['pending', 'verified'])
+                    ->count();
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        $badgeColor = $pendingCount > 0 ? 'fps-badge-high' : 'fps-badge-low';
+
+        echo <<<HTML
+<div class="fps-card">
+  <div class="fps-card-header">
+    <h3><i class="fas fa-user-shield"></i> GDPR Data Removal Requests</h3>
+    <span class="fps-badge {$badgeColor}">{$pendingCount} pending</span>
+  </div>
+  <div class="fps-card-body">
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center;">
+      <select id="fps-gdpr-status-filter" class="fps-select" style="max-width:200px;">
+        <option value="">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="verified">Verified (awaiting review)</option>
+        <option value="approved">Approved</option>
+        <option value="denied">Denied</option>
+        <option value="completed">Completed</option>
+      </select>
+      <button class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsGdpr.loadRequests()">
+        <i class="fas fa-sync-alt"></i> Load Requests
+      </button>
+      <span style="margin-left:auto;font-size:0.85rem;opacity:0.7;">
+        Public form: <a href="index.php?m=fraud_prevention_suite&page=gdpr-request" target="_blank" style="color:#667eea;">View Form</a>
+      </span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="fps-table" id="fps-gdpr-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Verified</th>
+            <th>Intel Records</th>
+            <th>Submitted</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="fps-gdpr-tbody">
+          <tr><td colspan="8" style="text-align:center;opacity:0.5;">Click "Load Requests" to view</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+HTML;
+    }
+
     private function renderBrowserCard(string $ajaxUrl): void
     {
         echo <<<'HTML'
