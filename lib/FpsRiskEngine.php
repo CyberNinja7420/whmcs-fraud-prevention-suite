@@ -134,11 +134,16 @@ class FpsRiskEngine
         $torDcScore = $providerScores['tor_datacenter'] ?? 0;
         $globalScore = $providerScores['global_intel'] ?? 0;
 
+        $geoScore = $providerScores['geo_impossibility'] ?? 0;
+        $abuseIpScore = $providerScores['abuseipdb'] ?? 0;
+
         $scoreFloor = 0.0;
         if ($botScore >= 30) $scoreFloor = max($scoreFloor, 40.0);   // Bot pattern -> at least MEDIUM
         if ($botScore >= 50) $scoreFloor = max($scoreFloor, 60.0);   // Strong bot -> at least HIGH
-        if ($torDcScore >= 20) $scoreFloor = max($scoreFloor, 25.0); // Datacenter IP -> nudge up
+        if ($torDcScore >= 20) $scoreFloor = max($scoreFloor, 30.0); // Datacenter IP -> at least MEDIUM
+        if ($torDcScore >= 20 && $geoScore >= 15) $scoreFloor = max($scoreFloor, 40.0); // DC + geo mismatch -> MEDIUM
         if ($globalScore >= 15) $scoreFloor = max($scoreFloor, 35.0); // Known in global DB -> at least MEDIUM
+        if ($abuseIpScore >= 30) $scoreFloor = max($scoreFloor, 40.0); // AbuseIPDB high -> at least MEDIUM
 
         if ($scoreFloor > $finalScore) {
             $finalScore = $scoreFloor;
