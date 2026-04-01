@@ -25,6 +25,7 @@ class TabSettings
 
         echo '<form id="fps-settings-form" onsubmit="return false;">';
 
+        $this->fpsRenderDisplaySettings($config);
         $this->fpsRenderProviderSettings($config);
         $this->fpsRenderThresholdSettings($config);
         $this->fpsRenderCaptchaSettings($config);
@@ -39,6 +40,50 @@ class TabSettings
         echo '</form>';
 
         $this->fpsRenderSaveBar($ajaxUrl);
+    }
+
+    /**
+     * Display settings: font size scaling.
+     */
+    private function fpsRenderDisplaySettings(FpsConfig $config): void
+    {
+        $currentScale = (float) $config->getCustom('ui_font_scale', '1.0');
+        $currentScale = max(0.85, min(1.4, $currentScale));
+
+        $scales = [
+            '0.85' => 'Compact (85%)',
+            '0.9'  => 'Small (90%)',
+            '1.0'  => 'Default (100%)',
+            '1.1'  => 'Large (110%)',
+            '1.15' => 'Larger (115%)',
+            '1.2'  => 'Extra Large (120%)',
+            '1.3'  => 'Maximum (130%)',
+        ];
+
+        $options = '';
+        foreach ($scales as $val => $label) {
+            $selected = ((string)$currentScale === $val) ? ' selected' : '';
+            $options .= '<option value="' . $val . '"' . $selected . '>' . $label . '</option>';
+        }
+
+        $content = <<<HTML
+<div class="fps-form-row">
+  <div class="fps-form-group" style="max-width:320px;">
+    <label for="fps-setting-ui_font_scale"><i class="fas fa-text-height"></i> <strong>Interface Size</strong></label>
+    <select id="fps-setting-ui_font_scale" name="ui_font_scale" class="fps-select"
+      onchange="FpsAdmin.changeFontScale(this.value)">
+      {$options}
+    </select>
+    <small style="margin-top:4px;display:block;color:#888;">Adjusts the entire FPS interface size. Takes effect immediately.</small>
+  </div>
+</div>
+HTML;
+
+        echo $this->fpsRenderCard(
+            '<i class="fas fa-display"></i> Display Settings',
+            $content,
+            'fps-section-display'
+        );
     }
 
     /**
