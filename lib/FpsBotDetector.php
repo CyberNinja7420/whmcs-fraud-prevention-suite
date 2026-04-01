@@ -768,36 +768,112 @@ class FpsBotDetector
     }
 
     /**
-     * Harvest intel from a user account, then delete it.
+     * Harvest ALL available intel from a user account, then delete it.
+     *
+     * Captures: email (SHA-256), last_ip, last_hostname, country (from linked client),
+     * risk score (from mod_fps_checks if any fraud check was run), email verification
+     * status, login history, and evidence flags from IP intel cache.
      */
     private function harvestAndDeleteUser(int $userId): void
     {
         $user = Capsule::table('tblusers')->where('id', $userId)->first();
         if (!$user) return;
 
-        // Harvest user's email and IP into global intel
         try {
-            if (class_exists('\\FraudPreventionSuite\\Lib\\FpsGlobalIntelCollector')) {
-                $collector = new FpsGlobalIntelCollector();
-                $emailHash = hash('sha256', strtolower(trim($user->email)));
-                $collector->upsertIntel(
-                    $emailHash,
-                    $user->last_ip ?? null,
-                    '', // country not stored in tblusers
-                    0.0,
-                    'low',
-                    ['bot_detected' => true, 'orphan_user' => true]
-                );
+            if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsGlobalIntelCollector')) {
+                // Can't harvest without the collector -- still delete but log
+                Capsule::table('tblusers')->where('id', $userId)->delete();
+                return;
             }
+
+            $collector = new FpsGlobalIntelCollector();
+            $emailHash = hash('sha256', strtolower(trim($user->email)));
+            $ip = $user->last_ip ?? null;
+
+            // Try to find linked client for country + risk score
+            $country = '';
+            $riskScore = 0.0;
+            $riskLevel = 'low';
+
+            // Check if there's a client with the same email (for country + existing checks)
+            $linkedClient = Capsule::table('tblclients')
+                ->where('email', $user->email)
+                ->first(['id', 'ip', 'country']);
+
+            if ($linkedClient) {
+                $country = $linkedClient->country ?? '';
+                // Use client IP if user has no last_ip
+                if (empty($ip)) {
+                    $ip = $linkedClient->ip ?? null;
+                }
+
+                // Get highest risk score from any fraud check on this client
+                $bestCheck = Capsule::table('mod_fps_checks')
+                    ->where('client_id', $linkedClient->id)
+                    ->orderByDesc('risk_score')
+                    ->first(['risk_score', 'risk_level']);
+
+                if ($bestCheck) {
+                    $riskScore = (float)$bestCheck->risk_score;
+                    $riskLevel = $bestCheck->risk_level;
+                }
+            }
+
+            // Build comprehensive evidence flags
+            $evidence = [
+                'bot_detected'  => true,
+                'orphan_user'   => true,
+                'email_verified' => !empty($user->email_verified_at),
+                'has_login_history' => !empty($user->last_login),
+                'tor'           => false,
+                'vpn'           => false,
+                'proxy'         => false,
+                'datacenter'    => false,
+            ];
+
+            // Check IP intel cache for this IP
+            if ($ip) {
+                try {
+                    $ipIntel = Capsule::table('mod_fps_ip_intel')
+                        ->where('ip_address', $ip)
+                        ->first();
+                    if ($ipIntel) {
+                        $evidence['tor'] = (bool)($ipIntel->is_tor ?? false);
+                        $evidence['vpn'] = (bool)($ipIntel->is_vpn ?? false);
+                        $evidence['proxy'] = (bool)($ipIntel->is_proxy ?? false);
+                        $evidence['datacenter'] = (bool)($ipIntel->is_datacenter ?? false);
+                    }
+                } catch (\Throwable $e) {
+                    // Non-fatal
+                }
+            }
+
+            // Upsert into global intel (dedup: increments seen_count if exists)
+            $collector->upsertIntel(
+                $emailHash,
+                $ip,
+                $country,
+                $riskScore,
+                $riskLevel,
+                $evidence
+            );
+
+            // Also upsert with last_hostname as a separate IP if different
+            $hostname = $user->last_hostname ?? '';
+            if ($hostname && $hostname !== $ip && filter_var($hostname, FILTER_VALIDATE_IP)) {
+                $collector->upsertIntel($emailHash, $hostname, $country, $riskScore, $riskLevel, $evidence);
+            }
+
         } catch (\Throwable $e) {
-            // Non-fatal
+            logModuleCall('fraud_prevention_suite', 'harvest_user_intel_error',
+                "User #{$userId}", $e->getMessage());
         }
 
-        // Delete the user
+        // Delete the user AFTER harvesting
         Capsule::table('tblusers')->where('id', $userId)->delete();
 
         logModuleCall('fraud_prevention_suite', 'delete_orphan_user',
-            "User #{$userId} ({$user->email})", 'Deleted orphan user account');
+            "User #{$userId} ({$user->email}), IP: {$user->last_ip}", 'Deleted with intel harvested');
     }
 
     /**
