@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-topology.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body class="fps-topology-page">
+<body class="fps-topology-page" style="width:100vw;height:100vh;margin:0;padding:0;max-width:none;overflow-x:hidden;">
 
     <div class="fps-topo-header">
         <div class="fps-topo-brand">

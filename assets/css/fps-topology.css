@@ -50,7 +50,10 @@
 }
 
 html, body {
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   background: var(--topo-bg);
   color: var(--topo-text);
   font-family: var(--topo-font);
@@ -58,6 +61,16 @@ html, body {
   line-height: 1.6;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Full-width page wrapper */
+.fps-topology-page {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
 }
 
 /* Subtle star-field background */

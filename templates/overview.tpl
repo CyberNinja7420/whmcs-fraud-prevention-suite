@@ -1,6 +1,36 @@
 {literal}
 <style>
-.fps-pub{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;line-height:1.7;}
+:root {
+  --fps-pub-bg: #ffffff;
+  --fps-pub-text: #1a1a2e;
+  --fps-pub-text-secondary: #555;
+  --fps-pub-text-muted: #888;
+  --fps-pub-card-bg: #ffffff;
+  --fps-pub-card-border: #e8ecf4;
+  --fps-pub-card-shadow: rgba(0,0,0,0.08);
+  --fps-pub-input-bg: #ffffff;
+  --fps-pub-input-border: #ddd;
+  --fps-pub-table-header: #f8f9fc;
+  --fps-pub-table-border: #f0f0f5;
+  --fps-pub-code-bg: #1a1a2e;
+  --fps-pub-code-text: #b0b8d1;
+}
+.fps-dark-mode {
+  --fps-pub-bg: #0f0c29;
+  --fps-pub-text: #e0e0f0;
+  --fps-pub-text-secondary: #b0b8d1;
+  --fps-pub-text-muted: #8888aa;
+  --fps-pub-card-bg: #1a1a3e;
+  --fps-pub-card-border: #2a2a5e;
+  --fps-pub-card-shadow: rgba(0,0,0,0.3);
+  --fps-pub-input-bg: #1a1a3e;
+  --fps-pub-input-border: #3a3a6e;
+  --fps-pub-table-header: #1e1e4e;
+  --fps-pub-table-border: #2a2a5e;
+  --fps-pub-code-bg: #0a0820;
+  --fps-pub-code-text: #b0b8d1;
+}
+.fps-pub{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--fps-pub-text);line-height:1.7;}
 .fps-pub *{box-sizing:border-box;}
 .fps-pub-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:60px 30px;text-align:center;border-radius:16px;margin-bottom:32px;position:relative;overflow:hidden;}
 .fps-pub-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 40%,rgba(102,126,234,0.12),transparent 60%),radial-gradient(ellipse at 70% 60%,rgba(118,75,162,0.08),transparent 50%);pointer-events:none;}
@@ -9,47 +39,47 @@
 .fps-pub-hero p{font-size:1.15rem;color:#b0b8d1;margin:0 auto 28px;max-width:700px;position:relative;z-index:1;}
 .fps-pub-hero .fps-pub-version{background:rgba(102,126,234,0.2);border:1px solid rgba(102,126,234,0.3);border-radius:20px;padding:4px 16px;font-size:0.85rem;color:#a0b0ff;display:inline-block;margin-bottom:16px;position:relative;z-index:1;}
 .fps-pub-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;margin-bottom:40px;}
-.fps-pub-stat{background:#fff;border-radius:12px;padding:24px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid #e8ecf4;transition:transform 0.2s,box-shadow 0.2s;}
+.fps-pub-stat{background:var(--fps-pub-card-bg);border-radius:12px;padding:24px;text-align:center;box-shadow:0 4px 16px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);transition:transform 0.2s,box-shadow 0.2s;}
 .fps-pub-stat:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(102,126,234,0.15);}
-.fps-pub-stat-value{font-size:2rem;font-weight:800;color:#1a1a2e;display:block;}
-.fps-pub-stat-label{font-size:0.85rem;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;display:block;}
+.fps-pub-stat-value{font-size:2rem;font-weight:800;color:var(--fps-pub-text);display:block;}
+.fps-pub-stat-label{font-size:0.85rem;color:var(--fps-pub-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;display:block;}
 .fps-pub-stat-value.danger{color:#eb3349;}
 .fps-pub-stat-value.primary{color:#667eea;}
 .fps-pub-stat-value.success{color:#11998e;}
 .fps-pub-section{margin-bottom:40px;}
-.fps-pub-section h2{font-size:1.6rem;font-weight:700;color:#1a1a2e;margin:0 0 8px;display:flex;align-items:center;gap:10px;}
+.fps-pub-section h2{font-size:1.6rem;font-weight:700;color:var(--fps-pub-text);margin:0 0 8px;display:flex;align-items:center;gap:10px;}
 .fps-pub-section h2 i{color:#667eea;}
-.fps-pub-section p.subtitle{font-size:1rem;color:#666;margin:0 0 24px;}
+.fps-pub-section p.subtitle{font-size:1rem;color:var(--fps-pub-text-secondary);margin:0 0 24px;}
 .fps-pub-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
-.fps-pub-feature{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid #e8ecf4;}
+.fps-pub-feature{background:var(--fps-pub-card-bg);border-radius:12px;padding:24px;box-shadow:0 2px 8px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);}
 .fps-pub-feature h3{font-size:1.1rem;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px;}
 .fps-pub-feature h3 i{color:#667eea;width:20px;text-align:center;}
-.fps-pub-feature p{font-size:0.92rem;color:#555;margin:0;}
+.fps-pub-feature p{font-size:0.92rem;color:var(--fps-pub-text-secondary);margin:0;}
 .fps-pub-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;margin-bottom:40px;}
-.fps-pub-tier{background:#fff;border-radius:16px;padding:32px 24px;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:2px solid #e8ecf4;text-align:center;transition:border-color 0.3s,transform 0.2s;}
+.fps-pub-tier{background:var(--fps-pub-card-bg);border-radius:16px;padding:32px 24px;box-shadow:0 4px 16px var(--fps-pub-card-shadow);border:2px solid var(--fps-pub-card-border);text-align:center;transition:border-color 0.3s,transform 0.2s;}
 .fps-pub-tier:hover{transform:translateY(-4px);}
 .fps-pub-tier.featured{border-color:#667eea;box-shadow:0 8px 32px rgba(102,126,234,0.2);}
 .fps-pub-tier h3{font-size:1.3rem;font-weight:700;margin:0 0 4px;}
 .fps-pub-tier .price{font-size:2rem;font-weight:800;color:#667eea;margin:12px 0;}
-.fps-pub-tier .price span{font-size:0.85rem;color:#888;font-weight:400;}
+.fps-pub-tier .price span{font-size:0.85rem;color:var(--fps-pub-text-muted);font-weight:400;}
 .fps-pub-tier .price.free{color:#11998e;}
 .fps-pub-tier ul{list-style:none;padding:0;margin:16px 0 24px;text-align:left;}
-.fps-pub-tier ul li{padding:6px 0;font-size:0.92rem;color:#444;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px;}
+.fps-pub-tier ul li{padding:6px 0;font-size:0.92rem;color:var(--fps-pub-text-secondary);border-bottom:1px solid var(--fps-pub-table-border);display:flex;align-items:center;gap:8px;}
 .fps-pub-tier ul li i.check{color:#11998e;}
 .fps-pub-tier ul li i.cross{color:#ccc;}
 .fps-pub-tier .tier-btn{display:inline-block;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all 0.2s;}
 .fps-pub-tier .tier-btn.primary{background:#667eea;color:#fff;}
 .fps-pub-tier .tier-btn.primary:hover{background:#5a6fd6;}
-.fps-pub-tier .tier-btn.outline{background:#fff;color:#667eea;border:2px solid #667eea;}
+.fps-pub-tier .tier-btn.outline{background:var(--fps-pub-card-bg);color:#667eea;border:2px solid #667eea;}
 .fps-pub-tier .tier-btn.outline:hover{background:#667eea;color:#fff;}
 .fps-pub-providers{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
 .fps-pub-provider-badge{background:linear-gradient(135deg,#667eea11,#764ba211);border:1px solid #667eea33;border-radius:20px;padding:6px 16px;font-size:0.85rem;color:#4a5a8a;font-weight:600;}
-.fps-pub-endpoint{background:#f8f9fc;border:1px solid #e8ecf4;border-radius:10px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.fps-pub-endpoint{background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .fps-pub-endpoint .method{background:#11998e;color:#fff;padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;font-family:monospace;min-width:50px;text-align:center;}
 .fps-pub-endpoint .method.post{background:#667eea;}
 .fps-pub-endpoint .method.delete{background:#eb3349;}
-.fps-pub-endpoint .path{font-family:'Fira Code',monospace;font-size:0.9rem;color:#333;flex:1;}
-.fps-pub-endpoint .desc{font-size:0.82rem;color:#888;}
+.fps-pub-endpoint .path{font-family:'Fira Code',monospace;font-size:0.9rem;color:var(--fps-pub-text);flex:1;}
+.fps-pub-endpoint .desc{font-size:0.82rem;color:var(--fps-pub-text-muted);}
 .fps-pub-endpoint .tier-badge{background:#667eea22;color:#667eea;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:700;}
 .fps-pub-endpoint .tier-badge.free{background:#11998e22;color:#11998e;}
 .fps-pub-endpoint .tier-badge.premium{background:#eb334922;color:#eb3349;}
@@ -60,6 +90,7 @@
 .fps-pub-cta a:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.2);}
 @media(max-width:768px){.fps-pub-hero h1{font-size:1.6rem;}.fps-pub-hero p{font-size:1rem;}.fps-pub-stat-value{font-size:1.5rem;}}
 </style>
+<script>if(localStorage.getItem('fps-pub-theme')==='dark')document.body.classList.add('fps-dark-mode');</script>
 {/literal}
 
 <div class="fps-pub">
@@ -82,6 +113,7 @@
             <a href="{$gdpr_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
                 <i class="fas fa-user-shield"></i> Data Removal
             </a>
+            <button onclick="document.body.classList.toggle('fps-dark-mode');localStorage.setItem('fps-pub-theme',document.body.classList.contains('fps-dark-mode')?'dark':'light')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:0.85rem;"><i class="fas fa-adjust"></i> Theme</button>
         </div>
     </div>
 
@@ -287,15 +319,15 @@
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        <div style="background:#f8f9fc;border:1px solid #e8ecf4;border-radius:10px;padding:20px;">
+        <div style="background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:20px;">
             <h4 style="margin:0 0 8px;"><i class="fas fa-key"></i> Authentication</h4>
-            <pre style="background:#1a1a2e;color:#b0b8d1;padding:12px;border-radius:8px;font-size:0.85rem;overflow-x:auto;margin:0;">curl -H "X-FPS-API-Key: YOUR_KEY" \
+            <pre style="background:var(--fps-pub-code-bg);color:var(--fps-pub-code-text);padding:12px;border-radius:8px;font-size:0.85rem;overflow-x:auto;margin:0;">curl -H "X-FPS-API-Key: YOUR_KEY" \
   "https://your-whmcs.com/.../api.php?endpoint=/v1/stats/global"</pre>
-            <p style="font-size:0.85rem;color:#666;margin:8px 0 0;">Anonymous endpoints require no key. Others require the <code>X-FPS-API-Key</code> header.</p>
+            <p style="font-size:0.85rem;color:var(--fps-pub-text-secondary);margin:8px 0 0;">Anonymous endpoints require no key. Others require the <code>X-FPS-API-Key</code> header.</p>
         </div>
-        <div style="background:#f8f9fc;border:1px solid #e8ecf4;border-radius:10px;padding:20px;">
+        <div style="background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:20px;">
             <h4 style="margin:0 0 8px;"><i class="fas fa-code"></i> Response Format</h4>
-            <pre style="background:#1a1a2e;color:#b0b8d1;padding:12px;border-radius:8px;font-size:0.85rem;overflow-x:auto;margin:0;">{literal}{
+            <pre style="background:var(--fps-pub-code-bg);color:var(--fps-pub-code-text);padding:12px;border-radius:8px;font-size:0.85rem;overflow-x:auto;margin:0;">{literal}{
   "success": true,
   "data": { ... },
   "meta": {
@@ -308,9 +340,9 @@
         </div>
     </div>
 
-    <div style="margin-top:20px;background:#f8f9fc;border:1px solid #e8ecf4;border-radius:10px;padding:20px;">
+    <div style="margin-top:20px;background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:20px;">
         <h4 style="margin:0 0 8px;"><i class="fas fa-gauge-simple-high"></i> Rate Limit Headers</h4>
-        <p style="font-size:0.9rem;color:#555;margin:0;">All responses include: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, and <code>Retry-After</code> (on 429). Rate limits are per API key (or per IP for anonymous).</p>
+        <p style="font-size:0.9rem;color:var(--fps-pub-text-secondary);margin:0;">All responses include: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, and <code>Retry-After</code> (on 429). Rate limits are per API key (or per IP for anonymous).</p>
     </div>
 
     {* === CTA === *}
