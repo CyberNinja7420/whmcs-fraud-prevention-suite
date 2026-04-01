@@ -120,8 +120,8 @@
 
     {* === LIVE STATS === *}
     <div class="fps-pub-section">
-        <h2><i class="fas fa-chart-bar"></i> Live Platform Statistics</h2>
-        <p class="subtitle">Real-time data from our fraud detection infrastructure.</p>
+        <h2 style="color:#fff;font-size:1.6rem;"><i class="fas fa-chart-bar" style="color:#88a4ff;"></i> Live Platform Statistics</h2>
+        <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Real-time data from our fraud detection infrastructure.</p>
     </div>
 
     <div class="fps-pub-stats">
@@ -135,8 +135,8 @@
 
     {* === ANONYMITY DETECTION STATS === *}
     <div class="fps-pub-section">
-        <h2><i class="fas fa-mask"></i> Anonymity Network Detection</h2>
-        <p class="subtitle">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
+        <h2 style="color:#fff;font-size:1.6rem;"><i class="fas fa-mask" style="color:#88a4ff;"></i> Anonymity Network Detection</h2>
+        <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
     </div>
 
     <div class="fps-pub-stats">
@@ -150,20 +150,20 @@
 
     {* === DETECTION ENGINES === *}
     <div class="fps-pub-section">
-        <h2><i class="fas fa-puzzle-piece"></i> Detection Engines</h2>
-        <p class="subtitle">Multi-layered fraud detection combining {$stats.provider_count}+ independent intelligence sources.</p>
+        <h2 style="color:#fff;font-size:1.6rem;"><i class="fas fa-puzzle-piece" style="color:#88a4ff;"></i> Detection Engines</h2>
+        <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Multi-layered fraud detection combining {$stats.provider_count}+ independent intelligence sources.</p>
     </div>
 
     <div class="fps-pub-features">
-        <div class="fps-pub-feature"><h3><i class="fas fa-shield-halved"></i> Cloudflare Turnstile</h3><p>Invisible bot challenge on all forms. Blocks automated signups without CAPTCHAs. Zero friction.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-fingerprint"></i> Device Fingerprinting</h3><p>Canvas, WebGL, font, screen, timezone, and audio fingerprinting. Links fraud accounts across sessions.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-robot"></i> Bot Pattern Detection</h3><p>Plus-addressing, SMS gateways, disposable emails, numeric locals, signup velocity. 15-pattern engine.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-network-wired"></i> IP Intelligence</h3><p>Multi-source: ip-api.com, AbuseIPDB, IPQualityScore. Proxy, VPN, Tor, and datacenter detection.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-users-between-lines"></i> 15-Dimension Duplicate Detection</h3><p>IP subnet, email base, phone, fingerprint, geo-mismatch, name, signup timing linkage.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-globe"></i> Geographic Analysis</h3><p>Cross-correlates IP, billing country, phone prefix, BIN country. Detects impossible travel patterns.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-gauge-high"></i> Behavioral Biometrics</h3><p>Mouse movement entropy, keystroke cadence, form fill speed, paste detection.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-bolt"></i> Velocity Engine</h3><p>Rate limiting: orders/IP, registrations/IP, failed payments, checkout attempts, BIN reuse.</p></div>
-        <div class="fps-pub-feature"><h3><i class="fas fa-earth-americas"></i> Global Threat Intel</h3><p>Cross-instance fraud sharing. SHA-256 hashed data with GDPR compliance. Hub-and-spoke architecture.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-shield-halved" style="color:#88a4ff;"></i> Cloudflare Turnstile</h3><p style="color:#dde4ff;font-size:1rem;">Invisible bot challenge on all forms. Blocks automated signups without CAPTCHAs. Zero friction.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-fingerprint" style="color:#88a4ff;"></i> Device Fingerprinting</h3><p style="color:#dde4ff;font-size:1rem;">Canvas, WebGL, font, screen, timezone, and audio fingerprinting. Links fraud accounts across sessions.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-robot" style="color:#88a4ff;"></i> Bot Pattern Detection</h3><p style="color:#dde4ff;font-size:1rem;">Plus-addressing, SMS gateways, disposable emails, numeric locals, signup velocity. 15-pattern engine.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-network-wired" style="color:#88a4ff;"></i> IP Intelligence</h3><p style="color:#dde4ff;font-size:1rem;">Multi-source: ip-api.com, AbuseIPDB, IPQualityScore. Proxy, VPN, Tor, and datacenter detection.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-users-between-lines" style="color:#88a4ff;"></i> 15-Dimension Duplicate Detection</h3><p style="color:#dde4ff;font-size:1rem;">IP subnet, email base, phone, fingerprint, geo-mismatch, name, signup timing linkage.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-globe" style="color:#88a4ff;"></i> Geographic Analysis</h3><p style="color:#dde4ff;font-size:1rem;">Cross-correlates IP, billing country, phone prefix, BIN country. Detects impossible travel patterns.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-gauge-high" style="color:#88a4ff;"></i> Behavioral Biometrics</h3><p style="color:#dde4ff;font-size:1rem;">Mouse movement entropy, keystroke cadence, form fill speed, paste detection.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-bolt" style="color:#88a4ff;"></i> Velocity Engine</h3><p style="color:#dde4ff;font-size:1rem;">Rate limiting: orders/IP, registrations/IP, failed payments, checkout attempts, BIN reuse.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-earth-americas" style="color:#88a4ff;"></i> Global Threat Intel</h3><p style="color:#dde4ff;font-size:1rem;">Cross-instance fraud sharing. SHA-256 hashed data with GDPR compliance. Hub-and-spoke architecture.</p></div>
     </div>
 
     {* === Active providers === *}
@@ -181,7 +181,7 @@
     </div>
 
     {* === API TIERS === *}
-    <div class="fps-pub-section" style="margin-top:48px;">
+    <div class="fps-pub-section" style="margin-top:48px;color:#fff;">
         <h2><i class="fas fa-key"></i> API Access Tiers</h2>
         <p class="subtitle">Integrate fraud intelligence into your applications with our REST API.</p>
     </div>
