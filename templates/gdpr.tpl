@@ -30,7 +30,7 @@
   --fps-pub-code-bg: #0a0820;
   --fps-pub-code-text: #c8d0e8;
 }
-.fps-gdpr{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--fps-pub-text);line-height:1.7;max-width:800px;margin:0 auto;}
+.fps-gdpr{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:inherit;line-height:1.7;max-width:800px;margin:0 auto;}
 .fps-gdpr *{box-sizing:border-box;}
 .fps-gdpr-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:40px 30px;text-align:center;border-radius:16px;margin-bottom:32px;}
 .fps-gdpr-hero h1{font-size:2rem;font-weight:800;margin:0 0 12px;}

@@ -30,7 +30,7 @@
   --fps-pub-code-bg: #0a0820;
   --fps-pub-code-text: #c8d0e8;
 }
-.fps-api{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--fps-pub-text);line-height:1.7;max-width:1200px;margin:0 auto;}
+.fps-api{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:inherit;line-height:1.7;max-width:1200px;margin:0 auto;}
 .fps-api *{box-sizing:border-box;}
 .fps-api-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:50px 30px;text-align:center;border-radius:16px;margin-bottom:32px;}
 .fps-api-hero h1{font-size:2.2rem;font-weight:800;margin:0 0 12px;}
