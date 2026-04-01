@@ -69,9 +69,17 @@
         <div class="fps-pub-version">v{$module_version} -- Enterprise Fraud Intelligence</div>
         <h1><i class="fas fa-shield-halved"></i> Fraud Prevention Suite</h1>
         <p>Enterprise-grade fraud detection platform with {$stats.provider_count}+ detection engines, real-time bot blocking, device fingerprinting, and shared global threat intelligence.</p>
-        <a href="{$topology_url}" style="display:inline-block;padding:12px 28px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
-            <i class="fas fa-globe"></i> Live Threat Map
-        </a>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1;">
+            <a href="{$topology_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
+                <i class="fas fa-globe"></i> Live Threat Map
+            </a>
+            <a href="{$global_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
+                <i class="fas fa-earth-americas"></i> Global Intelligence
+            </a>
+            <a href="{$api_docs_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
+                <i class="fas fa-code"></i> API Documentation
+            </a>
+        </div>
     </div>
 
     {* === LIVE STATS === *}
@@ -87,6 +95,21 @@
         <div class="fps-pub-stat"><span class="fps-pub-stat-value primary">{$stats.countries_monitored}</span><span class="fps-pub-stat-label">Countries Monitored</span></div>
         <div class="fps-pub-stat"><span class="fps-pub-stat-value danger">{$stats.bots_detected|number_format}</span><span class="fps-pub-stat-label">Bots Detected</span></div>
         <div class="fps-pub-stat"><span class="fps-pub-stat-value success">{$stats.provider_count}</span><span class="fps-pub-stat-label">Detection Engines</span></div>
+    </div>
+
+    {* === ANONYMITY DETECTION STATS === *}
+    <div class="fps-pub-section">
+        <h2><i class="fas fa-mask"></i> Anonymity Network Detection</h2>
+        <p class="subtitle">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
+    </div>
+
+    <div class="fps-pub-stats">
+        <div class="fps-pub-stat"><span class="fps-pub-stat-value" style="color:#667eea;">{$stats.vpn_detected|number_format}</span><span class="fps-pub-stat-label">VPNs Detected</span></div>
+        <div class="fps-pub-stat"><span class="fps-pub-stat-value danger">{$stats.tor_detected|number_format}</span><span class="fps-pub-stat-label">Tor Exit Nodes</span></div>
+        <div class="fps-pub-stat"><span class="fps-pub-stat-value" style="color:#f5a623;">{$stats.proxy_detected|number_format}</span><span class="fps-pub-stat-label">Proxies Flagged</span></div>
+        <div class="fps-pub-stat"><span class="fps-pub-stat-value danger">{$stats.datacenter_detected|number_format}</span><span class="fps-pub-stat-label">Datacenter IPs</span></div>
+        <div class="fps-pub-stat"><span class="fps-pub-stat-value" style="color:#f5a623;">{$stats.disposable_emails|number_format}</span><span class="fps-pub-stat-label">Disposable Emails</span></div>
+        <div class="fps-pub-stat"><span class="fps-pub-stat-value primary">{$stats.global_intel_count|number_format}</span><span class="fps-pub-stat-label">Global Intel Records</span></div>
     </div>
 
     {* === DETECTION ENGINES === *}
