@@ -18,8 +18,8 @@
 .fps-dark-mode {
   --fps-pub-bg: #1a1a3e;
   --fps-pub-text: #f0f0ff;
-  --fps-pub-text-secondary: #c8d0e8;
-  --fps-pub-text-muted: #a0a8c8;
+  --fps-pub-text-secondary: #dde4ff;
+  --fps-pub-text-muted: #b8c0e0;
   --fps-pub-card-bg: #232350;
   --fps-pub-card-border: #3a3a6e;
   --fps-pub-card-shadow: rgba(0,0,0,0.4);
@@ -43,7 +43,7 @@
 .fps-pub-stat{background:var(--fps-pub-card-bg);border-radius:12px;padding:28px 24px;text-align:center;box-shadow:0 4px 16px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);transition:transform 0.2s,box-shadow 0.2s;}
 .fps-pub-stat:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(102,126,234,0.15);}
 .fps-pub-stat-value{font-size:2rem;font-weight:800;color:var(--fps-pub-text);display:block;}
-.fps-pub-stat-label{font-size:0.9rem;color:var(--fps-pub-text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-top:6px;display:block;font-weight:600;}
+.fps-pub-stat-label{font-size:0.95rem;color:var(--fps-pub-text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-top:6px;display:block;font-weight:700;}
 .fps-pub-stat-value.danger{color:#eb3349;}
 .fps-pub-stat-value.primary{color:#667eea;}
 .fps-pub-stat-value.success{color:#11998e;}
