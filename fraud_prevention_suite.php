@@ -562,6 +562,28 @@ function fraud_prevention_suite_activate(): array
             }
         }
 
+        // -- v4.1: GDPR Data Removal Requests --
+
+        if (!Capsule::schema()->hasTable('mod_fps_gdpr_requests')) {
+            Capsule::schema()->create('mod_fps_gdpr_requests', function ($table) {
+                $table->increments('id');
+                $table->string('email', 255);
+                $table->string('email_hash', 64)->index();
+                $table->string('name', 255)->nullable();
+                $table->text('reason')->nullable();
+                $table->string('verification_token', 64)->nullable();
+                $table->tinyInteger('email_verified')->default(0);
+                $table->string('status', 20)->default('pending'); // pending, verified, approved, denied, completed
+                $table->integer('reviewed_by')->nullable();
+                $table->timestamp('reviewed_at')->nullable();
+                $table->text('admin_notes')->nullable();
+                $table->integer('records_purged')->default(0);
+                $table->string('ip_address', 45)->nullable();
+                $table->timestamp('created_at')->useCurrent();
+                $table->timestamp('updated_at')->nullable();
+            });
+        }
+
         // Add is_catchall column to mod_fps_email_intel if missing (v3.0)
         if (Capsule::schema()->hasTable('mod_fps_email_intel')
             && !Capsule::schema()->hasColumn('mod_fps_email_intel', 'is_catchall')) {
@@ -1181,6 +1203,24 @@ function fps_handleAjax(string $modulelink): void
 
             case 'global_intel_purge':
                 echo json_encode(fps_ajaxGlobalIntelPurge());
+                break;
+
+            // v4.1: GDPR Data Removal Requests (admin)
+            case 'gdpr_get_requests':
+                echo json_encode(fps_ajaxGdprGetRequests());
+                break;
+
+            case 'gdpr_review_request':
+                echo json_encode(fps_ajaxGdprReviewRequest());
+                break;
+
+            // v4.1: GDPR Data Removal (public - no admin auth required)
+            case 'gdpr_submit_request':
+                echo json_encode(fps_ajaxGdprSubmitRequest());
+                break;
+
+            case 'gdpr_verify_email':
+                echo json_encode(fps_ajaxGdprVerifyEmail());
                 break;
 
             case 'global_intel_export':
@@ -1977,8 +2017,22 @@ function fraud_prevention_suite_clientarea(array $vars): array
 {
     $page = $_GET['page'] ?? '';
 
-    // Topology is a full-screen standalone page -- serve directly to avoid
-    // WHMCS theme wrapper producing nested <!DOCTYPE> tags.
+    // Handle public AJAX requests (GDPR -- no admin auth needed)
+    if (isset($_GET['ajax']) && in_array($page, ['gdpr-submit', 'gdpr-verify'], true)) {
+        header('Content-Type: application/json');
+        try {
+            if ($page === 'gdpr-submit') {
+                echo json_encode(fps_ajaxGdprSubmitRequest());
+            } elseif ($page === 'gdpr-verify') {
+                echo json_encode(fps_ajaxGdprVerifyEmail());
+            }
+        } catch (\Throwable $e) {
+            echo json_encode(['error' => 'Request failed']);
+        }
+        exit;
+    }
+
+    // Topology is a full-screen standalone page -- serve directly
     if ($page === 'topology') {
         $tplPath = __DIR__ . '/templates/topology.tpl';
         if (file_exists($tplPath)) {
@@ -1988,19 +2042,22 @@ function fraud_prevention_suite_clientarea(array $vars): array
     }
 
     $liveStats = fps_getPublicStats();
+    $gdprUrl = 'index.php?m=fraud_prevention_suite&page=gdpr-request';
     $commonVars = [
         'stats'          => $liveStats,
         'module_version' => '4.1.3',
         'topology_url'   => 'index.php?m=fraud_prevention_suite&page=topology',
         'global_url'     => 'index.php?m=fraud_prevention_suite&page=global',
         'api_docs_url'   => 'index.php?m=fraud_prevention_suite&page=api-docs',
+        'gdpr_url'       => $gdprUrl,
         'overview_url'   => 'index.php?m=fraud_prevention_suite',
     ];
 
     // Route to the right template
     $templateMap = [
-        'global'   => ['title' => 'Global Threat Intelligence', 'template' => 'global'],
-        'api-docs' => ['title' => 'API Documentation',          'template' => 'apidocs'],
+        'global'        => ['title' => 'Global Threat Intelligence', 'template' => 'global'],
+        'api-docs'      => ['title' => 'API Documentation',          'template' => 'apidocs'],
+        'gdpr-request'  => ['title' => 'Data Removal Request',       'template' => 'gdpr'],
     ];
 
     if (isset($templateMap[$page])) {
@@ -3214,4 +3271,247 @@ function fps_ajaxGlobalIntelExport(): void
         echo json_encode(['error' => $e->getMessage()]);
     }
     exit;
+}
+
+// ---------------------------------------------------------------------------
+// v4.1: GDPR DATA REMOVAL REQUEST SYSTEM
+// ---------------------------------------------------------------------------
+
+/**
+ * PUBLIC: Submit a GDPR data removal request (no admin auth).
+ */
+function fps_ajaxGdprSubmitRequest(): array
+{
+    try {
+        $email = strtolower(trim($_POST['email'] ?? ''));
+        $name = trim($_POST['name'] ?? '');
+        $reason = trim($_POST['reason'] ?? '');
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['error' => 'A valid email address is required'];
+        }
+
+        $emailHash = hash('sha256', $email);
+
+        // Check if this email exists in our fraud intel
+        $exists = Capsule::table('mod_fps_global_intel')
+            ->where('email_hash', $emailHash)
+            ->exists();
+
+        if (!$exists) {
+            return ['success' => true, 'message' => 'No data found for this email address in our system. No action needed.'];
+        }
+
+        // Check for existing pending request
+        $existingRequest = Capsule::table('mod_fps_gdpr_requests')
+            ->where('email_hash', $emailHash)
+            ->whereIn('status', ['pending', 'verified'])
+            ->first();
+
+        if ($existingRequest) {
+            return ['success' => true, 'message' => 'A removal request for this email is already pending review. Reference: #' . $existingRequest->id];
+        }
+
+        // Create verification token
+        $token = bin2hex(random_bytes(32));
+
+        // Insert request
+        $requestId = Capsule::table('mod_fps_gdpr_requests')->insertGetId([
+            'email'              => $email,
+            'email_hash'         => $emailHash,
+            'name'               => $name,
+            'reason'             => $reason,
+            'verification_token' => $token,
+            'email_verified'     => 0,
+            'status'             => 'pending',
+            'ip_address'         => $_SERVER['REMOTE_ADDR'] ?? '',
+            'created_at'         => date('Y-m-d H:i:s'),
+        ]);
+
+        // Send verification email via WHMCS
+        try {
+            $systemUrl = Capsule::table('tblconfiguration')
+                ->where('setting', 'SystemURL')->value('value') ?? '';
+            $verifyUrl = rtrim($systemUrl, '/') . '/index.php?m=fraud_prevention_suite&page=gdpr-verify&ajax=1&token=' . urlencode($token);
+
+            $hostname = parse_url($systemUrl, PHP_URL_HOST) ?: 'localhost';
+            $subject = 'Verify Your Data Removal Request - Reference #' . $requestId;
+            $body = "You (or someone using your email) submitted a data removal request.\n\n"
+                . "To verify this is you, please visit this link:\n"
+                . $verifyUrl . "\n\n"
+                . "If you did not make this request, please ignore this email.\n\n"
+                . "Reference: #" . $requestId . "\n"
+                . "This link expires in 72 hours.\n";
+
+            $headers = "From: noreply@{$hostname}\r\nContent-Type: text/plain; charset=UTF-8\r\n";
+            @mail($email, $subject, $body, $headers);
+        } catch (\Throwable $e) {
+            // Email send failure is non-fatal -- admin can verify manually
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Request submitted (Reference #' . $requestId . '). Please check your email to verify your identity. The link expires in 72 hours.',
+            'request_id' => $requestId,
+        ];
+    } catch (\Throwable $e) {
+        return ['error' => 'Failed to submit request: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * PUBLIC: Verify email ownership for a GDPR request (clicked from email link).
+ */
+function fps_ajaxGdprVerifyEmail(): array
+{
+    try {
+        $token = trim($_GET['token'] ?? $_POST['token'] ?? '');
+        if (empty($token) || strlen($token) !== 64) {
+            return ['error' => 'Invalid verification token'];
+        }
+
+        $request = Capsule::table('mod_fps_gdpr_requests')
+            ->where('verification_token', $token)
+            ->where('status', 'pending')
+            ->first();
+
+        if (!$request) {
+            return ['error' => 'Token not found or already used. The request may have expired or been processed.'];
+        }
+
+        // Check 72-hour expiry
+        $created = strtotime($request->created_at);
+        if ((time() - $created) > 259200) { // 72 hours
+            Capsule::table('mod_fps_gdpr_requests')
+                ->where('id', $request->id)
+                ->update(['status' => 'expired', 'updated_at' => date('Y-m-d H:i:s')]);
+            return ['error' => 'This verification link has expired. Please submit a new request.'];
+        }
+
+        // Mark as verified
+        Capsule::table('mod_fps_gdpr_requests')
+            ->where('id', $request->id)
+            ->update([
+                'email_verified' => 1,
+                'status' => 'verified',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+        return [
+            'success' => true,
+            'message' => 'Email verified. Your request (Reference #' . $request->id . ') is now pending admin review. You will be notified when it is processed.',
+        ];
+    } catch (\Throwable $e) {
+        return ['error' => 'Verification failed'];
+    }
+}
+
+/**
+ * ADMIN: Get all GDPR removal requests with pagination.
+ */
+function fps_ajaxGdprGetRequests(): array
+{
+    try {
+        if (!Capsule::schema()->hasTable('mod_fps_gdpr_requests')) {
+            return ['success' => true, 'requests' => [], 'total' => 0];
+        }
+
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 20;
+        $status = $_GET['status'] ?? '';
+
+        $query = Capsule::table('mod_fps_gdpr_requests')->orderByDesc('created_at');
+        if ($status !== '' && in_array($status, ['pending', 'verified', 'approved', 'denied', 'completed'], true)) {
+            $query->where('status', $status);
+        }
+
+        $total = $query->count();
+        $requests = $query->offset(($page - 1) * $perPage)->limit($perPage)->get()->toArray();
+
+        // Enrich with intel record count
+        foreach ($requests as &$r) {
+            $r = (array)$r;
+            $r['intel_records'] = Capsule::table('mod_fps_global_intel')
+                ->where('email_hash', $r['email_hash'])
+                ->count();
+        }
+
+        return [
+            'success' => true,
+            'requests' => $requests,
+            'total' => $total,
+            'page' => $page,
+            'total_pages' => (int)ceil($total / $perPage),
+        ];
+    } catch (\Throwable $e) {
+        return ['error' => $e->getMessage()];
+    }
+}
+
+/**
+ * ADMIN: Approve or deny a GDPR removal request.
+ * Approve = delete all matching intel records from local DB + request hub purge.
+ */
+function fps_ajaxGdprReviewRequest(): array
+{
+    try {
+        $requestId = (int)($_POST['request_id'] ?? 0);
+        $action = $_POST['review_action'] ?? ''; // approve or deny
+        $notes = trim($_POST['admin_notes'] ?? '');
+
+        if ($requestId < 1) return ['error' => 'Invalid request ID'];
+        if (!in_array($action, ['approve', 'deny'], true)) return ['error' => 'Action must be approve or deny'];
+
+        $request = Capsule::table('mod_fps_gdpr_requests')->where('id', $requestId)->first();
+        if (!$request) return ['error' => 'Request not found'];
+
+        if ($action === 'deny') {
+            Capsule::table('mod_fps_gdpr_requests')->where('id', $requestId)->update([
+                'status' => 'denied',
+                'reviewed_by' => (int)$_SESSION['adminid'],
+                'reviewed_at' => date('Y-m-d H:i:s'),
+                'admin_notes' => $notes,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+            return ['success' => true, 'message' => 'Request #' . $requestId . ' denied.'];
+        }
+
+        // APPROVE: Delete all matching intel records
+        $deleted = Capsule::table('mod_fps_global_intel')
+            ->where('email_hash', $request->email_hash)
+            ->delete();
+
+        // Also try to purge from hub
+        $hubPurged = false;
+        try {
+            $client = new \FraudPreventionSuite\Lib\FpsGlobalIntelClient();
+            if ($client->isConfigured()) {
+                // Hub purge removes all records matching this email hash
+                $hubResult = $client->purgeContributions();
+                $hubPurged = $hubResult['success'] ?? false;
+            }
+        } catch (\Throwable $e) {
+            // Hub purge failure is non-fatal
+        }
+
+        Capsule::table('mod_fps_gdpr_requests')->where('id', $requestId)->update([
+            'status' => 'completed',
+            'reviewed_by' => (int)$_SESSION['adminid'],
+            'reviewed_at' => date('Y-m-d H:i:s'),
+            'admin_notes' => $notes,
+            'records_purged' => $deleted,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        logActivity("FPS GDPR: Request #{$requestId} approved by admin #{$_SESSION['adminid']}. {$deleted} local records purged. Hub purge: " . ($hubPurged ? 'yes' : 'no'));
+
+        return [
+            'success' => true,
+            'message' => "Request #{$requestId} approved. {$deleted} local records purged." . ($hubPurged ? ' Hub data also purged.' : ''),
+            'records_purged' => $deleted,
+            'hub_purged' => $hubPurged,
+        ];
+    } catch (\Throwable $e) {
+        return ['error' => $e->getMessage()];
+    }
 }

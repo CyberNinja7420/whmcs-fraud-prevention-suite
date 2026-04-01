@@ -79,6 +79,9 @@
             <a href="{$api_docs_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
                 <i class="fas fa-code"></i> API Documentation
             </a>
+            <a href="{$gdpr_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
+                <i class="fas fa-user-shield"></i> Data Removal
+            </a>
         </div>
     </div>
 
