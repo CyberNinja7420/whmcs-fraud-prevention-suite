@@ -1042,6 +1042,21 @@
     formatBytes,
     timeAgo,
 
+    // Font scale / display size
+    changeFontScale: function(scale) {
+      scale = parseFloat(scale) || 1.0;
+      if (scale < 0.85) scale = 0.85;
+      if (scale > 1.4) scale = 1.4;
+      var wrapper = document.querySelector('.fps-module-wrapper');
+      if (wrapper) {
+        wrapper.style.setProperty('--fps-font-scale', scale);
+        wrapper.style.zoom = scale;
+      }
+      ajax('save_settings', {settings: JSON.stringify({ui_font_scale: String(scale)})}, function(err, r) {
+        if (!err && r && !r.error) toast('Display size updated to ' + Math.round(scale * 100) + '%', 'success', 2000);
+      });
+    },
+
     // --- Tab-specific action handlers (AJAX wrappers) ---
 
     // API Keys tab

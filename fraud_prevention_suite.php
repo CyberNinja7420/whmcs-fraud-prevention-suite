@@ -611,6 +611,7 @@ function fraud_prevention_suite_activate(): array
             'velocity_bin_reuse_day' => '3',
             // v4.1: User purge controls on WHMCS Users page
             'user_purge_on_users_page' => '1',
+            'ui_font_scale' => '1.0',
         ];
 
         try {
@@ -806,8 +807,20 @@ function fraud_prevention_suite_output(array $vars): void
     echo '  if(localStorage.getItem("fps-theme")==="dark")document.documentElement.classList.add("fps-theme-dark");';
     echo '});</script>';
 
-    // Module header
-    echo '<div class="fps-module-wrapper">';
+    // Module header -- apply saved font scale
+    $fontScale = '1.0';
+    try {
+        $savedScale = Capsule::table('mod_fps_settings')
+            ->where('setting_key', 'ui_font_scale')
+            ->value('setting_value');
+        if ($savedScale !== null && $savedScale !== '') {
+            $fontScale = (string) max(0.85, min(1.4, (float) $savedScale));
+        }
+    } catch (\Throwable $e) {
+        // Non-fatal
+    }
+    $zoomStyle = ($fontScale !== '1.0') ? ' style="zoom:' . htmlspecialchars($fontScale, ENT_QUOTES, 'UTF-8') . ';"' : '';
+    echo '<div class="fps-module-wrapper"' . $zoomStyle . '>';
     echo '<div class="fps-header">';
     echo '  <div class="fps-header-content">';
     echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.1.3</span></h2>';

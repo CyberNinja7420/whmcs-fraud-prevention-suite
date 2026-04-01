@@ -2240,11 +2240,13 @@ input:checked + .fps-toggle-slider::after { transform: translateX(16px); }
 
 /* Module wrapper */
 .fps-module-wrapper {
-  max-width: 1440px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding: var(--fps-space-lg);
   font-family: var(--fps-font);
   color: var(--fps-text-primary);
+  zoom: var(--fps-font-scale, 1);
 }
 
 /* Module header bar */
