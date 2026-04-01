@@ -253,7 +253,26 @@ BUTTONS;
     </div>
 
     <div id="fps-user-results" style="display:none;">
-      <div id="fps-user-summary" style="margin-bottom:0.5rem;"></div>
+      <div id="fps-user-summary" style="margin-bottom:0.75rem;"></div>
+
+      <!-- TOP Action Bar for Users -->
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+        <button class="fps-btn fps-btn-sm" style="background:#6495ed;" onclick="FpsBotUsers.selectAll()">
+          <i class="fas fa-check-double"></i> Select All
+        </button>
+        <button class="fps-btn fps-btn-sm" style="background:#888;" onclick="FpsBotUsers.deselectAll()">
+          <i class="fas fa-times"></i> Deselect All
+        </button>
+        <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
+        <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBotUsers.preview()" title="Dry-run: see which users will be purged without making changes">
+          <i class="fas fa-eye"></i> Dry-Run Purge
+        </button>
+        <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
+        <button class="fps-btn fps-btn-sm" style="background:#eb3349;" onclick="FpsBotUsers.purge()">
+          <i class="fas fa-trash"></i> Purge Selected Users
+        </button>
+      </div>
+
       <div style="overflow-x:auto;">
         <table class="fps-table" id="fps-user-table">
           <thead>
@@ -272,10 +291,20 @@ BUTTONS;
           <tbody id="fps-user-tbody"></tbody>
         </table>
       </div>
-      <div style="margin-top:0.75rem;display:flex;gap:0.5rem;">
+
+      <!-- BOTTOM Action Bar for Users -->
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,0.1);display:flex;flex-wrap:wrap;gap:0.5rem;">
         <button class="fps-btn fps-btn-sm" style="background:#6495ed;" onclick="FpsBotUsers.selectAll()">
           <i class="fas fa-check-double"></i> Select All
         </button>
+        <button class="fps-btn fps-btn-sm" style="background:#888;" onclick="FpsBotUsers.deselectAll()">
+          <i class="fas fa-times"></i> Deselect All
+        </button>
+        <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
+        <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBotUsers.preview()" title="Dry-run: see which users will be purged without making changes">
+          <i class="fas fa-eye"></i> Dry-Run Purge
+        </button>
+        <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
         <button class="fps-btn fps-btn-sm" style="background:#eb3349;" onclick="FpsBotUsers.purge()">
           <i class="fas fa-trash"></i> Purge Selected Users
         </button>

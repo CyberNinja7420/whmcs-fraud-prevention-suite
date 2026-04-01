@@ -1845,9 +1845,48 @@
       document.querySelectorAll('.fps-user-check').forEach(function(cb) { cb.checked = true; });
     },
 
+    deselectAll: function() {
+      _userState.selected = new Set();
+      document.querySelectorAll('.fps-user-check').forEach(function(cb) { cb.checked = false; });
+    },
+
     toggleAll: function(checked) {
       if (checked) FpsBotUsers.selectAll();
-      else { _userState.selected = new Set(); document.querySelectorAll('.fps-user-check').forEach(function(cb) { cb.checked = false; }); }
+      else FpsBotUsers.deselectAll();
+    },
+
+    preview: function() {
+      var ids = Array.from(_userState.selected);
+      if (ids.length === 0) { toast('Select users first', 'warning'); return; }
+
+      // Show preview in the bot preview modal (reuse it)
+      var titleEl = document.getElementById('fps-bot-preview-title');
+      if (titleEl) titleEl.innerHTML = '<i class="fas fa-eye"></i> Dry-Run: User Purge Preview';
+
+      var summaryEl = document.getElementById('fps-bot-preview-summary');
+      if (summaryEl) summaryEl.innerHTML = '<strong>Previewing purge of ' + ids.length + ' user accounts</strong>';
+
+      var theadEl = document.getElementById('fps-bot-preview-thead');
+      var tbodyEl = document.getElementById('fps-bot-preview-tbody');
+      if (theadEl) theadEl.innerHTML = '<tr><th>User ID</th><th>Email</th><th>Name</th><th>Last IP</th><th>Clients</th><th>Impact</th></tr>';
+
+      var rows = '';
+      ids.forEach(function(uid) {
+        var u = _userState.users.find(function(x) { return x.id === uid; });
+        if (!u) return;
+        rows += '<tr>' +
+          '<td>' + u.id + '</td>' +
+          '<td style="font-size:0.85rem;">' + _esc(u.email) + '</td>' +
+          '<td>' + _esc(u.name) + '</td>' +
+          '<td style="font-size:0.85rem;">' + _esc(u.last_ip) + '</td>' +
+          '<td>' + u.clients + '</td>' +
+          '<td style="font-size:0.8rem;">Login account will be permanently deleted. Fraud intel (email hash + IP) saved to global database.</td>' +
+          '</tr>';
+      });
+      if (tbodyEl) tbodyEl.innerHTML = rows;
+
+      var overlay = document.getElementById('fps-bot-preview-overlay');
+      if (overlay) overlay.style.display = 'flex';
     },
 
     purge: function() {

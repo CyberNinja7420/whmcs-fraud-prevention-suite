@@ -79,11 +79,7 @@ class TabSettings
 </div>
 HTML;
 
-        echo $this->fpsRenderCard(
-            '<i class="fas fa-display"></i> Display Settings',
-            $content,
-            'fps-section-display'
-        );
+        echo FpsAdminRenderer::renderCard('Display Settings', 'fa-display', $content);
     }
 
     /**
@@ -632,10 +628,6 @@ HTML;
 </div>
 HTML;
 
-        echo $this->fpsRenderCard(
-            '<i class="fas fa-user-slash"></i> Bot & User Cleanup',
-            $content,
-            'fps-section-bot-cleanup'
-        );
+        echo FpsAdminRenderer::renderCard('Bot & User Cleanup', 'fa-user-slash', $content);
     }
 }
