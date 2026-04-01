@@ -346,12 +346,9 @@ HTML;
           <i class="fas fa-trash"></i> Purge All Local
         </button>
       </div>
-      <div style="padding:1rem;border-radius:8px;background:rgba(235,51,73,0.06);border:1px solid rgba(235,51,73,0.15);">
-        <h4 style="margin:0 0 .5rem;font-size:0.95rem;"><i class="fas fa-eraser"></i> Purge Hub Contributions</h4>
-        <p style="font-size:0.85rem;margin:0 0 0.75rem;">Remove all data this instance pushed to the hub.</p>
-        <button class="fps-btn fps-btn-sm" style="background:#eb3349;" onclick="FpsGlobal.purgeHub()">
-          <i class="fas fa-cloud-arrow-down"></i> Purge Hub Data
-        </button>
+      <div style="padding:1rem;border-radius:8px;background:rgba(100,149,237,0.06);border:1px solid rgba(100,149,237,0.15);">
+        <h4 style="margin:0 0 .5rem;font-size:0.95rem;"><i class="fas fa-cloud-arrow-down"></i> Hub Data</h4>
+        <p style="font-size:0.85rem;margin:0 0 0.75rem;">Hub data is managed centrally by EnterpriseVPS. To request removal of hub contributions, submit a support ticket or use the GDPR Data Removal Request form.</p>
       </div>
     </div>
   </div>

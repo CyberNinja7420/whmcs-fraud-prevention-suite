@@ -426,6 +426,113 @@ class FpsCheckRunner
             $results[] = $this->fps_runOfacScreening($context);
         }
 
+        // v4.0 Provider: AbuseIPDB (crowd-sourced IP abuse reports)
+        try {
+            if ($context->ip !== '' && $this->config->isEnabled('abuseipdb_enabled')
+                && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\AbuseIpdbProvider')) {
+                $abuseIpdb = new \FraudPreventionSuite\Lib\Providers\AbuseIpdbProvider();
+                $abResult = $abuseIpdb->check($context->toArray());
+                $results[] = [
+                    'provider' => 'abuseipdb',
+                    'score'    => (float)($abResult['score'] ?? 0),
+                    'details'  => is_array($abResult['details'] ?? null) ? implode('; ', $abResult['details']) : (string)($abResult['details'] ?? ''),
+                    'factors'  => [['factor' => 'abuseipdb_score', 'score' => (float)($abResult['score'] ?? 0)]],
+                    'success'  => true,
+                ];
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // v4.0 Provider: IPQualityScore (advanced proxy/VPN/bot detection)
+        try {
+            if ($context->ip !== '' && $this->config->isEnabled('ipqs_enabled')
+                && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\IpQualityScoreProvider')) {
+                $ipqs = new \FraudPreventionSuite\Lib\Providers\IpQualityScoreProvider();
+                $ipqsResult = $ipqs->check($context->toArray());
+                $results[] = [
+                    'provider' => 'ipqualityscore',
+                    'score'    => (float)($ipqsResult['score'] ?? 0),
+                    'details'  => is_array($ipqsResult['details'] ?? null) ? implode('; ', $ipqsResult['details']) : (string)($ipqsResult['details'] ?? ''),
+                    'factors'  => [['factor' => 'ipqs_fraud_score', 'score' => (float)($ipqsResult['score'] ?? 0)]],
+                    'success'  => true,
+                ];
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // v4.0 Provider: Abuse Signals (StopForumSpam + SpamHaus ZEN -- free, no key)
+        try {
+            if ($this->config->isEnabled('abuse_signal_enabled')
+                && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\AbuseSignalProvider')) {
+                $abuseSig = new \FraudPreventionSuite\Lib\Providers\AbuseSignalProvider();
+                $sigResult = $abuseSig->check($context->toArray());
+                $results[] = [
+                    'provider' => 'abuse_signals',
+                    'score'    => (float)($sigResult['score'] ?? 0),
+                    'details'  => is_array($sigResult['details'] ?? null) ? implode('; ', $sigResult['details']) : (string)($sigResult['details'] ?? ''),
+                    'factors'  => [['factor' => 'abuse_signal', 'score' => (float)($sigResult['score'] ?? 0)]],
+                    'success'  => true,
+                ];
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // v4.0 Provider: Domain Reputation (RDAP age, suspicious TLD)
+        try {
+            if ($context->email !== '' && $this->config->isEnabled('domain_reputation_enabled')
+                && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\DomainReputationProvider')) {
+                $domRep = new \FraudPreventionSuite\Lib\Providers\DomainReputationProvider();
+                $domResult = $domRep->check($context->toArray());
+                $results[] = [
+                    'provider' => 'domain_reputation',
+                    'score'    => (float)($domResult['score'] ?? 0),
+                    'details'  => is_array($domResult['details'] ?? null) ? implode('; ', $domResult['details']) : (string)($domResult['details'] ?? ''),
+                    'factors'  => [['factor' => 'domain_reputation', 'score' => (float)($domResult['score'] ?? 0)]],
+                    'success'  => true,
+                ];
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // v4.0 Provider: Bot Pattern Detection (plus-tag, SMS gateway, disposable, numeric)
+        try {
+            if ($context->email !== '' && $this->config->isEnabled('bot_signup_blocking')
+                && class_exists('\\FraudPreventionSuite\\Lib\\FpsBotDetector')) {
+                $botScore = 0;
+                $botDetails = [];
+                $email = $context->email;
+                $localPart = substr($email, 0, strpos($email, '@') ?: strlen($email));
+
+                // Plus-tag detection (e.g., user+tag@gmail.com)
+                if (strpos($email, '+') !== false) {
+                    $botScore += 30;
+                    $botDetails[] = 'Plus-tag email detected';
+                }
+
+                // Random-looking local part (high consonant density, numbers mixed with letters)
+                $alphaOnly = preg_replace('/[^a-z]/i', '', $localPart);
+                $digitCount = preg_match_all('/[0-9]/', $localPart);
+                if (strlen($alphaOnly) > 0 && $digitCount > 3 && $digitCount / strlen($localPart) > 0.3) {
+                    $botScore += 15;
+                    $botDetails[] = 'Random-looking email local part';
+                }
+
+                // Dot-stuffed local part (e.g., b.e.t.t.y.t)
+                $dotCount = substr_count($localPart, '.');
+                if ($dotCount >= 3 && strlen($localPart) - $dotCount < 8) {
+                    $botScore += 10;
+                    $botDetails[] = 'Dot-stuffed email local part';
+                }
+
+                if ($botScore > 0) {
+                    $results[] = [
+                        'provider' => 'bot_detection',
+                        'score'    => min(100, (float)$botScore),
+                        'details'  => implode('; ', $botDetails),
+                        'factors'  => array_map(fn($d) => ['factor' => 'bot_pattern', 'score' => 15.0], $botDetails),
+                        'success'  => true,
+                        'weight'   => 2.0, // High weight for bot detection
+                    ];
+                }
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
         // v3.0 Provider: Tor exit node + datacenter IP detection
         if ($context->ip !== '') {
             $results[] = $this->fps_runTorDatacenterCheck($context);

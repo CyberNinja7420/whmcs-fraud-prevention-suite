@@ -32,18 +32,24 @@ class FpsRiskEngine
 
     /** @var array<string, float> Default weight per known provider */
     private const DEFAULT_WEIGHTS = [
-        'fraudrecord'       => 1.0,
-        'ip_intel'          => 1.0,
-        'email_verify'      => 1.0,
-        'fingerprint'       => 1.0,
-        'geo_mismatch'      => 1.0,
-        'custom_rules'      => 1.0,
-        'velocity'          => 1.0,
-        'domain_age'        => 1.0,
-        'tor_datacenter'    => 1.3,
-        'smtp_verify'       => 0.8,
-        'geo_impossibility' => 1.1,
-        'behavioral'        => 0.9,
+        'fraudrecord'        => 1.0,
+        'ip_intel'           => 1.0,
+        'email_verify'       => 1.0,
+        'fingerprint'        => 1.0,
+        'geo_mismatch'       => 1.0,
+        'custom_rules'       => 1.0,
+        'velocity'           => 1.0,
+        'domain_age'         => 1.0,
+        'tor_datacenter'     => 1.3,
+        'smtp_verify'        => 0.8,
+        'geo_impossibility'  => 1.1,
+        'behavioral'         => 0.9,
+        'abuseipdb'          => 1.2,
+        'ipqualityscore'     => 1.3,
+        'abuse_signals'      => 1.1,
+        'domain_reputation'  => 1.0,
+        'bot_detection'      => 2.0,
+        'global_intel'       => 1.5,
     ];
 
     public function __construct(?FpsConfig $config = null)
@@ -82,8 +88,8 @@ class FpsRiskEngine
             $detail   = $result['details'] ?? '';
             $pFactors = $result['factors'] ?? [];
 
-            // Get the weight multiplier for this provider
-            $weight = $weights[$provider] ?? 1.0;
+            // Get the weight multiplier -- provider-specified weight overrides default
+            $weight = isset($result['weight']) ? (float)$result['weight'] : ($weights[$provider] ?? 1.0);
 
             if (!$success) {
                 // Provider failed -- record but do not penalize the order
@@ -120,6 +126,23 @@ class FpsRiskEngine
         $finalScore = 0.0;
         if ($totalWeight > 0.0) {
             $finalScore = min(100.0, $weightedSum / $totalWeight);
+        }
+
+        // Score floor overrides: if specific high-signal providers fire, enforce minimum score
+        // This prevents score dilution from many zero-scoring providers
+        $botScore = $providerScores['bot_detection'] ?? 0;
+        $torDcScore = $providerScores['tor_datacenter'] ?? 0;
+        $globalScore = $providerScores['global_intel'] ?? 0;
+
+        $scoreFloor = 0.0;
+        if ($botScore >= 30) $scoreFloor = max($scoreFloor, 40.0);   // Bot pattern -> at least MEDIUM
+        if ($botScore >= 50) $scoreFloor = max($scoreFloor, 60.0);   // Strong bot -> at least HIGH
+        if ($torDcScore >= 20) $scoreFloor = max($scoreFloor, 25.0); // Datacenter IP -> nudge up
+        if ($globalScore >= 15) $scoreFloor = max($scoreFloor, 35.0); // Known in global DB -> at least MEDIUM
+
+        if ($scoreFloor > $finalScore) {
+            $finalScore = $scoreFloor;
+            $details[] = "[score_floor] Score raised from " . round($finalScore - $scoreFloor + $scoreFloor, 1) . " to {$scoreFloor} due to high-confidence signal";
         }
 
         // Determine risk level from thresholds
