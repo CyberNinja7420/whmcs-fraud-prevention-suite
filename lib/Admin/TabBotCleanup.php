@@ -115,53 +115,18 @@ HTML;
      */
     private function renderResultsCard(string $ajaxUrl): void
     {
-        echo <<<'HTML'
+        $actionBar = $this->getActionButtonsHtml();
+
+        echo <<<HTML
 <div class="fps-card" id="fps-bot-results-card" style="display:none;">
   <div class="fps-card-header">
     <h3><i class="fas fa-list"></i> Scan Results</h3>
     <div id="fps-bot-summary" style="display:flex;gap:0.5rem;"></div>
   </div>
   <div class="fps-card-body">
-    <!-- Bulk Action Buttons -->
-    <div id="fps-bot-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">
-      <button class="fps-btn fps-btn-sm" style="background:#6495ed;" onclick="FpsBot.selectAll()">
-        <i class="fas fa-check-double"></i> Select All
-      </button>
-      <button class="fps-btn fps-btn-sm" style="background:#888;" onclick="FpsBot.deselectAll()">
-        <i class="fas fa-times"></i> Deselect All
-      </button>
-      <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
 
-      <!-- Preview buttons (dry-run) -->
-      <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBot.preview('flag')" title="Preview what flagging will do">
-        <i class="fas fa-eye"></i> Preview Flag
-      </button>
-      <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBot.preview('deactivate')" title="Preview what deactivation will do">
-        <i class="fas fa-eye"></i> Preview Deactivate
-      </button>
-      <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBot.preview('purge')" title="Preview standard purge (zero-record accounts)">
-        <i class="fas fa-eye"></i> Preview Purge
-      </button>
-      <button class="fps-btn fps-btn-sm fps-btn-outline" style="border-color:#f5576c;color:#f5576c;" onclick="FpsBot.preview('deep_purge')" title="Preview deep purge (Fraud/Cancelled accounts)">
-        <i class="fas fa-eye"></i> Preview Deep Purge
-      </button>
-
-      <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
-
-      <!-- Execute buttons -->
-      <button class="fps-btn fps-btn-sm" style="background:#f5c842;color:#000;" onclick="FpsBot.execute('flag')">
-        <i class="fas fa-flag"></i> Flag Selected
-      </button>
-      <button class="fps-btn fps-btn-sm" style="background:#ff9800;color:#000;" onclick="FpsBot.execute('deactivate')">
-        <i class="fas fa-ban"></i> Deactivate Selected
-      </button>
-      <button class="fps-btn fps-btn-sm" style="background:#f5576c;" onclick="FpsBot.execute('purge')">
-        <i class="fas fa-trash"></i> Purge Selected
-      </button>
-      <button class="fps-btn fps-btn-sm" style="background:#eb3349;" onclick="FpsBot.execute('deep_purge')">
-        <i class="fas fa-skull-crossbones"></i> Deep Purge Selected
-      </button>
-    </div>
+    <!-- TOP Action Bar (Preview + Execute) -->
+    {$actionBar}
 
     <!-- Selected count -->
     <div id="fps-bot-selected-count" style="margin-bottom:0.5rem;font-size:0.85rem;opacity:0.7;">
@@ -198,9 +163,63 @@ HTML;
         <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBot.nextPage()" id="fps-bot-next">Next</button>
       </div>
     </div>
+
+    <!-- BOTTOM Action Bar (same buttons repeated so users don't scroll up) -->
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.1);">
+      {$actionBar}
+    </div>
+
   </div>
 </div>
 HTML;
+    }
+
+    /**
+     * Generate the action buttons HTML (used at top AND bottom of results).
+     */
+    private function getActionButtonsHtml(): string
+    {
+        return <<<'BUTTONS'
+<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+  <button class="fps-btn fps-btn-sm" style="background:#6495ed;" onclick="FpsBot.selectAll()">
+    <i class="fas fa-check-double"></i> Select All
+  </button>
+  <button class="fps-btn fps-btn-sm" style="background:#888;" onclick="FpsBot.deselectAll()">
+    <i class="fas fa-times"></i> Deselect All
+  </button>
+  <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
+
+  <!-- DRY-RUN / PREVIEW buttons -->
+  <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBot.preview('flag')" title="Dry-run: see what flagging will do without making changes">
+    <i class="fas fa-eye"></i> Dry-Run Flag
+  </button>
+  <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBot.preview('deactivate')" title="Dry-run: see what deactivation will do without making changes">
+    <i class="fas fa-eye"></i> Dry-Run Deactivate
+  </button>
+  <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsBot.preview('purge')" title="Dry-run: see which zero-record accounts can be purged">
+    <i class="fas fa-eye"></i> Dry-Run Purge
+  </button>
+  <button class="fps-btn fps-btn-sm fps-btn-outline" style="border-color:#f5576c;color:#f5576c;" onclick="FpsBot.preview('deep_purge')" title="Dry-run: see which Fraud/Cancelled accounts can be deep purged">
+    <i class="fas fa-eye"></i> Dry-Run Deep Purge
+  </button>
+
+  <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
+
+  <!-- EXECUTE buttons -->
+  <button class="fps-btn fps-btn-sm" style="background:#f5c842;color:#000;" onclick="FpsBot.execute('flag')">
+    <i class="fas fa-flag"></i> Flag Selected
+  </button>
+  <button class="fps-btn fps-btn-sm" style="background:#ff9800;color:#000;" onclick="FpsBot.execute('deactivate')">
+    <i class="fas fa-ban"></i> Deactivate Selected
+  </button>
+  <button class="fps-btn fps-btn-sm" style="background:#f5576c;" onclick="FpsBot.execute('purge')">
+    <i class="fas fa-trash"></i> Purge Selected
+  </button>
+  <button class="fps-btn fps-btn-sm" style="background:#eb3349;" onclick="FpsBot.execute('deep_purge')">
+    <i class="fas fa-skull-crossbones"></i> Deep Purge Selected
+  </button>
+</div>
+BUTTONS;
     }
 
     /**
