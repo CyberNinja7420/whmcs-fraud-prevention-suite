@@ -18,8 +18,8 @@
 .fps-dark-mode {
   --fps-pub-bg: #1a1a3e;
   --fps-pub-text: #f0f0ff;
-  --fps-pub-text-secondary: #c8d0e8;
-  --fps-pub-text-muted: #a0a8c8;
+  --fps-pub-text-secondary: #dde4ff;
+  --fps-pub-text-muted: #b8c0e0;
   --fps-pub-card-bg: #232350;
   --fps-pub-card-border: #3a3a6e;
   --fps-pub-card-shadow: rgba(0,0,0,0.4);
