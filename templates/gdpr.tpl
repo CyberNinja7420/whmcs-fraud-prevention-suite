@@ -1,21 +1,51 @@
 {literal}
 <style>
-.fps-gdpr{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;line-height:1.7;max-width:800px;margin:0 auto;}
+:root {
+  --fps-pub-bg: #ffffff;
+  --fps-pub-text: #1a1a2e;
+  --fps-pub-text-secondary: #555;
+  --fps-pub-text-muted: #888;
+  --fps-pub-card-bg: #ffffff;
+  --fps-pub-card-border: #e8ecf4;
+  --fps-pub-card-shadow: rgba(0,0,0,0.08);
+  --fps-pub-input-bg: #ffffff;
+  --fps-pub-input-border: #ddd;
+  --fps-pub-table-header: #f8f9fc;
+  --fps-pub-table-border: #f0f0f5;
+  --fps-pub-code-bg: #1a1a2e;
+  --fps-pub-code-text: #b0b8d1;
+}
+.fps-dark-mode {
+  --fps-pub-bg: #0f0c29;
+  --fps-pub-text: #e0e0f0;
+  --fps-pub-text-secondary: #b0b8d1;
+  --fps-pub-text-muted: #8888aa;
+  --fps-pub-card-bg: #1a1a3e;
+  --fps-pub-card-border: #2a2a5e;
+  --fps-pub-card-shadow: rgba(0,0,0,0.3);
+  --fps-pub-input-bg: #1a1a3e;
+  --fps-pub-input-border: #3a3a6e;
+  --fps-pub-table-header: #1e1e4e;
+  --fps-pub-table-border: #2a2a5e;
+  --fps-pub-code-bg: #0a0820;
+  --fps-pub-code-text: #b0b8d1;
+}
+.fps-gdpr{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--fps-pub-text);line-height:1.7;max-width:800px;margin:0 auto;}
 .fps-gdpr *{box-sizing:border-box;}
 .fps-gdpr-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:40px 30px;text-align:center;border-radius:16px;margin-bottom:32px;}
 .fps-gdpr-hero h1{font-size:2rem;font-weight:800;margin:0 0 12px;}
 .fps-gdpr-hero p{font-size:1.05rem;color:#b0b8d1;margin:0 auto;max-width:600px;}
 .fps-gdpr-nav{display:flex;gap:10px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;}
-.fps-gdpr-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid #e0e0e0;color:#667eea;background:#fff;transition:all 0.2s;}
+.fps-gdpr-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid var(--fps-pub-card-border);color:#667eea;background:var(--fps-pub-card-bg);transition:all 0.2s;}
 .fps-gdpr-nav a:hover,.fps-gdpr-nav a.active{background:#667eea;color:#fff;border-color:#667eea;}
-.fps-gdpr-form{background:#fff;border-radius:12px;padding:32px;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid #e8ecf4;margin-bottom:24px;}
+.fps-gdpr-form{background:var(--fps-pub-card-bg);border-radius:12px;padding:32px;box-shadow:0 4px 16px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);margin-bottom:24px;}
 .fps-gdpr-form h2{font-size:1.3rem;font-weight:700;margin:0 0 8px;}
-.fps-gdpr-form p{font-size:0.95rem;color:#555;margin:0 0 20px;}
+.fps-gdpr-form p{font-size:0.95rem;color:var(--fps-pub-text-secondary);margin:0 0 20px;}
 .fps-gdpr-field{margin-bottom:16px;}
 .fps-gdpr-field label{display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;}
-.fps-gdpr-field input,.fps-gdpr-field textarea{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;font-family:inherit;}
+.fps-gdpr-field input,.fps-gdpr-field textarea{width:100%;padding:10px 14px;border:1px solid var(--fps-pub-input-border);border-radius:8px;font-size:0.95rem;font-family:inherit;background:var(--fps-pub-input-bg);color:var(--fps-pub-text);}
 .fps-gdpr-field textarea{resize:vertical;min-height:80px;}
-.fps-gdpr-field small{display:block;margin-top:4px;font-size:0.82rem;color:#888;}
+.fps-gdpr-field small{display:block;margin-top:4px;font-size:0.82rem;color:var(--fps-pub-text-muted);}
 .fps-gdpr-btn{padding:12px 28px;border:none;border-radius:8px;font-size:0.95rem;font-weight:700;cursor:pointer;transition:all 0.2s;}
 .fps-gdpr-btn-primary{background:#667eea;color:#fff;}
 .fps-gdpr-btn-primary:hover{background:#5a6fd6;}
@@ -23,11 +53,12 @@
 .fps-gdpr-msg{padding:16px;border-radius:8px;margin-top:16px;font-size:0.95rem;}
 .fps-gdpr-msg.success{background:rgba(56,239,125,0.08);border:1px solid rgba(56,239,125,0.2);color:#11998e;}
 .fps-gdpr-msg.error{background:rgba(235,51,73,0.08);border:1px solid rgba(235,51,73,0.2);color:#eb3349;}
-.fps-gdpr-info{background:#fff;border-radius:12px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid #e8ecf4;margin-bottom:24px;}
+.fps-gdpr-info{background:var(--fps-pub-card-bg);border-radius:12px;padding:28px;box-shadow:0 2px 8px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);margin-bottom:24px;}
 .fps-gdpr-info h3{font-size:1.1rem;font-weight:700;margin:0 0 12px;}
-.fps-gdpr-info p{font-size:0.9rem;color:#555;margin:0 0 8px;}
-.fps-gdpr-info ul{margin:8px 0;padding-left:20px;font-size:0.9rem;color:#555;}
+.fps-gdpr-info p{font-size:0.9rem;color:var(--fps-pub-text-secondary);margin:0 0 8px;}
+.fps-gdpr-info ul{margin:8px 0;padding-left:20px;font-size:0.9rem;color:var(--fps-pub-text-secondary);}
 </style>
+<script>if(localStorage.getItem('fps-pub-theme')==='dark')document.body.classList.add('fps-dark-mode');</script>
 {/literal}
 
 <div class="fps-gdpr">
@@ -35,6 +66,9 @@
     <div class="fps-gdpr-hero">
         <h1><i class="fas fa-user-shield"></i> Data Removal Request</h1>
         <p>Request removal of your data from our fraud prevention system. GDPR Article 17 -- Right to Erasure.</p>
+        <div style="margin-top:16px;">
+            <button onclick="document.body.classList.toggle('fps-dark-mode');localStorage.setItem('fps-pub-theme',document.body.classList.contains('fps-dark-mode')?'dark':'light')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:0.85rem;"><i class="fas fa-adjust"></i> Theme</button>
+        </div>
     </div>
 
     <div class="fps-gdpr-nav">

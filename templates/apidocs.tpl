@@ -1,50 +1,81 @@
 {literal}
 <style>
-.fps-api{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;line-height:1.7;max-width:1200px;margin:0 auto;}
+:root {
+  --fps-pub-bg: #ffffff;
+  --fps-pub-text: #1a1a2e;
+  --fps-pub-text-secondary: #555;
+  --fps-pub-text-muted: #888;
+  --fps-pub-card-bg: #ffffff;
+  --fps-pub-card-border: #e8ecf4;
+  --fps-pub-card-shadow: rgba(0,0,0,0.08);
+  --fps-pub-input-bg: #ffffff;
+  --fps-pub-input-border: #ddd;
+  --fps-pub-table-header: #f8f9fc;
+  --fps-pub-table-border: #f0f0f5;
+  --fps-pub-code-bg: #1a1a2e;
+  --fps-pub-code-text: #b0b8d1;
+}
+.fps-dark-mode {
+  --fps-pub-bg: #0f0c29;
+  --fps-pub-text: #e0e0f0;
+  --fps-pub-text-secondary: #b0b8d1;
+  --fps-pub-text-muted: #8888aa;
+  --fps-pub-card-bg: #1a1a3e;
+  --fps-pub-card-border: #2a2a5e;
+  --fps-pub-card-shadow: rgba(0,0,0,0.3);
+  --fps-pub-input-bg: #1a1a3e;
+  --fps-pub-input-border: #3a3a6e;
+  --fps-pub-table-header: #1e1e4e;
+  --fps-pub-table-border: #2a2a5e;
+  --fps-pub-code-bg: #0a0820;
+  --fps-pub-code-text: #b0b8d1;
+}
+.fps-api{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--fps-pub-text);line-height:1.7;max-width:1200px;margin:0 auto;}
 .fps-api *{box-sizing:border-box;}
 .fps-api-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:50px 30px;text-align:center;border-radius:16px;margin-bottom:32px;}
 .fps-api-hero h1{font-size:2.2rem;font-weight:800;margin:0 0 12px;}
 .fps-api-hero p{font-size:1.1rem;color:#b0b8d1;margin:0 auto 16px;max-width:700px;}
 .fps-api-nav{display:flex;gap:10px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;}
-.fps-api-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid #e0e0e0;color:#667eea;background:#fff;transition:all 0.2s;}
+.fps-api-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid var(--fps-pub-card-border);color:#667eea;background:var(--fps-pub-card-bg);transition:all 0.2s;}
 .fps-api-nav a:hover,.fps-api-nav a.active{background:#667eea;color:#fff;border-color:#667eea;}
-.fps-api-section{background:#fff;border-radius:12px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid #e8ecf4;margin-bottom:24px;}
+.fps-api-section{background:var(--fps-pub-card-bg);border-radius:12px;padding:28px;box-shadow:0 2px 8px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);margin-bottom:24px;}
 .fps-api-section h2{font-size:1.4rem;font-weight:700;margin:0 0 16px;display:flex;align-items:center;gap:10px;}
 .fps-api-section h2 i{color:#667eea;}
-.fps-api-section h3{font-size:1.1rem;font-weight:700;margin:24px 0 12px;padding-top:16px;border-top:1px solid #f0f0f5;}
-.fps-ep{background:#f8f9fc;border:1px solid #e8ecf4;border-radius:10px;padding:20px;margin-bottom:16px;}
+.fps-api-section h3{font-size:1.1rem;font-weight:700;margin:24px 0 12px;padding-top:16px;border-top:1px solid var(--fps-pub-table-border);}
+.fps-ep{background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:20px;margin-bottom:16px;}
 .fps-ep-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
 .fps-ep-method{padding:4px 12px;border-radius:4px;font-size:0.78rem;font-weight:700;font-family:monospace;color:#fff;}
 .fps-ep-method.get{background:#11998e;}
 .fps-ep-method.post{background:#667eea;}
 .fps-ep-method.delete{background:#eb3349;}
-.fps-ep-path{font-family:'Fira Code',monospace;font-size:0.95rem;font-weight:600;color:#333;}
+.fps-ep-path{font-family:'Fira Code',monospace;font-size:0.95rem;font-weight:600;color:var(--fps-pub-text);}
 .fps-ep-tier{padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;margin-left:auto;}
 .fps-ep-tier.anon{background:#11998e22;color:#11998e;}
 .fps-ep-tier.free{background:#667eea22;color:#667eea;}
 .fps-ep-tier.basic{background:#f5a62322;color:#d4a017;}
 .fps-ep-tier.premium{background:#eb334922;color:#eb3349;}
-.fps-ep-desc{font-size:0.92rem;color:#555;margin-bottom:12px;}
+.fps-ep-desc{font-size:0.92rem;color:var(--fps-pub-text-secondary);margin-bottom:12px;}
 .fps-ep-params{font-size:0.85rem;}
 .fps-ep-params table{width:100%;border-collapse:collapse;}
-.fps-ep-params th{background:#f0f2f8;padding:6px 10px;text-align:left;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;color:#888;}
-.fps-ep-params td{padding:6px 10px;border-bottom:1px solid #f0f0f5;font-size:0.85rem;}
-.fps-ep-params code{background:#e8ecf4;padding:1px 6px;border-radius:3px;font-size:0.82rem;}
-.fps-code{background:#1a1a2e;color:#b0b8d1;padding:16px;border-radius:8px;font-size:0.85rem;overflow-x:auto;font-family:'Fira Code',monospace;line-height:1.5;}
+.fps-ep-params th{background:var(--fps-pub-card-border);padding:6px 10px;text-align:left;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--fps-pub-text-muted);}
+.fps-ep-params td{padding:6px 10px;border-bottom:1px solid var(--fps-pub-table-border);font-size:0.85rem;}
+.fps-ep-params code{background:var(--fps-pub-card-border);padding:1px 6px;border-radius:3px;font-size:0.82rem;}
+.fps-code{background:var(--fps-pub-code-bg);color:var(--fps-pub-code-text);padding:16px;border-radius:8px;font-size:0.85rem;overflow-x:auto;font-family:'Fira Code',monospace;line-height:1.5;}
 .fps-code .key{color:#f5a623;}
 .fps-code .str{color:#38ef7d;}
 .fps-code .num{color:#667eea;}
 .fps-api-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;margin-bottom:24px;}
-.fps-api-tier{background:#fff;border-radius:12px;padding:24px;border:2px solid #e8ecf4;text-align:center;}
+.fps-api-tier{background:var(--fps-pub-card-bg);border-radius:12px;padding:24px;border:2px solid var(--fps-pub-card-border);text-align:center;}
 .fps-api-tier.featured{border-color:#667eea;}
 .fps-api-tier h3{font-size:1.1rem;margin:0 0 4px;}
 .fps-api-tier .price{font-size:1.6rem;font-weight:800;color:#667eea;margin:8px 0;}
 .fps-api-tier .price.free{color:#11998e;}
-.fps-api-tier .limits{font-size:0.85rem;color:#666;margin-bottom:12px;}
+.fps-api-tier .limits{font-size:0.85rem;color:var(--fps-pub-text-muted);margin-bottom:12px;}
 .fps-api-tier ul{list-style:none;padding:0;margin:0;text-align:left;font-size:0.88rem;}
 .fps-api-tier ul li{padding:4px 0;display:flex;align-items:center;gap:6px;}
 .fps-api-tier ul li i.y{color:#11998e;}.fps-api-tier ul li i.n{color:#ccc;}
 </style>
+<script>if(localStorage.getItem('fps-pub-theme')==='dark')document.body.classList.add('fps-dark-mode');</script>
 {/literal}
 
 <div class="fps-api">
@@ -54,6 +85,9 @@
         <p>RESTful JSON API for fraud intelligence. Authenticate via <code style="background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:4px;">X-FPS-API-Key</code> header.</p>
         <div style="display:inline-block;padding:8px 20px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-family:monospace;font-size:0.85rem;color:#b0b8d1;">
             Base URL: /modules/addons/fraud_prevention_suite/public/api.php?endpoint=
+        </div>
+        <div style="margin-top:16px;">
+            <button onclick="document.body.classList.toggle('fps-dark-mode');localStorage.setItem('fps-pub-theme',document.body.classList.contains('fps-dark-mode')?'dark':'light')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:0.85rem;"><i class="fas fa-adjust"></i> Theme</button>
         </div>
     </div>
 
@@ -72,7 +106,7 @@
 curl -H "X-FPS-API-Key: YOUR_API_KEY" \<br>
 &nbsp;&nbsp;"https://your-domain.com/modules/addons/fraud_prevention_suite/public/api.php?endpoint=/v1/stats/global"
         </div>
-        <p style="margin-top:12px;font-size:0.9rem;color:#666;">API keys can also be passed as a query parameter: <code>?api_key=YOUR_KEY</code> (less secure, not recommended for production).</p>
+        <p style="margin-top:12px;font-size:0.9rem;color:var(--fps-pub-text-secondary);">API keys can also be passed as a query parameter: <code>?api_key=YOUR_KEY</code> (less secure, not recommended for production).</p>
     </div>
 
     {* === RATE LIMITS & TIERS === *}
@@ -105,7 +139,7 @@ curl -H "X-FPS-API-Key: YOUR_API_KEY" \<br>
             </div>
             <div class="fps-api-tier featured">
                 <h3>Basic</h3>
-                <div class="price">$0.005<span style="font-size:0.7rem;color:#888;font-weight:400;">/query</span></div>
+                <div class="price">$0.005<span style="font-size:0.7rem;color:var(--fps-pub-text-muted);font-weight:400;">/query</span></div>
                 <div class="limits">120/min | 50,000/day</div>
                 <ul>
                     <li><i class="fas fa-check y"></i> Everything in Free</li>
@@ -354,12 +388,12 @@ console.log(`VPN: ${literal}${data.is_vpn}{/literal}, Threat: ${literal}${data.t
     <div class="fps-api-section">
         <h2><i class="fas fa-exclamation-triangle"></i> Error Codes</h2>
         <table style="width:100%;border-collapse:collapse;">
-            <tr style="background:#f8f9fc;"><th style="padding:8px 12px;text-align:left;">Code</th><th style="padding:8px 12px;text-align:left;">Meaning</th><th style="padding:8px 12px;text-align:left;">Solution</th></tr>
-            <tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;"><code>400</code></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Bad Request</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Missing or invalid parameters</td></tr>
-            <tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;"><code>403</code></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Forbidden</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Endpoint not available on your tier -- upgrade API key</td></tr>
-            <tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;"><code>404</code></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Not Found</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Invalid endpoint path</td></tr>
-            <tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;"><code>429</code></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Rate Limited</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Wait for <code>Retry-After</code> seconds, or upgrade tier</td></tr>
-            <tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;"><code>503</code></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">Service Unavailable</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f5;">API is disabled in module settings</td></tr>
+            <tr style="background:var(--fps-pub-table-header);"><th style="padding:8px 12px;text-align:left;">Code</th><th style="padding:8px 12px;text-align:left;">Meaning</th><th style="padding:8px 12px;text-align:left;">Solution</th></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);"><code>400</code></td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Bad Request</td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Missing or invalid parameters</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);"><code>403</code></td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Forbidden</td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Endpoint not available on your tier -- upgrade API key</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);"><code>404</code></td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Not Found</td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Invalid endpoint path</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);"><code>429</code></td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Rate Limited</td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Wait for <code>Retry-After</code> seconds, or upgrade tier</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);"><code>503</code></td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">Service Unavailable</td><td style="padding:8px 12px;border-bottom:1px solid var(--fps-pub-table-border);">API is disabled in module settings</td></tr>
         </table>
     </div>
 
