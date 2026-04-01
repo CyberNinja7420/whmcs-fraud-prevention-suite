@@ -20,7 +20,7 @@ function fraud_prevention_suite_config(): array
     return [
         'name'        => 'Fraud Prevention Suite',
         'description' => 'Enterprise-grade fraud intelligence platform with 15+ detection engines, adaptive ML scoring, Tor/datacenter detection, velocity analysis, behavioral fingerprinting, webhook alerts, and 1000X admin dashboard.',
-        'version'     => '4.1.2',
+        'version'     => '4.1.3',
         'author'      => 'EnterpriseVPS',
         'language'    => 'english',
         'fields'      => [
@@ -609,6 +609,8 @@ function fraud_prevention_suite_activate(): array
             'velocity_fails_per_client_day' => '5',
             'velocity_checkouts_per_ip_hour' => '10',
             'velocity_bin_reuse_day' => '3',
+            // v4.1: User purge controls on WHMCS Users page
+            'user_purge_on_users_page' => '1',
         ];
 
         try {
@@ -628,7 +630,7 @@ function fraud_prevention_suite_activate(): array
             logModuleCall('fraud_prevention_suite', 'SeedSettings', '', $e->getMessage());
         }
 
-        return ['status' => 'success', 'description' => 'Fraud Prevention Suite v4.1.2 activated successfully. All tables ready.'];
+        return ['status' => 'success', 'description' => 'Fraud Prevention Suite v4.1.3 activated successfully. All tables ready.'];
     } catch (\Throwable $e) {
         return ['status' => 'error', 'description' => 'Activation failed: ' . $e->getMessage()];
     }
@@ -808,7 +810,7 @@ function fraud_prevention_suite_output(array $vars): void
     echo '<div class="fps-module-wrapper">';
     echo '<div class="fps-header">';
     echo '  <div class="fps-header-content">';
-    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.1.2</span></h2>';
+    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.1.3</span></h2>';
     echo '    <div class="fps-header-actions">';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAdmin.toggleTheme()" title="Toggle Dark/Light Mode"><i class="fas fa-moon"></i></button>';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsAdmin.refreshDashboard()"><i class="fas fa-sync-alt"></i> Refresh</button>';

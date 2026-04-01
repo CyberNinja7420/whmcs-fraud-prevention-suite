@@ -40,6 +40,160 @@ add_hook('AdminAreaHeaderOutput', 1, function ($vars) {
 });
 
 // ---------------------------------------------------------------------------
+// 2b. AdminAreaFooterOutput -- Inject user purge controls on WHMCS Users page
+// ---------------------------------------------------------------------------
+add_hook('AdminAreaFooterOutput', 2, function ($vars) {
+    try {
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        // Only inject on the WHMCS Users list page (/admin/user/list or /dj28hds/user/list)
+        if (strpos($uri, '/user/list') === false && strpos($uri, 'user') === false) {
+            return '';
+        }
+        // Check page more precisely -- the Users page has 'user' in the filename context
+        $filename = $vars['filename'] ?? '';
+        if ($filename !== '' && strpos($filename, 'user') === false && strpos($uri, '/user/') === false) {
+            return '';
+        }
+
+        // Check if the feature is enabled in settings
+        $enabled = Capsule::table('mod_fps_settings')
+            ->where('setting_key', 'user_purge_on_users_page')
+            ->value('setting_value');
+        if ($enabled !== '1') return '';
+
+        // Get the module link for AJAX calls
+        $moduleLink = 'addonmodules.php?module=fraud_prevention_suite';
+
+        // Inject the toolbar and JavaScript
+        return <<<FPSHTML
+<style>
+.fps-user-toolbar{background:linear-gradient(135deg,#1a1a2e,#302b63);color:#fff;padding:16px 20px;border-radius:10px;margin:15px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:-apple-system,sans-serif;}
+.fps-user-toolbar h4{margin:0;font-size:1rem;font-weight:600;}
+.fps-user-toolbar .fps-ubtn{padding:8px 16px;border:none;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;}
+.fps-user-toolbar .fps-ubtn-scan{background:#667eea;color:#fff;}
+.fps-user-toolbar .fps-ubtn-scan:hover{background:#5a6fd6;}
+.fps-user-toolbar .fps-ubtn-purge{background:#eb3349;color:#fff;}
+.fps-user-toolbar .fps-ubtn-purge:hover{background:#d42a3f;}
+.fps-user-toolbar .fps-ubtn-select{background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.2);}
+.fps-user-toolbar .fps-ubtn-select:hover{background:rgba(255,255,255,0.25);}
+.fps-user-toolbar .fps-ustatus{font-size:0.85rem;opacity:0.8;margin-left:auto;}
+.fps-user-toolbar .fps-ubadge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:0.8rem;font-weight:700;}
+.fps-user-toolbar .fps-ubadge-red{background:rgba(235,51,73,0.2);color:#ff6b7a;}
+.fps-user-toolbar .fps-ubadge-green{background:rgba(56,239,125,0.2);color:#38ef7d;}
+tr.fps-bot-user{background:rgba(235,51,73,0.06) !important;}
+tr.fps-bot-user td:first-child::before{content:'\\f544';font-family:'Font Awesome 6 Free';font-weight:900;color:#eb3349;margin-right:6px;font-size:0.8rem;}
+</style>
+
+<div class="fps-user-toolbar" id="fps-user-toolbar">
+  <h4><i class="fas fa-shield-halved"></i> FPS Bot Detection</h4>
+  <button class="fps-ubtn fps-ubtn-scan" onclick="fpsUserPurge.scan()"><i class="fas fa-search"></i> Scan for Bot Users</button>
+  <button class="fps-ubtn fps-ubtn-select" onclick="fpsUserPurge.selectBots()" style="display:none;" id="fps-uselect-btn"><i class="fas fa-check-double"></i> Select All Bots</button>
+  <button class="fps-ubtn fps-ubtn-purge" onclick="fpsUserPurge.purge()" style="display:none;" id="fps-upurge-btn"><i class="fas fa-trash"></i> Purge Selected</button>
+  <span class="fps-ustatus" id="fps-ustatus"></span>
+</div>
+
+<script>
+(function(){
+  var moduleLink = '{$moduleLink}';
+  var botUserIds = [];
+  var selectedIds = new Set();
+
+  window.fpsUserPurge = {
+    scan: function() {
+      var status = document.getElementById('fps-ustatus');
+      if (status) status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
+
+      var url = moduleLink + '&ajax=1&a=detect_orphan_users';
+      fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, credentials:'same-origin'})
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if (data.error) { if (status) status.textContent = 'Error: ' + data.error; return; }
+
+          botUserIds = (data.users || []).map(function(u){return u.id;});
+          var botEmails = {};
+          (data.users || []).forEach(function(u){ botEmails[u.email.toLowerCase()] = u; });
+
+          // Highlight bot users in the existing table
+          var rows = document.querySelectorAll('table tbody tr, .dataTables_wrapper tbody tr');
+          var marked = 0;
+          rows.forEach(function(row){
+            var cells = row.querySelectorAll('td');
+            // Try to find the email cell (usually 2nd or 3rd column)
+            var found = false;
+            cells.forEach(function(cell){
+              var text = (cell.textContent || '').trim().toLowerCase();
+              if (botEmails[text]) {
+                found = true;
+                row.classList.add('fps-bot-user');
+                // Add checkbox if not already present
+                if (!row.querySelector('.fps-ucheck')) {
+                  var cb = document.createElement('input');
+                  cb.type = 'checkbox';
+                  cb.className = 'fps-ucheck';
+                  cb.dataset.userId = botEmails[text].id;
+                  cb.onchange = function(){ fpsUserPurge._toggle(parseInt(this.dataset.userId), this.checked); };
+                  cells[0].prepend(cb);
+                  cb.insertAdjacentHTML('afterend', ' ');
+                }
+                marked++;
+              }
+            });
+          });
+
+          if (status) {
+            status.innerHTML = '<span class="fps-ubadge fps-ubadge-red">' + data.total + ' bot users</span> ' +
+              '<span class="fps-ubadge fps-ubadge-green">' + (data.total_users - data.total) + ' real</span> ' +
+              '(' + marked + ' highlighted in table)';
+          }
+
+          if (data.total > 0) {
+            var selectBtn = document.getElementById('fps-uselect-btn');
+            var purgeBtn = document.getElementById('fps-upurge-btn');
+            if (selectBtn) selectBtn.style.display = '';
+            if (purgeBtn) purgeBtn.style.display = '';
+          }
+        })
+        .catch(function(err){ if (status) status.textContent = 'Scan failed: ' + err.message; });
+    },
+
+    _toggle: function(id, checked) {
+      if (checked) selectedIds.add(id); else selectedIds.delete(id);
+    },
+
+    selectBots: function() {
+      selectedIds = new Set(botUserIds);
+      document.querySelectorAll('.fps-ucheck').forEach(function(cb){ cb.checked = true; });
+    },
+
+    purge: function() {
+      var ids = Array.from(selectedIds);
+      if (ids.length === 0) { alert('No users selected'); return; }
+      if (!confirm('PERMANENTLY DELETE ' + ids.length + ' user login accounts?\\n\\nThey will not be able to log in again.\\nTheir fraud data will be saved to global intel.\\n\\nThis cannot be undone.')) return;
+
+      var status = document.getElementById('fps-ustatus');
+      if (status) status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Purging...';
+
+      var url = moduleLink + '&ajax=1&a=purge_orphan_users';
+      var body = 'ids=' + ids.join(',');
+      fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, credentials:'same-origin', body:body})
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if (data.error) { if (status) status.textContent = 'Error: ' + data.error; return; }
+          if (status) status.innerHTML = '<span class="fps-ubadge fps-ubadge-green">' + data.purged + ' users purged</span> Reloading...';
+          setTimeout(function(){ location.reload(); }, 1500);
+        })
+        .catch(function(err){ if (status) status.textContent = 'Purge failed: ' + err.message; });
+    }
+  };
+})();
+</script>
+FPSHTML;
+    } catch (\Throwable $e) {
+        return '';
+    }
+});
+
+// ---------------------------------------------------------------------------
 // 3. ShoppingCartValidateCheckout -- PRE-CHECKOUT BLOCKING (< 2 seconds)
 // ---------------------------------------------------------------------------
 add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {

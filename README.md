@@ -170,6 +170,18 @@ All actions have a **Preview (dry-run)** button that shows exactly what will hap
 
 When any purge or deep purge runs, FPS automatically **harvests fraud intelligence** (SHA-256 email hash, IP, country, risk score, evidence flags) into the Global Intel database before deleting the account. This ensures fraud data is never lost and can be shared with other WHMCS instances.
 
+### User Account Cleanup (WHMCS 8.x)
+
+WHMCS 8.x has separate **Client** accounts (billing) and **User** accounts (login). Purging a bot client leaves the user login intact -- they can log back in and create new accounts. FPS handles this:
+
+**Automatic cleanup**: When a bot client is purged, FPS also removes the associated user login from `tblusers` if it has no other real client associations.
+
+**WHMCS Users page integration**: FPS injects a "Bot Detection" toolbar directly into the WHMCS admin Users page (`/admin/user/list`). Staff can scan for orphan users and purge them without leaving their normal workflow. This feature is controlled by a toggle in **FPS Settings > Bot & User Cleanup**.
+
+**Standalone scan**: The Bot Cleanup tab also includes a "User Account Cleanup" section for scanning and purging orphan users from within the FPS module.
+
+**What makes a user a "bot"**: A user is a bot if NONE of their linked client accounts have paid invoices or active hosting. Users with zero client links (orphans) are also flagged.
+
 ---
 
 ## Global Threat Intelligence
