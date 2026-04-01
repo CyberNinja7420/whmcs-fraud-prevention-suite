@@ -31,7 +31,7 @@
   --fps-pub-code-text: #c8d0e8;
 }
 .fps-dark-mode .fps-pub-provider-badge{color:#c8d0ff;border-color:#667eea55;}
-.fps-pub{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--fps-pub-text);line-height:1.7;}
+.fps-pub{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:inherit;line-height:1.7;}
 .fps-pub *{box-sizing:border-box;}
 .fps-pub-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:60px 30px;text-align:center;border-radius:16px;margin-bottom:32px;position:relative;overflow:hidden;}
 .fps-pub-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 40%,rgba(102,126,234,0.12),transparent 60%),radial-gradient(ellipse at 70% 60%,rgba(118,75,162,0.08),transparent 50%);pointer-events:none;}
@@ -48,9 +48,9 @@
 .fps-pub-stat-value.primary{color:#667eea;}
 .fps-pub-stat-value.success{color:#11998e;}
 .fps-pub-section{margin-bottom:40px;}
-.fps-pub-section h2{font-size:1.6rem;font-weight:700;color:var(--fps-pub-text);margin:0 0 8px;display:flex;align-items:center;gap:10px;}
+.fps-pub-section h2{font-size:1.6rem;font-weight:700;color:inherit;margin:0 0 8px;display:flex;align-items:center;gap:10px;}
 .fps-pub-section h2 i{color:#667eea;}
-.fps-pub-section p.subtitle{font-size:1rem;color:var(--fps-pub-text-secondary);margin:0 0 24px;}
+.fps-pub-section p.subtitle{font-size:1rem;color:inherit;opacity:0.7;margin:0 0 24px;}
 .fps-pub-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
 .fps-pub-feature{background:var(--fps-pub-card-bg);border-radius:12px;padding:24px;box-shadow:0 2px 8px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);}
 .fps-pub-feature h3{font-size:1.1rem;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px;}
@@ -74,7 +74,7 @@
 .fps-pub-tier .tier-btn.outline{background:var(--fps-pub-card-bg);color:#667eea;border:2px solid #667eea;}
 .fps-pub-tier .tier-btn.outline:hover{background:#667eea;color:#fff;}
 .fps-pub-providers{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
-.fps-pub-provider-badge{background:linear-gradient(135deg,#667eea11,#764ba211);border:1px solid #667eea33;border-radius:20px;padding:6px 16px;font-size:0.85rem;color:#4a5a8a;font-weight:600;}
+.fps-pub-provider-badge{background:linear-gradient(135deg,#667eea22,#764ba222);border:1px solid #667eea44;border-radius:20px;padding:6px 16px;font-size:0.85rem;color:inherit;font-weight:600;opacity:0.85;}
 .fps-pub-endpoint{background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .fps-pub-endpoint .method{background:#11998e;color:#fff;padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;font-family:monospace;min-width:50px;text-align:center;}
 .fps-pub-endpoint .method.post{background:#667eea;}
