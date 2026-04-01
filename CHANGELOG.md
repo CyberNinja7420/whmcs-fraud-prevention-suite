@@ -7,6 +7,23 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.1.3] - 2026-04-01
+
+### Added
+- **User Account Cleanup (WHMCS 8.x)** -- Detects and purges orphan user accounts from `tblusers`
+  - `detectOrphanUsers()` -- Scans for users with no real client associations
+  - `purgeOrphanUsers()` -- Harvests intel then deletes user login accounts
+  - `cleanOrphanUserForClient()` -- Automatic user cleanup when bot clients are purged
+  - Supports both `tbluserclients` (WHMCS 8.6+) and email-matching fallback (older 8.x)
+- **WHMCS Users Page Integration** -- FPS Bot Detection toolbar injected into `/admin/user/list`
+  - Admin can scan for bot users, select them, and purge directly from the WHMCS Users page
+  - Controlled by toggle in Settings > Bot & User Cleanup
+  - Highlights bot users in the existing table with visual indicators
+- Settings toggle: `user_purge_on_users_page` (enabled by default)
+- `FpsBotUsers` JavaScript namespace for user cleanup UI
+
+---
+
 ## [4.1.2] - 2026-03-31
 
 ### Added

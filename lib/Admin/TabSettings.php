@@ -34,6 +34,7 @@ class TabSettings
         $this->fpsRenderGatewaySettings($config, $ajaxUrl);
         $this->fpsRenderOfacSettings($config);
         $this->fpsRenderRefundAbuseSettings($config);
+        $this->fpsRenderBotCleanupSettings($config);
 
         echo '</form>';
 
@@ -544,5 +545,52 @@ HTML;
         }
 
         return $html;
+    }
+
+    /**
+     * Bot cleanup and user purge settings.
+     */
+    private function fpsRenderBotCleanupSettings(FpsConfig $config): void
+    {
+        $userPurgeEnabled = $config->getCustom('user_purge_on_users_page', '1') === '1' ? 'checked' : '';
+
+        $content = <<<HTML
+<div class="fps-form-row">
+  <div class="fps-form-group" style="flex:1;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" name="user_purge_on_users_page" value="1" {$userPurgeEnabled}>
+      <strong>Show User Purge Controls on WHMCS Users Page</strong>
+    </label>
+    <p style="font-size:0.85rem;color:#888;margin:4px 0 0 28px;">
+      When enabled, a "FPS Bot Detection" toolbar appears at the top of
+      <strong>Admin > Users > Manage Users</strong> (<code>/admin/user/list</code>).
+      Staff can scan for orphan/bot user accounts and purge them directly from the
+      WHMCS interface without navigating to the FPS module.
+    </p>
+  </div>
+</div>
+<div class="fps-form-row" style="margin-top:12px;">
+  <div class="fps-form-group" style="flex:1;">
+    <div style="padding:12px;border-radius:8px;background:rgba(100,149,237,0.06);border:1px solid rgba(100,149,237,0.15);font-size:0.85rem;">
+      <strong><i class="fas fa-info-circle"></i> How it works:</strong>
+      Bot users are identified the same way as bot clients -- by checking for real financial activity.
+      A user is considered a bot if <strong>none</strong> of their linked client accounts have paid invoices
+      or active hosting services. Purging a user:
+      <ul style="margin:8px 0 0;padding-left:20px;">
+        <li>Harvests their email + IP into the Global Intel database (if enabled)</li>
+        <li>Removes their login from <code>tblusers</code> so they cannot sign in again</li>
+        <li>Cleans up <code>tbluserclients</code> link records</li>
+        <li>Does NOT delete the associated client records (use Bot Cleanup tab for that)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+HTML;
+
+        echo $this->fpsRenderCard(
+            '<i class="fas fa-user-slash"></i> Bot & User Cleanup',
+            $content,
+            'fps-section-bot-cleanup'
+        );
     }
 }
