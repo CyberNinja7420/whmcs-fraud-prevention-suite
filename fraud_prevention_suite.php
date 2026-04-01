@@ -1975,16 +1975,40 @@ function fraud_prevention_suite_clientarea(array $vars): array
     }
 
     $liveStats = fps_getPublicStats();
+    $commonVars = [
+        'stats'          => $liveStats,
+        'module_version' => '4.1.3',
+        'topology_url'   => 'index.php?m=fraud_prevention_suite&page=topology',
+        'global_url'     => 'index.php?m=fraud_prevention_suite&page=global',
+        'api_docs_url'   => 'index.php?m=fraud_prevention_suite&page=api-docs',
+        'overview_url'   => 'index.php?m=fraud_prevention_suite',
+    ];
 
+    // Route to the right template
+    $templateMap = [
+        'global'   => ['title' => 'Global Threat Intelligence', 'template' => 'global'],
+        'api-docs' => ['title' => 'API Documentation',          'template' => 'apidocs'],
+    ];
+
+    if (isset($templateMap[$page])) {
+        $info = $templateMap[$page];
+        return [
+            'pagetitle'    => 'Fraud Prevention Suite - ' . $info['title'],
+            'breadcrumb'   => [
+                'index.php?m=fraud_prevention_suite' => 'Fraud Prevention Suite',
+                'index.php?m=fraud_prevention_suite&page=' . $page => $info['title'],
+            ],
+            'templatefile' => $info['template'],
+            'vars'         => $commonVars,
+        ];
+    }
+
+    // Default: overview page
     return [
         'pagetitle'    => 'Fraud Prevention Suite - API & Intelligence Platform',
         'breadcrumb'   => ['index.php?m=fraud_prevention_suite' => 'Fraud Prevention Suite'],
         'templatefile' => 'overview',
-        'vars'         => [
-            'stats'          => $liveStats,
-            'module_version' => '4.1.2',
-            'topology_url'   => 'index.php?m=fraud_prevention_suite&page=topology',
-        ],
+        'vars'         => $commonVars,
     ];
 }
 
@@ -2867,6 +2891,59 @@ function fps_getPublicStats(): array
         $botsDetected = (int)Capsule::table('mod_fps_checks')
             ->where(function($q) { $q->where('check_type', 'bot_detection')->orWhere('check_type', 'bot_signup_block'); })->count();
 
+        // IP intel breakdowns
+        $vpnDetected = 0; $torDetected = 0; $proxyDetected = 0; $dcDetected = 0;
+        $disposableEmails = 0; $geoMismatches = 0;
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_ip_intel')) {
+                $vpnDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_vpn', 1)->count();
+                $torDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_tor', 1)->count();
+                $proxyDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_proxy', 1)->count();
+                $dcDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_datacenter', 1)->count();
+            }
+            if (Capsule::schema()->hasTable('mod_fps_email_intel')) {
+                $disposableEmails = (int)Capsule::table('mod_fps_email_intel')->where('is_disposable', 1)->count();
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // Risk distribution
+        $riskDistribution = [];
+        try {
+            $riskDistribution = Capsule::table('mod_fps_checks')
+                ->select('risk_level', Capsule::raw('COUNT(*) as cnt'))
+                ->groupBy('risk_level')
+                ->pluck('cnt', 'risk_level')
+                ->toArray();
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // Top countries
+        $topCountries = [];
+        try {
+            $topCountries = Capsule::table('mod_fps_checks')
+                ->whereNotNull('country')->where('country', '!=', '')
+                ->select('country', Capsule::raw('COUNT(*) as cnt'))
+                ->groupBy('country')
+                ->orderByDesc('cnt')
+                ->limit(10)
+                ->pluck('cnt', 'country')
+                ->toArray();
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // Average risk score
+        $avgScore = 0;
+        try {
+            $avgScore = round((float)Capsule::table('mod_fps_checks')->avg('risk_score'), 1);
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // Global intel stats
+        $globalIntelCount = 0; $globalIntelInstances = 0;
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
+                $globalIntelCount = (int)Capsule::table('mod_fps_global_intel')->count();
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // Enabled providers
         $providerCount = 0;
         $enabledProviders = [];
         $providerChecks = [
@@ -2883,14 +2960,29 @@ function fps_getPublicStats(): array
         $providerCount += 4; // velocity, geo-impossibility, behavioral, phone
 
         return [
-            'total_checks' => $totalChecks, 'threats_blocked' => $threatsBlocked,
-            'unique_ips' => $uniqueIps, 'countries_monitored' => $countriesMonitored,
-            'bots_detected' => $botsDetected, 'provider_count' => $providerCount,
-            'enabled_providers' => $enabledProviders,
+            'total_checks'        => $totalChecks,
+            'threats_blocked'     => $threatsBlocked,
+            'unique_ips'          => $uniqueIps,
+            'countries_monitored' => $countriesMonitored,
+            'bots_detected'       => $botsDetected,
+            'provider_count'      => $providerCount,
+            'enabled_providers'   => $enabledProviders,
+            'vpn_detected'        => $vpnDetected,
+            'tor_detected'        => $torDetected,
+            'proxy_detected'      => $proxyDetected,
+            'datacenter_detected' => $dcDetected,
+            'disposable_emails'   => $disposableEmails,
+            'risk_distribution'   => $riskDistribution,
+            'top_countries'       => $topCountries,
+            'avg_risk_score'      => $avgScore,
+            'global_intel_count'  => $globalIntelCount,
         ];
     } catch (\Throwable $e) {
         return ['total_checks' => 0, 'threats_blocked' => 0, 'unique_ips' => 0,
-            'countries_monitored' => 0, 'bots_detected' => 0, 'provider_count' => 0, 'enabled_providers' => []];
+            'countries_monitored' => 0, 'bots_detected' => 0, 'provider_count' => 0, 'enabled_providers' => [],
+            'vpn_detected' => 0, 'tor_detected' => 0, 'proxy_detected' => 0, 'datacenter_detected' => 0,
+            'disposable_emails' => 0, 'risk_distribution' => [], 'top_countries' => [],
+            'avg_risk_score' => 0, 'global_intel_count' => 0];
     }
 }
 
