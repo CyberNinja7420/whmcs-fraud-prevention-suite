@@ -1,0 +1,921 @@
+/**
+ * Fraud Prevention Suite v4.1.2 - Fraud Topology Public Page
+ * Military-grade cybersecurity command center aesthetic.
+ * Dark, glowing, futuristic.
+ *
+ * Layout: globe (70% width) + live-feed panel (30%) on desktop.
+ * Stacks vertically on mobile (<768px).
+ */
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Neon accents */
+  --topo-cyan:    #00d4ff;
+  --topo-magenta: #ff00ff;
+  --topo-amber:   #ffd700;
+  --topo-green:   #39ff14;
+  --topo-red:     #ff2244;
+
+  /* Surfaces */
+  --topo-bg:         #0a0a1a;
+  --topo-surface:    #0f0f2e;
+  --topo-surface-2:  #13132a;
+  --topo-surface-3:  #1a1a3a;
+  --topo-border:     rgba(0, 212, 255, 0.15);
+  --topo-border-dim: rgba(0, 212, 255, 0.07);
+
+  /* Text */
+  --topo-text:       #d0d8f0;
+  --topo-text-dim:   #6070a0;
+  --topo-text-muted: #3a4060;
+
+  /* Typography */
+  --topo-font:       'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --topo-font-mono:  'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+
+  /* Transitions */
+  --topo-trans: 0.3s ease;
+  --topo-trans-fast: 0.15s ease;
+}
+
+html, body {
+  height: 100%;
+  background: var(--topo-bg);
+  color: var(--topo-text);
+  font-family: var(--topo-font);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle star-field background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, rgba(0, 212, 255, 0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 70%, rgba(255, 0, 255, 0.15) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 25%, rgba(0, 212, 255, 0.2)  0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 80%, rgba(255, 215, 0, 0.12)  0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 50%, rgba(0, 212, 255, 0.08)  0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+
+@keyframes topo-glow-pulse {
+  0%, 100% { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor; opacity: 1; }
+  50%       { text-shadow: 0 0 18px currentColor, 0 0 36px currentColor, 0 0 60px currentColor; opacity: 0.9; }
+}
+
+@keyframes topo-border-pulse {
+  0%, 100% { border-color: rgba(0, 212, 255, 0.15); box-shadow: 0 0 8px rgba(0, 212, 255, 0.1); }
+  50%       { border-color: rgba(0, 212, 255, 0.4);  box-shadow: 0 0 24px rgba(0, 212, 255, 0.25); }
+}
+
+@keyframes topo-scan {
+  0%   { transform: translateY(-100%); opacity: 0.6; }
+  100% { transform: translateY(200%);  opacity: 0; }
+}
+
+@keyframes topo-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes topo-spin-rev {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+@keyframes topo-fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes topo-slideLeft {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes topo-slideRight {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes topo-flash-new {
+  0%   { background: rgba(0, 212, 255, 0.25); }
+  100% { background: transparent; }
+}
+
+@keyframes topo-counter-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px currentColor); }
+  50%       { filter: drop-shadow(0 0 12px currentColor) drop-shadow(0 0 24px currentColor); }
+}
+
+@keyframes topo-dots {
+  0%   { content: ''; }
+  33%  { content: '.'; }
+  66%  { content: '..'; }
+  100% { content: '...'; }
+}
+
+/* ============================================================
+   PAGE LAYOUT
+   ============================================================ */
+
+.topo-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.topo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 28px;
+  background: rgba(10, 10, 26, 0.92);
+  border-bottom: 1px solid var(--topo-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  animation: topo-fadeIn 0.5s ease;
+}
+
+/* Animated scan line inside header */
+.topo-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--topo-cyan), transparent);
+  bottom: -1px;
+  animation: topo-scan 4s linear infinite;
+  pointer-events: none;
+}
+
+.topo-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.topo-brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--topo-cyan), var(--topo-magenta));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.4), 0 0 32px rgba(0, 212, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.topo-brand-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--topo-cyan) 0%, #ffffff 50%, var(--topo-magenta) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: topo-glow-pulse 4s ease-in-out infinite;
+}
+
+.topo-brand-sub {
+  font-size: 0.68rem;
+  color: var(--topo-text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  -webkit-text-fill-color: initial;
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  animation: none;
+  display: block;
+  margin-top: -2px;
+}
+
+.topo-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Live indicator dot */
+.topo-live-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--topo-green);
+}
+
+.topo-live-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--topo-green);
+  box-shadow: 0 0 6px var(--topo-green), 0 0 12px var(--topo-green);
+  display: block;
+  animation: topo-glow-pulse 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   TIME RANGE SELECTOR
+   ============================================================ */
+
+.topo-time-selector {
+  display: flex;
+  align-items: center;
+  background: var(--topo-surface-2);
+  border: 1px solid var(--topo-border);
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.topo-time-btn {
+  padding: 5px 14px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--topo-text-dim);
+  font-family: var(--topo-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--topo-trans), color var(--topo-trans), box-shadow var(--topo-trans);
+  outline: none;
+}
+
+.topo-time-btn:hover {
+  color: var(--topo-cyan);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.topo-time-btn.topo-active {
+  background: linear-gradient(135deg, var(--topo-cyan), rgba(0, 212, 255, 0.6));
+  color: #000;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+}
+
+/* ============================================================
+   MAIN CONTENT AREA
+   ============================================================ */
+
+.topo-main {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ============================================================
+   GLOBE SECTION (70%)
+   ============================================================ */
+
+.topo-globe-section {
+  flex: 0 0 70%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--topo-border);
+  position: relative;
+  background: radial-gradient(ellipse at 50% 60%, #06123a 0%, #0a0a1a 60%);
+  animation: topo-slideRight 0.6s ease;
+}
+
+.topo-globe-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 60vh;
+}
+
+.topo-globe-wrap canvas {
+  display: block;
+  max-width: 100%;
+}
+
+/* Globe loading spinner (double ring) */
+.topo-globe-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 10;
+}
+
+.topo-globe-loader-rings {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.topo-globe-loader-rings::before,
+.topo-globe-loader-rings::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+}
+
+.topo-globe-loader-rings::before {
+  border-top-color: var(--topo-cyan);
+  animation: topo-spin 1s linear infinite;
+}
+
+.topo-globe-loader-rings::after {
+  inset: 8px;
+  border-right-color: var(--topo-magenta);
+  animation: topo-spin-rev 0.7s linear infinite;
+}
+
+.topo-globe-loader-text {
+  font-size: 0.78rem;
+  color: var(--topo-cyan);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-family: var(--topo-font-mono);
+}
+
+/* Connection dots/arcs overlay info */
+.topo-globe-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(10, 10, 26, 0.85);
+  border-top: 1px solid var(--topo-border-dim);
+  backdrop-filter: blur(6px);
+  font-size: 0.75rem;
+  color: var(--topo-text-dim);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.topo-globe-info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topo-globe-info-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.topo-globe-info-dot--active   { background: var(--topo-green);  box-shadow: 0 0 4px var(--topo-green); }
+.topo-globe-info-dot--flagged  { background: var(--topo-amber);  box-shadow: 0 0 4px var(--topo-amber); }
+.topo-globe-info-dot--blocked  { background: var(--topo-red);    box-shadow: 0 0 4px var(--topo-red); }
+
+/* ============================================================
+   STAT BAR (below globe)
+   ============================================================ */
+
+.topo-stat-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--topo-border);
+  background: rgba(10, 10, 26, 0.9);
+}
+
+.topo-stat-bar-item {
+  padding: 14px 18px;
+  border-right: 1px solid var(--topo-border-dim);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: background var(--topo-trans);
+}
+
+.topo-stat-bar-item:last-child { border-right: none; }
+.topo-stat-bar-item:hover { background: rgba(0, 212, 255, 0.04); }
+
+.topo-stat-bar-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-family: var(--topo-font-mono);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--topo-cyan);
+  animation: topo-counter-glow 3s ease-in-out infinite;
+}
+
+.topo-stat-bar-value--green   { color: var(--topo-green);   }
+.topo-stat-bar-value--amber   { color: var(--topo-amber);   }
+.topo-stat-bar-value--red     { color: var(--topo-red);     }
+.topo-stat-bar-value--magenta { color: var(--topo-magenta); }
+
+.topo-stat-bar-label {
+  font-size: 0.65rem;
+  color: var(--topo-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* ============================================================
+   EVENT FEED PANEL (30%)
+   ============================================================ */
+
+.topo-feed-section {
+  flex: 0 0 30%;
+  display: flex;
+  flex-direction: column;
+  background: var(--topo-surface);
+  animation: topo-slideLeft 0.6s ease;
+  overflow: hidden;
+}
+
+.topo-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--topo-border);
+  background: var(--topo-surface-2);
+  flex-shrink: 0;
+}
+
+.topo-feed-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--topo-cyan);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topo-feed-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--topo-cyan);
+  box-shadow: 0 0 6px var(--topo-cyan);
+  animation: topo-glow-pulse 2s ease-in-out infinite;
+}
+
+.topo-feed-count {
+  font-size: 0.7rem;
+  color: var(--topo-text-dim);
+  font-family: var(--topo-font-mono);
+}
+
+.topo-feed-body {
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+.topo-feed-body::-webkit-scrollbar { width: 4px; }
+.topo-feed-body::-webkit-scrollbar-track { background: transparent; }
+.topo-feed-body::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.2); border-radius: 2px; }
+.topo-feed-body::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 255, 0.4); }
+
+/* ============================================================
+   EVENT FEED ITEMS
+   ============================================================ */
+
+.topo-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--topo-border-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--topo-trans-fast);
+  position: relative;
+}
+
+.topo-event:hover { background: rgba(0, 212, 255, 0.04); }
+
+.topo-event.topo-event-new {
+  animation: topo-flash-new 1.2s ease forwards;
+}
+
+.topo-event-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.topo-event-icon--blocked  { background: rgba(255, 34, 68, 0.15);   color: var(--topo-red);     border: 1px solid rgba(255, 34, 68, 0.3); }
+.topo-event-icon--flagged  { background: rgba(255, 215, 0, 0.12);   color: var(--topo-amber);   border: 1px solid rgba(255, 215, 0, 0.25); }
+.topo-event-icon--approved { background: rgba(57, 255, 20, 0.1);    color: var(--topo-green);   border: 1px solid rgba(57, 255, 20, 0.2); }
+.topo-event-icon--info     { background: rgba(0, 212, 255, 0.1);    color: var(--topo-cyan);    border: 1px solid rgba(0, 212, 255, 0.2); }
+
+.topo-event-content { flex: 1; min-width: 0; }
+
+.topo-event-title {
+  font-weight: 600;
+  color: var(--topo-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.8rem;
+}
+
+.topo-event-detail {
+  color: var(--topo-text-dim);
+  font-size: 0.72rem;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--topo-font-mono);
+}
+
+.topo-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.topo-event-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+.topo-event-tag--high     { background: rgba(255, 34, 68, 0.15);   color: var(--topo-red);   }
+.topo-event-tag--medium   { background: rgba(255, 215, 0, 0.12);   color: var(--topo-amber); }
+.topo-event-tag--low      { background: rgba(57, 255, 20, 0.1);    color: var(--topo-green); }
+
+.topo-event-time {
+  font-size: 0.65rem;
+  color: var(--topo-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 2px;
+  font-family: var(--topo-font-mono);
+}
+
+/* Risk score pill inside event */
+.topo-risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: var(--topo-font-mono);
+}
+
+.topo-risk-pill--low      { background: rgba(57,255,20,0.12);   color: var(--topo-green);   border: 1px solid rgba(57,255,20,0.2); }
+.topo-risk-pill--medium   { background: rgba(255,215,0,0.1);    color: var(--topo-amber);   border: 1px solid rgba(255,215,0,0.2); }
+.topo-risk-pill--high     { background: rgba(255,34,68,0.12);   color: var(--topo-red);     border: 1px solid rgba(255,34,68,0.2); }
+.topo-risk-pill--critical { background: rgba(255,34,68,0.2);    color: var(--topo-red);     border: 1px solid rgba(255,34,68,0.4); animation: topo-glow-pulse 1.5s ease-in-out infinite; }
+
+/* ============================================================
+   COUNTRY INFO PANEL (slides in from right on globe click)
+   ============================================================ */
+
+.topo-country-panel {
+  position: fixed;
+  top: 72px;
+  right: 0;
+  width: 320px;
+  bottom: 0;
+  background: var(--topo-surface-2);
+  border-left: 1px solid var(--topo-border);
+  z-index: 200;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(12px);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.topo-country-panel.topo-open {
+  transform: translateX(0);
+}
+
+.topo-country-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--topo-border);
+  background: var(--topo-surface-3);
+  flex-shrink: 0;
+}
+
+.topo-country-panel-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--topo-cyan);
+  letter-spacing: 0.04em;
+}
+
+.topo-country-panel-close {
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 6px;
+  color: var(--topo-cyan);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--topo-trans-fast);
+}
+
+.topo-country-panel-close:hover { background: rgba(0, 212, 255, 0.2); }
+
+.topo-country-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+.topo-country-flag {
+  font-size: 40px;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.topo-country-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--topo-text);
+  margin-bottom: 4px;
+}
+
+.topo-country-code {
+  font-size: 0.75rem;
+  color: var(--topo-text-dim);
+  font-family: var(--topo-font-mono);
+  letter-spacing: 0.1em;
+  margin-bottom: 18px;
+}
+
+.topo-country-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--topo-border-dim);
+  font-size: 0.82rem;
+}
+
+.topo-country-stat:last-child { border-bottom: none; }
+
+.topo-country-stat-label { color: var(--topo-text-dim); }
+.topo-country-stat-value {
+  font-weight: 700;
+  font-family: var(--topo-font-mono);
+  color: var(--topo-cyan);
+}
+
+/* Threat level bar */
+.topo-threat-bar-wrap {
+  margin: 16px 0;
+}
+
+.topo-threat-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--topo-text-dim);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.topo-threat-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.topo-threat-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--topo-green), var(--topo-amber), var(--topo-red));
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.topo-threat-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.6);
+  filter: blur(2px);
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.topo-footer {
+  padding: 12px 28px;
+  background: rgba(10, 10, 26, 0.95);
+  border-top: 1px solid var(--topo-border-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--topo-text-muted);
+  letter-spacing: 0.04em;
+  animation: topo-fadeIn 0.5s ease;
+}
+
+.topo-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topo-footer-right {
+  font-family: var(--topo-font-mono);
+  color: var(--topo-cyan);
+  opacity: 0.5;
+}
+
+/* ============================================================
+   GRID SYSTEM (within topology panels)
+   ============================================================ */
+
+.topo-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+
+.topo-mono  { font-family: var(--topo-font-mono); }
+.topo-cyan  { color: var(--topo-cyan); }
+.topo-amber { color: var(--topo-amber); }
+.topo-red   { color: var(--topo-red); }
+.topo-green { color: var(--topo-green); }
+
+.topo-glow-cyan    { text-shadow: 0 0 8px var(--topo-cyan),    0 0 16px var(--topo-cyan); }
+.topo-glow-magenta { text-shadow: 0 0 8px var(--topo-magenta), 0 0 16px var(--topo-magenta); }
+.topo-glow-amber   { text-shadow: 0 0 8px var(--topo-amber),   0 0 16px var(--topo-amber); }
+
+.topo-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo-hidden   { display: none !important; }
+
+/* Neon border card */
+.topo-card {
+  background: var(--topo-surface-2);
+  border: 1px solid var(--topo-border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color var(--topo-trans), box-shadow var(--topo-trans);
+  animation: topo-fadeIn 0.4s ease;
+}
+
+.topo-card:hover {
+  border-color: rgba(0, 212, 255, 0.35);
+  box-shadow: 0 0 18px rgba(0, 212, 255, 0.12);
+}
+
+.topo-card-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--topo-border-dim);
+  background: rgba(0, 212, 255, 0.04);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--topo-cyan);
+}
+
+.topo-card-body { padding: 14px 16px; }
+
+/* ============================================================
+   RESPONSIVE  (<= 768px: stack vertically)
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .topo-main {
+    flex-direction: column;
+  }
+
+  .topo-globe-section,
+  .topo-feed-section {
+    flex: none;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--topo-border);
+  }
+
+  .topo-globe-section { min-height: 55vw; }
+  .topo-feed-section  { max-height: 50vh; }
+
+  .topo-globe-wrap  { min-height: 50vw; }
+
+  .topo-stat-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .topo-stat-bar-item:nth-child(2) { border-right: none; }
+
+  .topo-header {
+    padding: 12px 16px;
+  }
+
+  .topo-brand-name { font-size: 0.9rem; }
+
+  .topo-country-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--topo-border);
+    top: auto;
+    bottom: 0;
+    height: 70vh;
+    transform: translateY(100%);
+  }
+
+  .topo-country-panel.topo-open { transform: translateY(0); }
+
+  .topo-time-selector { display: none; } /* hide on very small - use dropdown instead */
+}
+
+@media (max-width: 480px) {
+  .topo-stat-bar { grid-template-columns: 1fr 1fr; }
+  .topo-footer { flex-direction: column; align-items: flex-start; }
+  .topo-globe-info-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
