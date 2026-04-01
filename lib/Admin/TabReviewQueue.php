@@ -33,11 +33,12 @@ class TabReviewQueue
         $this->fpsRenderFilterBar($modulelink, $filterLevel, $filterSearch, $filterFrom, $filterTo);
 
         try {
+            // Show ALL unreviewed checks (not just high/critical)
+            // Admin can filter by risk level using the dropdown
             $query = Capsule::table('mod_fps_checks')
-                ->whereIn('risk_level', ['high', 'critical'])
                 ->whereNull('reviewed_by');
 
-            if ($filterLevel !== '' && in_array($filterLevel, ['high', 'critical'], true)) {
+            if ($filterLevel !== '' && in_array($filterLevel, ['low', 'medium', 'high', 'critical'], true)) {
                 $query->where('risk_level', $filterLevel);
             }
             if ($filterSearch !== '') {
@@ -147,6 +148,9 @@ class TabReviewQueue
             echo htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
             echo '</div>';
         }
+
+        // Unscanned clients/users section
+        $this->fpsRenderUnscannedSection($modulelink);
     }
 
     /**
@@ -172,9 +176,11 @@ class TabReviewQueue
         echo '<div class="fps-form-group">';
         echo '  <label><i class="fas fa-shield-halved"></i> Risk Level</label>';
         echo '  <select name="risk_level" class="fps-select">';
-        echo '    <option value="">All</option>';
-        echo '    <option value="high"' . ($filterLevel === 'high' ? ' selected' : '') . '>High</option>';
+        echo '    <option value="">All Levels</option>';
         echo '    <option value="critical"' . ($filterLevel === 'critical' ? ' selected' : '') . '>Critical</option>';
+        echo '    <option value="high"' . ($filterLevel === 'high' ? ' selected' : '') . '>High</option>';
+        echo '    <option value="medium"' . ($filterLevel === 'medium' ? ' selected' : '') . '>Medium</option>';
+        echo '    <option value="low"' . ($filterLevel === 'low' ? ' selected' : '') . '>Low</option>';
         echo '  </select>';
         echo '</div>';
 
@@ -203,5 +209,98 @@ class TabReviewQueue
 
         echo '</form>';
         echo '</div>';
+    }
+
+    /**
+     * Show clients and users that have NEVER been scanned.
+     */
+    private function fpsRenderUnscannedSection(string $modulelink): void
+    {
+        try {
+            // Find clients with zero fraud checks
+            $scannedIds = Capsule::table('mod_fps_checks')
+                ->distinct()->pluck('client_id')->toArray();
+
+            $unscannedClients = Capsule::table('tblclients')
+                ->whereNotIn('id', $scannedIds ?: [0])
+                ->orderByDesc('id')
+                ->limit(50)
+                ->get(['id', 'firstname', 'lastname', 'email', 'status', 'datecreated', 'ip']);
+
+            // Count unscanned users (tblusers)
+            $unscannedUserCount = 0;
+            if (Capsule::schema()->hasTable('tblusers')) {
+                // Users whose email doesn't appear in any fraud check
+                $checkedEmails = Capsule::table('mod_fps_checks')
+                    ->whereNotNull('email')
+                    ->distinct()->pluck('email')->toArray();
+
+                $unscannedUserCount = Capsule::table('tblusers')
+                    ->whereNotIn('email', $checkedEmails ?: [''])
+                    ->count();
+            }
+
+            $clientCount = count($unscannedClients);
+            $totalUnscanned = Capsule::table('tblclients')
+                ->whereNotIn('id', $scannedIds ?: [0])->count();
+
+            if ($totalUnscanned === 0 && $unscannedUserCount === 0) {
+                return; // All accounts have been scanned
+            }
+
+            $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+            $scanLink = htmlspecialchars($modulelink . '&tab=mass_scan', ENT_QUOTES, 'UTF-8');
+
+            echo '<div class="fps-card" style="margin-top:1.5rem;">';
+            echo '<div class="fps-card-header" style="background:linear-gradient(135deg,#f5a623,#f7c948);">';
+            echo '<h3 style="color:#000;"><i class="fas fa-exclamation-triangle"></i> Unscanned Accounts</h3>';
+            echo '<span class="fps-badge" style="background:rgba(0,0,0,0.15);color:#000;">' . $totalUnscanned . ' clients + ' . $unscannedUserCount . ' users</span>';
+            echo '</div>';
+            echo '<div class="fps-card-body">';
+
+            echo '<p style="margin:0 0 1rem;font-size:0.9rem;">These accounts have never been scanned by the fraud detection system. '
+                . '<a href="' . $scanLink . '" style="color:#667eea;font-weight:600;">Run a Mass Scan</a> to check them all, or click individual scan buttons below.</p>';
+
+            if ($clientCount > 0) {
+                echo '<div style="overflow-x:auto;">';
+                echo '<table class="fps-table"><thead><tr>';
+                echo '<th>Client ID</th><th>Name</th><th>Email</th><th>Status</th><th>Registered</th><th>IP</th><th>Action</th>';
+                echo '</tr></thead><tbody>';
+
+                foreach ($unscannedClients as $c) {
+                    $name = htmlspecialchars(trim($c->firstname . ' ' . $c->lastname), ENT_QUOTES, 'UTF-8');
+                    $email = htmlspecialchars($c->email, ENT_QUOTES, 'UTF-8');
+                    $statusClass = $c->status === 'Active' ? 'fps-badge-low' : ($c->status === 'Inactive' ? 'fps-badge-medium' : '');
+                    $profileUrl = htmlspecialchars($modulelink . '&tab=client_profile&client_id=' . (int)$c->id, ENT_QUOTES, 'UTF-8');
+
+                    echo '<tr>';
+                    echo '<td>#' . (int)$c->id . '</td>';
+                    echo '<td>' . $name . '</td>';
+                    echo '<td style="font-size:0.85rem;">' . $email . '</td>';
+                    echo '<td><span class="fps-badge ' . $statusClass . '">' . htmlspecialchars($c->status, ENT_QUOTES, 'UTF-8') . '</span></td>';
+                    echo '<td style="font-size:0.85rem;">' . htmlspecialchars($c->datecreated ?? '', ENT_QUOTES, 'UTF-8') . '</td>';
+                    echo '<td style="font-size:0.85rem;">' . htmlspecialchars($c->ip ?? '', ENT_QUOTES, 'UTF-8') . '</td>';
+                    echo '<td><a href="' . $profileUrl . '" class="fps-btn fps-btn-xs fps-btn-primary"><i class="fas fa-search"></i> Scan</a></td>';
+                    echo '</tr>';
+                }
+
+                echo '</tbody></table></div>';
+
+                if ($totalUnscanned > $clientCount) {
+                    echo '<p style="margin-top:0.5rem;font-size:0.85rem;opacity:0.7;">Showing ' . $clientCount . ' of ' . $totalUnscanned . ' unscanned clients. <a href="' . $scanLink . '">Run Mass Scan</a> to check all.</p>';
+                }
+            }
+
+            if ($unscannedUserCount > 0) {
+                echo '<div style="margin-top:1rem;padding:0.75rem;border-radius:8px;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.15);">';
+                echo '<strong><i class="fas fa-user-slash"></i> ' . $unscannedUserCount . ' user accounts</strong> have never been scanned. ';
+                echo 'Go to <a href="' . htmlspecialchars($modulelink . '&tab=bot_cleanup', ENT_QUOTES, 'UTF-8') . '" style="color:#667eea;font-weight:600;">Bot Cleanup</a> to scan and clean up user accounts.';
+                echo '</div>';
+            }
+
+            echo '</div></div>';
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
     }
 }
