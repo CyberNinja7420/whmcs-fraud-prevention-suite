@@ -1017,15 +1017,17 @@
   display: flex;
   align-items: flex-start;
   gap: var(--fps-space-md);
-  padding: var(--fps-space-md) var(--fps-space-lg);
+  padding: 16px 20px;
   background: var(--fps-surface);
   border: 1px solid var(--fps-border);
   border-radius: var(--fps-radius-lg);
-  box-shadow: var(--fps-shadow-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
   pointer-events: auto;
   animation: fps-slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   overflow: hidden;
+  min-width: 320px;
+  max-width: 480px;
 }
 
 .fps-toast.fps-toast-exiting {
@@ -1057,16 +1059,17 @@
 .fps-toast-content { flex: 1; min-width: 0; }
 
 .fps-toast-title {
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 1rem;
   color: var(--fps-text-primary);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
 .fps-toast-message {
-  font-size: 0.82rem;
-  color: var(--fps-text-secondary);
-  line-height: 1.4;
+  font-size: 0.92rem;
+  color: var(--fps-text-primary);
+  line-height: 1.5;
+  opacity: 0.9;
 }
 
 .fps-toast-dismiss {

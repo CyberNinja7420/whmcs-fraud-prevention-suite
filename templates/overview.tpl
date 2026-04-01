@@ -198,7 +198,7 @@
                 <li><i class="fas fa-times cross"></i> IP/Email lookups</li>
                 <li><i class="fas fa-times cross"></i> Bulk queries</li>
             </ul>
-            <a href="#api-docs" class="tier-btn outline">Get Started</a>
+            <a href="{$api_docs_url}" class="tier-btn outline">Get Started</a>
         </div>
         <div class="fps-pub-tier">
             <h3>Free</h3>
@@ -211,7 +211,7 @@
                 <li><i class="fas fa-times cross"></i> Full lookups</li>
                 <li><i class="fas fa-times cross"></i> Bulk queries</li>
             </ul>
-            <a href="#api-docs" class="tier-btn outline">Get API Key</a>
+            <a href="submitticket.php?step=2&deptid=2&subject=FPS+API+Key+Request" class="tier-btn outline">Get API Key</a>
         </div>
         <div class="fps-pub-tier featured">
             <h3>Basic</h3>
@@ -224,7 +224,7 @@
                 <li><i class="fas fa-check check"></i> 50,000 requests/day</li>
                 <li><i class="fas fa-times cross"></i> Bulk queries</li>
             </ul>
-            <a href="#api-docs" class="tier-btn primary">Get API Key</a>
+            <a href="submitticket.php?step=2&deptid=2&subject=FPS+API+Key+Request+-+Basic+Tier" class="tier-btn primary">Get API Key</a>
         </div>
         <div class="fps-pub-tier">
             <h3>Premium</h3>
