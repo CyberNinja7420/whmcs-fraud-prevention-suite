@@ -538,7 +538,7 @@ function fraud_prevention_suite_activate(): array
             // Seed default global config
             $globalDefaults = [
                 'global_sharing_enabled' => '0',
-                'hub_url' => '',
+                'hub_url' => 'http://130.12.69.6:8400',
                 'instance_id' => bin2hex(random_bytes(16)),
                 'instance_api_key' => '',
                 'instance_domain' => '',
