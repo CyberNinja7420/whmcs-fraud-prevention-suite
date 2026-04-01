@@ -180,7 +180,29 @@ class FpsNotifier
                 $body .= "\nRisk Factors:\n"
                     . str_repeat('-', 40) . "\n";
                 foreach ($details as $detail) {
-                    $body .= "  - {$detail}\n";
+                    // Clean up JSON blobs in details for human readability
+                    $clean = $detail;
+                    // Extract provider name and score from format "[provider] details (score: X, weight: Y)"
+                    if (preg_match('/^\[(\w+)\]\s*(.+?)(?:\s*\(score:\s*([\d.]+),\s*weight:\s*([\d.]+)\))?$/', $clean, $parts)) {
+                        $provider = strtoupper($parts[1]);
+                        $info = $parts[2];
+                        $pScore = $parts[3] ?? '';
+                        // Try to decode JSON in the info part
+                        $decoded = @json_decode($info, true);
+                        if (is_array($decoded)) {
+                            // Format key-value pairs
+                            $readable = [];
+                            foreach ($decoded as $k => $v) {
+                                if (is_bool($v)) $v = $v ? 'Yes' : 'No';
+                                if ($k === 'lat' || $k === 'lng') continue; // skip coordinates
+                                $readable[] = str_replace('_', ' ', $k) . ': ' . $v;
+                            }
+                            $info = implode(', ', $readable);
+                        }
+                        $scoreStr = $pScore !== '' ? " (risk: {$pScore})" : '';
+                        $clean = "  [{$provider}]{$scoreStr} {$info}";
+                    }
+                    $body .= "{$clean}\n";
                 }
             }
 
