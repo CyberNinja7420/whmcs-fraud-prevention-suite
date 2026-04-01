@@ -943,7 +943,9 @@ function fps_handleAjax(string $modulelink): void
         }
     }
 
-    $action = $_POST['action'] ?? $_GET['a'] ?? '';
+    // GET 'a' param takes priority (set by JS ajax() URL) -- POST 'action' is fallback
+    // This prevents form fields named 'action' from overriding the intended AJAX action
+    $action = $_GET['a'] ?? $_POST['action'] ?? '';
 
     try {
         switch ($action) {

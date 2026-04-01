@@ -631,15 +631,20 @@ add_hook('ClientAdd', 1, function ($vars) {
         $email = $client->email ?? '';
         $country = $client->country ?? '';
 
-        // Build typed context for CheckRunner
+        // Run full check instead of pre-checkout (catches bot patterns, all providers)
         if (class_exists('\\FraudPreventionSuite\\Lib\\Models\\FpsCheckContext')
             && class_exists('\\FraudPreventionSuite\\Lib\\FpsCheckRunner')) {
             $context = \FraudPreventionSuite\Lib\Models\FpsCheckContext::fromClientId($clientId, 'registration');
             $runner = new \FraudPreventionSuite\Lib\FpsCheckRunner();
-            $result = $runner->runPreCheckout($context);
+            $result = $runner->runFullCheck($context);
 
-            if ($result->risk->score >= 80) {
-                logActivity("Fraud Prevention: High-risk registration detected for client #{$clientId} (email: {$email}, IP: {$ip}, score: {$result->risk->score})");
+            if ($result->risk->score >= 60) {
+                logActivity("Fraud Prevention: High-risk registration for client #{$clientId} (email: {$email}, IP: {$ip}, score: {$result->risk->score})");
+                // Set client to Inactive if score is very high
+                if ($result->risk->score >= 80) {
+                    Capsule::table('tblclients')->where('id', $clientId)->update(['status' => 'Inactive']);
+                    logActivity("Fraud Prevention: Auto-deactivated client #{$clientId} (score: {$result->risk->score})");
+                }
             }
         }
 
