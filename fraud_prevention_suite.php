@@ -1632,8 +1632,22 @@ function fps_ajaxSaveSettings(): array
     }
     if (!is_array($settings) || empty($settings)) return ['error' => 'Invalid settings data'];
 
+    // Protected keys: never overwrite with empty values (prevents accidental API key deletion)
+    $protectedKeys = [
+        'turnstile_site_key', 'turnstile_secret_key',
+        'abuseipdb_api_key', 'ipqs_api_key',
+        'safe_browsing_api_key', 'virustotal_api_key',
+        'sfs_report_api_key',
+    ];
+
     foreach ($settings as $key => $value) {
         $key = preg_replace('/[^a-z0-9_]/', '', $key);
+
+        // Don't overwrite API keys with empty values
+        if (in_array($key, $protectedKeys, true) && ($value === '' || $value === null)) {
+            continue;
+        }
+
         Capsule::table('mod_fps_settings')->updateOrInsert(
             ['setting_key' => $key],
             ['setting_value' => $value]

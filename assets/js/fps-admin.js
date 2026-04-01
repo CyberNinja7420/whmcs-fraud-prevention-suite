@@ -1195,8 +1195,21 @@
     saveRule: function(ajaxUrl) {
       var modal = document.getElementById('fps-rule-modal');
       var data = {};
-      if (modal) modal.querySelectorAll('input, select, textarea').forEach(function(el) { if (el.name) data[el.name] = el.value; });
-      ajax('save_rule', data, function() { toast('Rule saved', 'success'); location.reload(); });
+      if (modal) {
+        modal.querySelectorAll('input, select, textarea').forEach(function(el) {
+          if (el.name) data[el.name] = el.value;
+        });
+        // Map form field 'action' to PHP's expected 'rule_action'
+        if (data.action && !data.rule_action) {
+          data.rule_action = data.action;
+        }
+      }
+      ajax('save_rule', data, function(err, result) {
+        if (err) { toast('Save failed: ' + err.message, 'error'); return; }
+        if (result && result.error) { toast('Error: ' + result.error, 'error'); return; }
+        toast('Rule saved', 'success');
+        location.reload();
+      });
     },
     deleteRule: function(ruleId, ajaxUrl) {
       confirm('Delete this rule?', function() {

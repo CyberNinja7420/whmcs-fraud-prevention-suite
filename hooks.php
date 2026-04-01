@@ -287,7 +287,58 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             }
         }
 
-        // 4. Custom rules
+        // 4. Bot pattern detection (instant -- no API calls)
+        if ($email !== '') {
+            $botScore = 0;
+            $localPart = substr($email, 0, strpos($email, '@') ?: strlen($email));
+            $emailDomain = strtolower(substr($email, strpos($email, '@') + 1));
+
+            // Plus-tag detection
+            if (strpos($email, '+') !== false) {
+                $botScore += 50;
+                $details[] = 'Plus-tag email blocked';
+            }
+
+            // SMS gateway domains
+            $smsGateways = ['vtext.com','tmomail.net','txt.att.net','messaging.sprintpcs.com',
+                'pm.sprint.com','text.republicwireless.com','msg.fi.google.com','mymetropcs.com',
+                'sms.mycricket.com','mmst5.tracfone.com'];
+            if (in_array($emailDomain, $smsGateways, true)) {
+                $botScore += 80;
+                $details[] = 'SMS gateway email blocked';
+            }
+
+            // Numeric-only local part (e.g., 2013903653@vtext.com)
+            if (preg_match('/^\d{7,}$/', $localPart)) {
+                $botScore += 40;
+                $details[] = 'Numeric email local part';
+            }
+
+            // Random local part (high digit density)
+            $digitCount = (int)preg_match_all('/[0-9]/', $localPart);
+            if (strlen($localPart) > 6 && $digitCount > 4 && $digitCount / strlen($localPart) > 0.4) {
+                $botScore += 20;
+                $details[] = 'Random-looking email';
+            }
+
+            $score += $botScore * 2.0; // Weight 2.0 for bot detection
+        }
+
+        // 5. Global Intel cross-reference (instant -- local DB only)
+        try {
+            if (class_exists('\\FraudPreventionSuite\\Lib\\FpsGlobalIntelChecker')
+                && ($email !== '' || $ip !== '')) {
+                $globalChecker = new \FraudPreventionSuite\Lib\FpsGlobalIntelChecker();
+                $globalResult = $globalChecker->check($email, $ip);
+                if ($globalResult['found']) {
+                    $adj = $globalChecker->getScoreAdjustment($globalResult);
+                    $score += $adj;
+                    $details[] = "Known in global fraud DB (seen {$globalResult['seen_count']}x)";
+                }
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        // 6. Custom rules
         if (class_exists('\\FraudPreventionSuite\\Lib\\FpsRuleEngine')
             && class_exists('\\FraudPreventionSuite\\Lib\\Models\\FpsCheckContext')) {
             $ruleEngine = new \FraudPreventionSuite\Lib\FpsRuleEngine();
