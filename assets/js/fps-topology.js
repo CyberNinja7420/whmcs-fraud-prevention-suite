@@ -253,31 +253,38 @@
 
         updateStats: function(data) {
             const totalEvents = data.total_events || 0;
-            // Only update events counter if we got real data (don't overwrite server-injected value with 0)
             if (totalEvents > 0) {
                 this.animateCounter('fps-stat-events', totalEvents);
+                this.animateCounter('fps-topo-events', totalEvents);
             }
         },
 
         updateGlobalStats: function(data) {
-            // Only update if we have meaningful data (don't overwrite server-injected stats with 0s)
-            const checks = data.total_checks || 0;
-            if (checks > 0 || !this._hasInitialStats) {
-                this.animateCounter('fps-stat-events', checks);
-                this.animateCounter('fps-stat-countries', data.active_countries || 0);
-                this.animateCounter('fps-stat-threats', data.total_blocks || 0);
+            const checks = data.total_checks || data.total_events || 0;
+            const countries = data.active_countries || data.countries || 0;
+            const threats = data.total_blocks || data.threats || 0;
+            const blockRate = checks > 0
+                ? Math.round((threats / checks) * 100)
+                : (data.block_rate || 0);
 
-                const blockRate = checks > 0
-                    ? Math.round(((data.total_blocks || 0) / checks) * 100)
-                    : (data.block_rate || 0);
-                const rateEl = document.getElementById('fps-stat-blockrate');
+            if (checks > 0 || !this._hasInitialStats) {
+                // Try both public page IDs and admin tab IDs
+                this.animateCounter('fps-stat-events', checks);
+                this.animateCounter('fps-topo-events', checks);
+                this.animateCounter('fps-stat-countries', countries);
+                this.animateCounter('fps-topo-countries', countries);
+                this.animateCounter('fps-stat-threats', threats);
+                this.animateCounter('fps-topo-threats', threats);
+
+                var rateEl = document.getElementById('fps-stat-blockrate') || document.getElementById('fps-topo-blockrate');
                 if (rateEl) rateEl.textContent = blockRate + '%';
             }
             this._hasInitialStats = true;
         },
 
         updateEventFeed: function(events) {
-            const feed = document.getElementById('fps-events-feed');
+            // Try both public and admin element IDs
+            const feed = document.getElementById('fps-events-feed') || document.getElementById('fps-event-feed');
             if (!feed) return;
 
             const levelIcons = {
