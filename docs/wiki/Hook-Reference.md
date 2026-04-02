@@ -126,6 +126,15 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
 - `$_POST['fps_fingerprint']` - Device fingerprint (if enabled)
 - `$_SERVER['REMOTE_ADDR']` - Client IP
 
+**Guest Data Capture (v4.2.0+)**:
+
+For guest checkouts (no logged-in client), the hook now captures email, phone, and country from `$_POST` data. This fixes blank rows in Recent Fraud Checks on the dashboard. The captured fields are:
+- `$_POST['email']` - Guest email address
+- `$_POST['phonenumber']` - Guest phone number
+- `$_POST['country']` - Guest country code
+
+If no client is logged in and no POST data is available, the IP address is used as the identifier (shown in Dashboard instead of blank).
+
 **Checks Performed**:
 1. Turnstile validation (if enabled)
 2. IP Intel lookup (cached)

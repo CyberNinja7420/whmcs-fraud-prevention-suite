@@ -108,6 +108,29 @@ curl -H "X-FPS-API-Key: YOUR_API_KEY" \<br>
         <p style="margin-top:12px;font-size:0.9rem;color:var(--fps-pub-text-secondary);">API keys can also be passed as a query parameter: <code>?api_key=YOUR_KEY</code> (less secure, not recommended for production).</p>
     </div>
 
+    {* === GETTING API KEYS === *}
+    <div class="fps-api-section">
+        <h2><i class="fas fa-key"></i> Getting an API Key</h2>
+
+        <h3>Option 1: Purchase an FPS API Product</h3>
+        <p>If the hosting provider offers FPS API access as a purchasable product, you can order it directly from the client area. Once provisioned, your API key is generated automatically and attached to your account. The product tier (Free, Basic, or Premium) determines your rate limits and available endpoints.</p>
+
+        <h3>Option 2: Admin-Created Keys</h3>
+        <p>Administrators can manually create API keys for any client from the FPS admin panel. Navigate to <strong>Addons &gt; Fraud Prevention Suite &gt; API Keys</strong>, select the client and tier, then click <strong>Create Key</strong>. The key is active immediately.</p>
+
+        <h3>Managing Your Key in the Client Area</h3>
+        <p>Once you have an API key, the client area provides a self-service dashboard where you can:</p>
+        <ul style="margin:8px 0 8px 20px;font-size:0.92rem;line-height:1.8;">
+            <li><strong>View your API key</strong> -- displayed with a click-to-copy button</li>
+            <li><strong>Monitor usage statistics</strong> -- see request counts, remaining quota, and historical usage graphs</li>
+            <li><strong>Regenerate your key</strong> -- instantly revoke the old key and issue a new one (the old key stops working immediately)</li>
+        </ul>
+
+        <h3>Rate Limits</h3>
+        <p>Rate limits are applied per API key (per-minute and per-day). The default limits for each tier are shown in the table below, but administrators can adjust these values at any time from <strong>Addons &gt; Fraud Prevention Suite &gt; Settings &gt; API Configuration</strong>. All rate limit settings are stored in the database, so changes take effect immediately without a restart.</p>
+        <p style="font-size:0.9rem;color:var(--fps-pub-text-secondary);">If you need higher limits than your current tier allows, contact your hosting provider to discuss a tier upgrade or custom rate limit adjustment.</p>
+    </div>
+
     {* === RATE LIMITS & TIERS === *}
     <div class="fps-api-section">
         <h2><i class="fas fa-gauge-high"></i> API Tiers & Rate Limits</h2>

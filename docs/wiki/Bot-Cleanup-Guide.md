@@ -40,14 +40,15 @@ Deletes client with ALL dependencies if no invoices or orders exist.
 
 **Deletion order**:
 1. Verify client has zero orders AND zero invoices
-2. Delete from `tblclients`
-3. Delete associated billing contacts from `tblcontacts`
-4. Remove client from any allowlist/blacklist
-5. Delete all fraud checks for that client
+2. Snapshot client details into `check_context` JSON on existing fraud checks
+3. Delete from `tblclients`
+4. Delete associated billing contacts from `tblcontacts`
+5. Remove client from any allowlist/blacklist
+6. Fraud checks are **preserved** (not deleted) -- see Data Preservation below
 
 **Preview**: Yes
-**Data Impact**: Complete account deletion. **Cannot be undone.**
-**Fraud Preservation**: Automatically harvests fraud intelligence to Global Intel before deletion.
+**Data Impact**: Client account deleted. Fraud checks retained with snapshotted context. **Account deletion cannot be undone.**
+**Fraud Preservation**: Automatically harvests fraud intelligence to Global Intel before deletion. Hub push happens immediately (does not wait for cron).
 
 ### 4. Deep Purge (Aggressive)
 
@@ -150,6 +151,28 @@ Narrow bot detection by client status:
 - **Inactive Only**: Clients with status = Inactive
 - **Closed**: Clients with status = Closed
 
+## Data Preservation (v4.2.0+)
+
+Starting in v4.2.0, fraud checks are **preserved** when clients are purged (not deleted). This ensures historical fraud data remains available for analytics and reporting.
+
+### How It Works
+
+1. Before deleting a client, client details (name, email, IP, country, company) are **snapshotted** into the `check_context` JSON column on existing `mod_fps_checks` rows
+2. The `mod_fps_checks` rows are **retained** even after the client account is deleted
+3. Fraud intelligence is immediately pushed to the Global Intel hub (does not wait for the daily cron)
+4. Dashboard and reports can still display these checks using the snapshotted context
+
+### What Gets Snapshotted
+
+The `check_context` JSON field stores:
+- Client name (first + last)
+- Email address
+- IP address
+- Country code
+- Company name
+- Client status at time of purge
+- Purge timestamp
+
 ## What Happens After Purge
 
 ### Client Account
@@ -161,7 +184,7 @@ Narrow bot detection by client status:
 - All orders deleted (unless linked to other clients)
 - All invoices deleted (unless linked to other clients)
 - All contacts deleted
-- All fraud checks deleted locally (preserved in global_intel)
+- Fraud checks **preserved** in `mod_fps_checks` with snapshotted context
 
 ### Global Intel
 - Email hash, IP, country, score stored in `mod_fps_global_intel`
