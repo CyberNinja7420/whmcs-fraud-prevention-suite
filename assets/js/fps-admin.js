@@ -917,7 +917,8 @@
         }
 
         var rows = json.data.map(function (c) {
-          var clientDisplay = c.client_name ? _esc(c.client_name) : ('#' + _esc(String(c.client_id || '')));
+          var clientDisplay = c.client_name ? _esc(c.client_name) :
+            (c.client_id > 0 ? '#' + c.client_id : '<span style="opacity:0.5;" title="' + _esc(c.check_type || 'pre_checkout') + '">' + _esc(c.ip_address || 'Guest') + '</span>');
           var actionClass = (c.action_taken === 'approved') ? 'fps-badge-low' :
             (c.action_taken === 'denied' || c.action_taken === 'blocked') ? 'fps-badge-critical' :
             (c.action_taken === 'held' || c.action_taken === 'flagged') ? 'fps-badge-medium' : '';

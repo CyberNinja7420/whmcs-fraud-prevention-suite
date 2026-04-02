@@ -417,13 +417,23 @@ class FpsBotDetector
                     continue;
                 }
 
-                // Harvest fraud intel BEFORE deletion (preserves data for global sharing)
+                // Harvest fraud intel BEFORE deletion (preserves data for global + local)
                 try {
                     $collector = new FpsGlobalIntelCollector();
                     $collector->harvestFromClient($id);
                 } catch (\Throwable $e) {
-                    // Non-fatal: log but don't block purge
                     logModuleCall('fraud_prevention_suite', 'harvest_before_purge', $id, $e->getMessage());
+                }
+                // Push harvested intel to hub immediately (don't wait for daily cron)
+                try {
+                    if (class_exists('\\FraudPreventionSuite\\Lib\\FpsGlobalIntelClient')) {
+                        $hubClient = new FpsGlobalIntelClient();
+                        if ($hubClient->isConfigured()) {
+                            $hubClient->pushIntel(1); // Push just this batch
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Non-fatal: hub push can happen later via cron
                 }
 
                 // Delete related data first (order matters: related before client)
@@ -465,13 +475,22 @@ class FpsBotDetector
                     continue;
                 }
 
-                // Harvest fraud intel BEFORE deletion (preserves data for global sharing)
+                // Harvest fraud intel BEFORE deletion (preserves data for global + local)
                 try {
                     $collector = new FpsGlobalIntelCollector();
                     $collector->harvestFromClient($id);
                 } catch (\Throwable $e) {
                     logModuleCall('fraud_prevention_suite', 'harvest_before_deep_purge', $id, $e->getMessage());
                 }
+                // Push to hub immediately
+                try {
+                    if (class_exists('\\FraudPreventionSuite\\Lib\\FpsGlobalIntelClient')) {
+                        $hubClient = new FpsGlobalIntelClient();
+                        if ($hubClient->isConfigured()) {
+                            $hubClient->pushIntel(1);
+                        }
+                    }
+                } catch (\Throwable $e) {}
 
                 // Delete orders (all are Fraud/Cancelled)
                 Capsule::table('tblorders')->where('userid', $id)->delete();
