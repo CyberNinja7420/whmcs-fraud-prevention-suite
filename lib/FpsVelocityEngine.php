@@ -82,7 +82,7 @@ class FpsVelocityEngine
                 'event_type' => $eventType,
                 'identifier' => $identifier,
                 'client_id'  => $clientId,
-                'created_at' => now(),
+                'created_at' => date('Y-m-d H:i:s'),
             ]);
         } catch (\Throwable $e) {
             logModuleCall(
@@ -256,7 +256,7 @@ class FpsVelocityEngine
     public function purgeOldEvents(int $retentionDays = 7): int
     {
         try {
-            $cutoff = now()->subDays($retentionDays)->toDateTimeString();
+            $cutoff = date('Y-m-d H:i:s', strtotime("-{$retentionDays} days"));
 
             $deleted = Capsule::table(self::TABLE)
                 ->where('created_at', '<', $cutoff)
@@ -293,7 +293,7 @@ class FpsVelocityEngine
     private function fps_countEvents(string $eventType, string $identifier, int $windowSeconds): int
     {
         try {
-            $since = now()->subSeconds($windowSeconds)->toDateTimeString();
+            $since = date('Y-m-d H:i:s', time() - $windowSeconds);
 
             return (int) Capsule::table(self::TABLE)
                 ->where('event_type', $eventType)
@@ -331,7 +331,7 @@ class FpsVelocityEngine
     private function fps_countDistinctClients(string $eventType, string $identifier, int $windowSeconds): int
     {
         try {
-            $since = now()->subSeconds($windowSeconds)->toDateTimeString();
+            $since = date('Y-m-d H:i:s', time() - $windowSeconds);
 
             return (int) Capsule::table(self::TABLE)
                 ->where('event_type', $eventType)
