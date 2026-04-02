@@ -426,12 +426,21 @@ class FpsCheckRunner
             $results[] = $this->fps_runOfacScreening($context);
         }
 
-        // v4.0 Provider: AbuseIPDB (crowd-sourced IP abuse reports)
+        // v4.0 Provider: AbuseIPDB (crowd-sourced IP abuse reports) -- with 24h cache
         try {
             if ($context->ip !== '' && $this->config->isEnabled('abuseipdb_enabled')
                 && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\AbuseIpdbProvider')) {
-                $abuseIpdb = new \FraudPreventionSuite\Lib\Providers\AbuseIpdbProvider();
-                $abResult = $abuseIpdb->check($context->toArray());
+                // Check cache first (avoid burning free tier quota)
+                $cachedAb = Capsule::table('mod_fps_ip_intel')
+                    ->where('ip_address', $context->ip)
+                    ->where('cached_at', '>=', date('Y-m-d H:i:s', time() - 86400))
+                    ->first(['threat_score']);
+                if ($cachedAb && isset($cachedAb->threat_score)) {
+                    $abResult = ['score' => (float)$cachedAb->threat_score, 'details' => ['cached'], 'raw' => null];
+                } else {
+                    $abuseIpdb = new \FraudPreventionSuite\Lib\Providers\AbuseIpdbProvider();
+                    $abResult = $abuseIpdb->check($context->toArray());
+                }
                 $results[] = [
                     'provider' => 'abuseipdb',
                     'score'    => (float)($abResult['score'] ?? 0),
@@ -442,12 +451,22 @@ class FpsCheckRunner
             }
         } catch (\Throwable $e) { /* non-fatal */ }
 
-        // v4.0 Provider: IPQualityScore (advanced proxy/VPN/bot detection)
+        // v4.0 Provider: IPQualityScore (advanced proxy/VPN/bot detection) -- with 24h cache
         try {
             if ($context->ip !== '' && $this->config->isEnabled('ipqs_enabled')
                 && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\IpQualityScoreProvider')) {
-                $ipqs = new \FraudPreventionSuite\Lib\Providers\IpQualityScoreProvider();
-                $ipqsResult = $ipqs->check($context->toArray());
+                // Check cache first
+                $cachedIpqs = Capsule::table('mod_fps_ip_intel')
+                    ->where('ip_address', $context->ip)
+                    ->where('cached_at', '>=', date('Y-m-d H:i:s', time() - 86400))
+                    ->first(['is_proxy', 'is_vpn']);
+                if ($cachedIpqs !== null) {
+                    $ipqsScore = ((int)($cachedIpqs->is_proxy ?? 0) + (int)($cachedIpqs->is_vpn ?? 0)) * 25;
+                    $ipqsResult = ['score' => (float)$ipqsScore, 'details' => ['cached'], 'raw' => null];
+                } else {
+                    $ipqs = new \FraudPreventionSuite\Lib\Providers\IpQualityScoreProvider();
+                    $ipqsResult = $ipqs->check($context->toArray());
+                }
                 $results[] = [
                     'provider' => 'ipqualityscore',
                     'score'    => (float)($ipqsResult['score'] ?? 0),

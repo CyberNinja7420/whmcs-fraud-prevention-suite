@@ -1193,9 +1193,9 @@
             '<span class="fps-badge fps-badge-medium">Normal</span>';
           html += '<tr>' +
             '<td>#' + (r.client_id || '') + '</td>' +
-            '<td>' + _esc(r.name || '') + '</td>' +
-            '<td style="font-size:0.85rem;">' + _esc(r.email || '') + '</td>' +
-            '<td style="font-size:0.85rem;">' + _esc(r.company || '') + '</td>' +
+            '<td>' + _esc(r.client_name || r.name || '') + '</td>' +
+            '<td style="font-size:0.85rem;">' + _esc(r.client_email || r.email || '') + '</td>' +
+            '<td style="font-size:0.85rem;">' + _esc(r.company || r.companyname || '') + '</td>' +
             '<td>' + statusBadge + '</td>' +
             '<td style="font-size:0.85rem;">' + _esc(r.reason || '-') + '</td>' +
             '<td style="font-size:0.85rem;">' + _esc(r.updated_at || r.created_at || '') + '</td>' +
@@ -1274,8 +1274,37 @@
       });
     },
     toggleRule: function(ruleId, enabled, ajaxUrl) {
-      ajax('toggle_rule', {rule_id: ruleId, enabled: enabled ? 1 : 0}, function() {
+      ajax('toggle_rule', {rule_id: ruleId, enabled: enabled ? 1 : 0}, function(err, data) {
+        if (err) { toast('Toggle failed', 'error'); return; }
+        if (data && data.error) { toast(data.error, 'error'); return; }
         toast('Rule ' + (enabled ? 'enabled' : 'disabled'), 'success');
+      });
+    },
+
+    // Reports tab
+    viewReportDetail: function(reportId, ajaxUrl) {
+      // For now, show an alert with the report ID - can be expanded to a modal later
+      ajax('get_api_key_detail', {report_id: reportId}, function(err, data) {
+        if (err || !data) return;
+        toast('Report #' + reportId + ' loaded', 'info');
+      });
+    },
+    updateReportStatus: function(reportId, newStatus, ajaxUrl) {
+      ajax('update_report_status', {report_id: reportId, status: newStatus}, function(err, data) {
+        if (err) { toast('Update failed', 'error'); return; }
+        if (data && data.error) { toast(data.error, 'error'); return; }
+        toast('Report status updated to ' + newStatus, 'success');
+        location.reload();
+      });
+    },
+    deleteReport: function(reportId, ajaxUrl) {
+      confirm('Delete report #' + reportId + '?', function() {
+        ajax('delete_report', {report_id: reportId}, function(err, data) {
+          if (err) { toast('Delete failed', 'error'); return; }
+          if (data && data.error) { toast(data.error, 'error'); return; }
+          toast('Report deleted', 'success');
+          location.reload();
+        });
       });
     },
 
