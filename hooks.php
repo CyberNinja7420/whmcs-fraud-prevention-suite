@@ -223,6 +223,17 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             }
         }
 
+        // For guest checkout or when client data is incomplete, capture from POST/session
+        if (empty($email)) {
+            $email = trim($_POST['email'] ?? $_POST['loginemail'] ?? $_SESSION['cart']['user']['email'] ?? '');
+        }
+        if (empty($phone)) {
+            $phone = trim($_POST['phonenumber'] ?? '');
+        }
+        if (empty($country)) {
+            $country = trim($_POST['country'] ?? '');
+        }
+
         // Process fingerprint data if submitted
         $fingerprintData = $_POST['fps_fingerprint'] ?? '';
 

@@ -109,8 +109,20 @@ HTML;
         // json_encode for <script> context; no &amp; encoding issues
         $jsAjaxUrl = json_encode($modulelink . '&ajax=1');
 
-        // We render the table shell and let JS populate it
+        $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+
         $tableHtml = <<<HTML
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+  <span class="fps-text-muted" style="font-size:0.85rem;">Showing most recent fraud checks across all types</span>
+  <div style="display:flex;gap:6px;">
+    <button type="button" class="fps-btn fps-btn-xs fps-btn-outline" onclick="FpsAdmin.refreshDashboard()">
+      <i class="fas fa-sync"></i> Refresh
+    </button>
+    <button type="button" class="fps-btn fps-btn-xs fps-btn-danger" onclick="FpsAdmin.clearAllChecks('{$ajaxUrl}')">
+      <i class="fas fa-trash-alt"></i> Clear All
+    </button>
+  </div>
+</div>
 <div id="fps-recent-checks-container">
   <div class="fps-skeleton-container">
     <div class="fps-skeleton-line" style="width:100%"></div>
