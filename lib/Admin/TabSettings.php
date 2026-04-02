@@ -296,7 +296,6 @@ HTML;
     {
         $apiEnabled     = $config->isEnabled('public_api_enabled');
         $topoEnabled    = $config->isEnabled('topology_enabled');
-        $defaultRateStr = htmlspecialchars($config->getCustom('default_anon_rate_limit', '10'), ENT_QUOTES, 'UTF-8');
 
         $apiToggle  = FpsAdminRenderer::renderToggle('public_api_enabled', $apiEnabled);
         $topoToggle = FpsAdminRenderer::renderToggle('topology_enabled', $topoEnabled);
@@ -311,15 +310,43 @@ HTML;
     <label>Enable Topology Page</label>
     {$topoToggle}
   </div>
-  <div class="fps-form-group">
-    <label for="fps-setting-default_anon_rate_limit"><i class="fas fa-tachometer-alt"></i> Default Anonymous Rate Limit (req/min)</label>
-    <input type="number" id="fps-setting-default_anon_rate_limit" name="default_anon_rate_limit" class="fps-input"
-      value="{$defaultRateStr}" min="1" max="1000">
-  </div>
 </div>
 HTML;
 
         echo FpsAdminRenderer::renderCard('Public API Settings', 'fa-satellite-dish', $content);
+
+        // Rate limit configuration per tier
+        $tiers = [
+            'anonymous' => ['label' => 'Anonymous (no API key)', 'def_min' => 5, 'def_day' => 100, 'icon' => 'fa-eye-slash'],
+            'free'      => ['label' => 'Free Tier', 'def_min' => 30, 'def_day' => 5000, 'icon' => 'fa-tag'],
+            'basic'     => ['label' => 'Basic Tier', 'def_min' => 120, 'def_day' => 50000, 'icon' => 'fa-bolt'],
+            'premium'   => ['label' => 'Premium Tier', 'def_min' => 600, 'def_day' => 500000, 'icon' => 'fa-crown'],
+        ];
+
+        $rateContent = '<p class="fps-text-muted" style="margin:0 0 1rem;font-size:0.85rem;">'
+            . '<i class="fas fa-info-circle"></i> Configure API rate limits per tier. Per-key overrides can be set in the API Keys tab. '
+            . 'Changes take effect immediately for new requests.</p>';
+        $rateContent .= '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;">';
+
+        foreach ($tiers as $tierKey => $t) {
+            $minVal = htmlspecialchars($config->getCustom('rate_limit_' . $tierKey . '_minute', (string)$t['def_min']), ENT_QUOTES, 'UTF-8');
+            $dayVal = htmlspecialchars($config->getCustom('rate_limit_' . $tierKey . '_day', (string)$t['def_day']), ENT_QUOTES, 'UTF-8');
+
+            $rateContent .= '<div class="fps-card" style="padding:1rem;">';
+            $rateContent .= '<h4 style="margin:0 0 0.75rem;font-size:0.9rem;"><i class="fas ' . $t['icon'] . '"></i> ' . $t['label'] . '</h4>';
+            $rateContent .= '<div class="fps-form-group" style="margin-bottom:0.5rem;">';
+            $rateContent .= '  <label style="font-size:0.8rem;">Requests / Minute</label>';
+            $rateContent .= '  <input type="number" name="rate_limit_' . $tierKey . '_minute" class="fps-input" value="' . $minVal . '" min="1" max="10000">';
+            $rateContent .= '</div>';
+            $rateContent .= '<div class="fps-form-group">';
+            $rateContent .= '  <label style="font-size:0.8rem;">Requests / Day</label>';
+            $rateContent .= '  <input type="number" name="rate_limit_' . $tierKey . '_day" class="fps-input" value="' . $dayVal . '" min="1" max="10000000">';
+            $rateContent .= '</div>';
+            $rateContent .= '</div>';
+        }
+        $rateContent .= '</div>';
+
+        echo FpsAdminRenderer::renderCard('API Rate Limits', 'fa-tachometer-alt', $rateContent);
     }
 
     /**

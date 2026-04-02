@@ -12,24 +12,101 @@ use WHMCS\Database\Capsule;
 
 /**
  * Token bucket rate limiter backed by mod_fps_rate_limits table.
+ *
+ * Limits are resolved in this priority order:
+ * 1. Per-key overrides (mod_fps_api_keys.rate_limit_per_minute/per_day)
+ * 2. Admin-configured tier defaults (mod_fps_settings: rate_limit_{tier}_minute/day)
+ * 3. Hardcoded fallback defaults
  */
 class FpsApiRateLimiter
 {
+    /** Hardcoded fallback defaults (used only if DB settings are missing). */
+    private const DEFAULTS = [
+        'anonymous' => ['per_minute' => 5, 'per_day' => 100],
+        'free'      => ['per_minute' => 30, 'per_day' => 5000],
+        'basic'     => ['per_minute' => 120, 'per_day' => 50000],
+        'premium'   => ['per_minute' => 600, 'per_day' => 500000],
+    ];
+
     /**
-     * Rate limits per tier.
+     * Get rate limits for a tier, reading admin-configured values from DB.
      *
      * @return array{per_minute: int, per_day: int}
      */
     public function getLimit(string $tier): array
     {
-        $limits = [
-            'anonymous' => ['per_minute' => 5, 'per_day' => 100],
-            'free'      => ['per_minute' => 30, 'per_day' => 5000],
-            'basic'     => ['per_minute' => 120, 'per_day' => 50000],
-            'premium'   => ['per_minute' => 600, 'per_day' => 500000],
-        ];
+        $defaults = self::DEFAULTS[$tier] ?? self::DEFAULTS['anonymous'];
 
-        return $limits[$tier] ?? $limits['anonymous'];
+        try {
+            // Read admin-configured limits from mod_fps_settings
+            $minuteKey = 'rate_limit_' . $tier . '_minute';
+            $dayKey    = 'rate_limit_' . $tier . '_day';
+
+            $minuteVal = Capsule::table('mod_fps_settings')
+                ->where('setting_key', $minuteKey)->value('setting_value');
+            $dayVal = Capsule::table('mod_fps_settings')
+                ->where('setting_key', $dayKey)->value('setting_value');
+
+            return [
+                'per_minute' => $minuteVal !== null ? (int)$minuteVal : $defaults['per_minute'],
+                'per_day'    => $dayVal !== null ? (int)$dayVal : $defaults['per_day'],
+            ];
+        } catch (\Throwable $e) {
+            return $defaults;
+        }
+    }
+
+    /**
+     * Get per-key rate limit overrides. If the key has custom limits set,
+     * those take priority over tier defaults.
+     *
+     * @return array{per_minute: int, per_day: int}|null Null if no overrides set
+     */
+    public function getKeyOverride(int $keyId): ?array
+    {
+        try {
+            $key = Capsule::table('mod_fps_api_keys')
+                ->where('id', $keyId)
+                ->first(['rate_limit_per_minute', 'rate_limit_per_day']);
+
+            if (!$key) return null;
+
+            // Only return overrides if they've been explicitly set (non-default values)
+            $minute = (int)$key->rate_limit_per_minute;
+            $day    = (int)$key->rate_limit_per_day;
+
+            // Values of 0 or less mean "use tier default"
+            if ($minute <= 0 && $day <= 0) return null;
+
+            return [
+                'per_minute' => $minute > 0 ? $minute : 0,
+                'per_day'    => $day > 0 ? $day : 0,
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolve the effective rate limit: per-key override > tier setting > hardcoded default.
+     *
+     * @return array{per_minute: int, per_day: int}
+     */
+    public function resolveLimit(string $tier, int $keyId = 0): array
+    {
+        $tierLimit = $this->getLimit($tier);
+
+        if ($keyId > 0) {
+            $override = $this->getKeyOverride($keyId);
+            if ($override) {
+                return [
+                    'per_minute' => $override['per_minute'] > 0 ? $override['per_minute'] : $tierLimit['per_minute'],
+                    'per_day'    => $override['per_day'] > 0 ? $override['per_day'] : $tierLimit['per_day'],
+                ];
+            }
+        }
+
+        return $tierLimit;
     }
 
     /**
