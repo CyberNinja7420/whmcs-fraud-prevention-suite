@@ -41,10 +41,10 @@ class TabMassScan
         }
 
         $content = <<<HTML
-<div class="fps-form-row">
+<div id="fps-scan-filters" class="fps-form-row">
   <div class="fps-form-group">
     <label for="fps-scan-status"><i class="fas fa-filter"></i> Client Status</label>
-    <select id="fps-scan-status" class="fps-select">
+    <select id="fps-scan-status" name="status" class="fps-select">
       <option value="Active">Active Only</option>
       <option value="Inactive">Inactive Only</option>
       <option value="">All Clients</option>
@@ -52,15 +52,15 @@ class TabMassScan
   </div>
   <div class="fps-form-group">
     <label for="fps-scan-date-from"><i class="fas fa-calendar"></i> Registered After</label>
-    <input type="date" id="fps-scan-date-from" class="fps-input">
+    <input type="date" id="fps-scan-date-from" name="date_from" class="fps-input">
   </div>
   <div class="fps-form-group">
     <label for="fps-scan-date-to"><i class="fas fa-calendar-check"></i> Registered Before</label>
-    <input type="date" id="fps-scan-date-to" class="fps-input">
+    <input type="date" id="fps-scan-date-to" name="date_to" class="fps-input">
   </div>
   <div class="fps-form-group">
     <label for="fps-scan-skip-recent"><i class="fas fa-forward"></i> Skip Recently Checked</label>
-    <select id="fps-scan-skip-recent" class="fps-select">
+    <select id="fps-scan-skip-recent" name="skip_recent" class="fps-select">
       <option value="7">Last 7 days</option>
       <option value="30" selected>Last 30 days</option>
       <option value="0">Don't skip</option>

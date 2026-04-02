@@ -28,13 +28,18 @@
         },
 
         init: function() {
-            // Detect API base path
-            const meta = document.querySelector('meta[name="fps-api-base"]');
-            this.apiBase = meta ? meta.content : (window.location.pathname.includes('/admin/')
+            // Use injected API base or detect from URL
+            this.apiBase = window.FPS_API_BASE || (window.location.pathname.includes('/admin/')
                 ? '../modules/addons/fraud_prevention_suite/public/api.php'
                 : 'index.php?m=fraud_prevention_suite&api=1');
 
             this.isAdmin = window.location.pathname.includes('/admin/');
+
+            // Apply server-injected initial stats immediately (avoids API rate limit on first load)
+            this._hasInitialStats = false;
+            if (window.FPS_INITIAL_STATS) {
+                this.updateGlobalStats(window.FPS_INITIAL_STATS);
+            }
 
             this.initGlobe();
             this.initControls();
@@ -126,10 +131,10 @@
 
         initControls: function() {
             // Time range buttons
-            document.querySelectorAll('.fps-topo-time-btn').forEach(btn => {
+            document.querySelectorAll('.topo-time-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    document.querySelectorAll('.fps-topo-time-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+                    document.querySelectorAll('.topo-time-btn').forEach(b => b.classList.remove('topo-active'));
+                    btn.classList.add('topo-active');
                     this.currentHours = parseInt(btn.dataset.hours) || 24;
                     this.loadData();
                 });
@@ -193,18 +198,20 @@
                 })
                 .catch(() => {});
 
-            // Load global stats
-            const statsEndpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
-                'endpoint=/v1/stats/global';
+            // Load global stats (skip if server-injected stats are available)
+            if (!window.FPS_INITIAL_STATS) {
+                const statsEndpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
+                    'endpoint=/v1/stats/global';
 
-            fetch(statsEndpoint)
-                .then(r => r.json())
-                .then(response => {
-                    if (response.success && response.data) {
-                        this.updateGlobalStats(response.data);
-                    }
-                })
-                .catch(() => {});
+                fetch(statsEndpoint)
+                    .then(r => r.json())
+                    .then(response => {
+                        if (response.success && response.data) {
+                            this.updateGlobalStats(response.data);
+                        }
+                    })
+                    .catch(() => {});
+            }
         },
 
         updateGlobe: function(hotspots) {
@@ -246,19 +253,27 @@
 
         updateStats: function(data) {
             const totalEvents = data.total_events || 0;
-            this.animateCounter('fps-stat-events', totalEvents);
+            // Only update events counter if we got real data (don't overwrite server-injected value with 0)
+            if (totalEvents > 0) {
+                this.animateCounter('fps-stat-events', totalEvents);
+            }
         },
 
         updateGlobalStats: function(data) {
-            this.animateCounter('fps-stat-events', data.total_checks || 0);
-            this.animateCounter('fps-stat-countries', data.active_countries || 0);
-            this.animateCounter('fps-stat-threats', data.total_blocks || 0);
+            // Only update if we have meaningful data (don't overwrite server-injected stats with 0s)
+            const checks = data.total_checks || 0;
+            if (checks > 0 || !this._hasInitialStats) {
+                this.animateCounter('fps-stat-events', checks);
+                this.animateCounter('fps-stat-countries', data.active_countries || 0);
+                this.animateCounter('fps-stat-threats', data.total_blocks || 0);
 
-            const blockRate = data.total_checks > 0
-                ? Math.round((data.total_blocks / data.total_checks) * 100)
-                : 0;
-            const rateEl = document.getElementById('fps-stat-blockrate');
-            if (rateEl) rateEl.textContent = blockRate + '%';
+                const blockRate = checks > 0
+                    ? Math.round(((data.total_blocks || 0) / checks) * 100)
+                    : (data.block_rate || 0);
+                const rateEl = document.getElementById('fps-stat-blockrate');
+                if (rateEl) rateEl.textContent = blockRate + '%';
+            }
+            this._hasInitialStats = true;
         },
 
         updateEventFeed: function(events) {
@@ -279,20 +294,23 @@
                 critical: '#eb3349'
             };
 
+            const countEl = document.getElementById('fps-feed-count');
+            if (countEl) countEl.textContent = events.length + ' events';
+
             feed.innerHTML = events.slice(0, 30).map(e => {
                 const level = e.risk_level || 'low';
                 const time = new Date(e.created_at).toLocaleTimeString();
                 const icon = levelIcons[level] || 'fa-circle';
-                const color = levelColors[level] || '#666';
+                const iconClass = 'topo-event-icon--' + (level === 'critical' || level === 'high' ? 'blocked' : level === 'medium' ? 'flagged' : 'approved');
 
-                return '<div class="fps-topo-event" style="border-left-color:' + color + '">' +
-                    '<i class="fas ' + icon + '" style="color:' + color + '"></i>' +
-                    '<div class="fps-topo-event-info">' +
-                        '<span class="fps-topo-event-country">' + (e.country_code || 'XX') + '</span>' +
-                        '<span class="fps-topo-event-type">' + (e.event_type || 'check') + '</span>' +
-                        '<span class="fps-topo-event-score">' + parseFloat(e.risk_score || 0).toFixed(0) + '</span>' +
+                return '<div class="topo-event topo-event-new">' +
+                    '<div class="topo-event-icon ' + iconClass + '"><i class="fas ' + icon + '"></i></div>' +
+                    '<div class="topo-event-content">' +
+                        '<div class="topo-event-title">' + (e.country_code || 'XX') + ' - ' + (e.event_type || 'Fraud Check') + '</div>' +
+                        '<div class="topo-event-detail">Score: ' + parseFloat(e.risk_score || 0).toFixed(0) + '</div>' +
+                        '<div class="topo-event-meta"><span class="topo-event-tag topo-event-tag--' + level + '">' + level.toUpperCase() + '</span></div>' +
                     '</div>' +
-                    '<span class="fps-topo-event-time">' + time + '</span>' +
+                    '<span class="topo-event-time">' + time + '</span>' +
                 '</div>';
             }).join('');
         },
@@ -320,13 +338,13 @@
 
             container.innerHTML = sorted.map(c => {
                 const pct = Math.round((c.count / maxCount) * 100);
-                const riskColor = c.avg_risk > 60 ? '#f5576c' : c.avg_risk > 30 ? '#f5c842' : '#38ef7d';
-                return '<div class="fps-topo-country-row">' +
-                    '<span class="fps-topo-country-code">' + c.cc + '</span>' +
-                    '<div class="fps-topo-country-bar-wrap">' +
-                        '<div class="fps-topo-country-bar" style="width:' + pct + '%;background:' + riskColor + '"></div>' +
+                const riskColor = c.avg_risk > 60 ? 'var(--topo-red)' : c.avg_risk > 30 ? 'var(--topo-amber)' : 'var(--topo-green)';
+                return '<div class="topo-country-stat" style="padding:6px 12px;">' +
+                    '<span style="font-family:var(--topo-font-mono);font-weight:700;width:30px;display:inline-block;">' + c.cc + '</span>' +
+                    '<div style="flex:1;height:6px;background:rgba(255,255,255,0.07);border-radius:9999px;overflow:hidden;margin:0 10px;">' +
+                        '<div style="width:' + pct + '%;height:100%;background:' + riskColor + ';border-radius:9999px;transition:width 0.5s ease;"></div>' +
                     '</div>' +
-                    '<span class="fps-topo-country-count">' + c.count + '</span>' +
+                    '<span class="topo-country-stat-value" style="font-size:0.8rem;">' + c.count + '</span>' +
                 '</div>';
             }).join('');
         },
