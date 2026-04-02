@@ -705,6 +705,20 @@ function fraud_prevention_suite_upgrade($vars): void
                 $table->timestamp('updated_at')->nullable();
             });
         }
+        // v4.2: Add client_id/service_id to API keys for product provisioning
+        if (Capsule::schema()->hasTable('mod_fps_api_keys')) {
+            if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'client_id')) {
+                Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                    $table->integer('client_id')->nullable()->index()->after('owner_email');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'service_id')) {
+                Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                    $table->integer('service_id')->nullable()->unique()->after('client_id');
+                });
+            }
+        }
+
         // v4.1: Ensure hub_url has a default value
         try {
             $hubUrl = Capsule::table('mod_fps_global_config')->where('setting_key', 'hub_url')->value('setting_value');
