@@ -429,3 +429,75 @@ Follow pattern in `hooks.php`:
 - Register with `add_hook()`
 - Load required classes via autoloader
 - Log errors to module call log
+
+## Server Module: fps_api (v4.2.0+)
+
+### Component Overview
+
+Located: `modules/servers/fps_api/fps_api.php`
+
+The fps_api server provisioning module enables selling FPS API access as WHMCS products. It implements the standard WHMCS server module interface.
+
+### Functions
+
+| Function | Purpose |
+|----------|---------|
+| `CreateAccount` | Auto-provisions API key when client purchases product |
+| `SuspendAccount` | Deactivates API key (sets `is_active = 0`) |
+| `UnsuspendAccount` | Reactivates API key |
+| `TerminateAccount` | Permanently revokes and deletes API key |
+| `ChangePackage` | Handles tier upgrades/downgrades |
+| `ClientArea` | Renders client-facing panel with key, usage, docs link |
+| `RegenerateKey` | Allows client to regenerate their API key |
+| `TestConnection` | Verifies FPS addon module is active and DB is accessible |
+
+### Provisioning Flow
+
+```
+Client Purchases Product
+        |
+        v
+  [WHMCS Order Accepted]
+        |
+        v
+  [fps_api::CreateAccount()]
+    - Generate API key (fps_ + 32 chars)
+    - Hash key (SHA-256)
+    - Insert into mod_fps_api_keys
+    - Set tier from product config
+    - Link client_id + service_id
+    - Return key to client
+        |
+        v
+  [Client Area]
+    - Shows API key (masked, reveal on click)
+    - Usage stats (requests 24h/7d)
+    - Tier and rate limits
+    - Link to API documentation
+    - Regenerate key button
+```
+
+### Product Configuration
+
+Three WHMCS products map to API tiers:
+
+| Product | Tier | Monthly Price | Default Rate Limits |
+|---------|------|---------------|---------------------|
+| FPS API Free | free | $0 | 30/min, 5,000/day |
+| FPS API Basic | basic | $19 | 120/min, 50,000/day |
+| FPS API Premium | premium | $99 | 600/min, 500,000/day |
+
+### Rate Limit Resolution Chain
+
+When a request arrives, the rate limit is determined by:
+
+```
+1. Per-key override (mod_fps_api_keys.rate_limit_per_minute/per_day)
+   |-- If non-zero, use this value
+   |
+2. Tier setting (mod_fps_settings: rate_limit_{tier}_per_minute/per_day)
+   |-- If configured in admin Settings tab, use this value
+   |
+3. Hardcoded fallback (built into the code)
+   |-- Default values from the table above
+```

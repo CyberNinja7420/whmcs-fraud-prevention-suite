@@ -7,6 +7,26 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.0] - 2026-04-02
+
+### Added
+- **Server module (fps_api)** for WHMCS product provisioning -- clients can purchase FPS API access as a product; keys are auto-created on provisioning and suspended/terminated with the service
+- **Configurable rate limits** -- per-tier rate limits (per-minute and per-day) are now stored in the database and editable from the admin Settings UI; changes take effect immediately
+- **API usage and abuse tracking dashboard** -- new admin tab showing per-key request volumes, quota consumption, and flagged abuse patterns
+- **Trust list shows all clients** -- trust list page now displays every client with search/filter, not just those with existing trust entries
+- **Dashboard recent checks enriched** -- recent checks table now includes client name and quick-action buttons (view profile, add to trust list)
+- **Log management controls** -- "Clear Logs" and "Clear Checks" buttons in the admin Alert Log tab for housekeeping old data
+- **Review queue source filter** -- dropdown filter on the review queue to narrow results by fraud check source (checkout, registration, mass scan, API)
+- **Bot purge data preservation** -- fraud intelligence is harvested and stored in `mod_fps_global_intel` before bot accounts are deleted
+- **Pre-checkout guest data capture** -- guest checkout sessions now capture IP, email, and device fingerprint before the order is placed, enabling earlier fraud blocking
+
+### Fixed
+- 7 JS-PHP contract bugs: mismatched action names, missing response fields, and incorrect parameter keys between frontend AJAX calls and backend handlers
+- Topology page CSS class name mismatches causing broken layout and missing globe container height
+- GDPR export table (`mod_fps_gdpr_exports`) now auto-created on module activation if missing
+
+---
+
 ## [4.1.3] - 2026-04-01
 
 ### Added

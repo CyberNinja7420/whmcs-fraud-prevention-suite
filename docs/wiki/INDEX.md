@@ -4,9 +4,9 @@ Welcome to the FPS comprehensive documentation. Use this index to find the right
 
 ## Documentation Overview
 
-This wiki contains 9 detailed guides covering all aspects of the Fraud Prevention Suite module for WHMCS.
+This wiki contains 10 detailed guides covering all aspects of the Fraud Prevention Suite module for WHMCS.
 
-**Total Documentation**: 4,684 lines across 9 files covering 16 providers, 14 hooks, 70+ AJAX actions, 36 database tables, and 9 REST API endpoints.
+**Total Documentation**: 5,200+ lines across 10 files covering 16 providers, 14 hooks, 75+ AJAX actions, 36 database tables, 9 REST API endpoints, and 1 server provisioning module.
 
 ---
 
@@ -18,8 +18,10 @@ Start here to install, configure, and operate FPS:
 
 1. **Installation & Setup**
    - README.md (main module docs)
+   - [Installation-Guide.md](Installation-Guide.md) - Step-by-step installation
    - [Global-Intel-Setup.md](Global-Intel-Setup.md) - Cross-instance fraud sharing hub
    - [API-Documentation.md](API-Documentation.md) - Enable public API, create keys
+   - [Server-Module-Guide.md](Server-Module-Guide.md) - fps_api server module for selling API access
 
 2. **Daily Operations**
    - [Bot-Cleanup-Guide.md](Bot-Cleanup-Guide.md) - Detect and purge bot accounts
@@ -76,9 +78,15 @@ Implement FPS features in your applications:
 - [Architecture-Overview.md](Architecture-Overview.md) - FpsRuleEngine component
 - [Database-Schema.md](Database-Schema.md) - `mod_fps_rules` table schema
 
+### Server Module (API Provisioning)
+
+- [Server-Module-Guide.md](Server-Module-Guide.md) - fps_api server module, WHMCS products, auto-provisioning
+- [API-Documentation.md](API-Documentation.md) - Configurable rate limits, usage tracking
+- [Database-Schema.md](Database-Schema.md) - `mod_fps_api_keys` client_id/service_id columns
+
 ### Admin Dashboard & AJAX
 
-- [AJAX-Reference.md](AJAX-Reference.md) - 70+ actions (dashboard, cleanup, settings, etc.)
+- [AJAX-Reference.md](AJAX-Reference.md) - 75+ actions (dashboard, cleanup, settings, etc.)
 - [Architecture-Overview.md](Architecture-Overview.md) - Tab renderers and UI architecture
 
 ### WHMCS Integration
@@ -97,15 +105,16 @@ Implement FPS features in your applications:
 
 | File | Lines | Primary Audience | Key Sections |
 |------|-------|------------------|--------------|
-| [Bot-Cleanup-Guide.md](Bot-Cleanup-Guide.md) | 204 | Admins | Bot detection, 4 actions, safety mechanisms |
+| [Bot-Cleanup-Guide.md](Bot-Cleanup-Guide.md) | 220 | Admins | Bot detection, 4 actions, data preservation |
 | [Global-Intel-Setup.md](Global-Intel-Setup.md) | 308 | Admins/DevOps | Hub deployment, API, GDPR compliance |
-| [API-Documentation.md](API-Documentation.md) | 534 | Integrators | 9 endpoints, auth, rate limiting, examples |
-| [Troubleshooting.md](Troubleshooting.md) | 400 | Admins/Ops | 20+ common issues and fixes |
-| [Architecture-Overview.md](Architecture-Overview.md) | 431 | Developers | 9 components, 16 providers, data flow |
+| [API-Documentation.md](API-Documentation.md) | 600+ | Integrators | 9 endpoints, configurable rate limits, usage tracking |
+| [Troubleshooting.md](Troubleshooting.md) | 450+ | Admins/Ops | 25+ common issues and fixes |
+| [Architecture-Overview.md](Architecture-Overview.md) | 480+ | Developers | 10 components, 16 providers, server module |
 | [Adding-Providers.md](Adding-Providers.md) | 408 | Developers | Custom provider development guide |
-| [Database-Schema.md](Database-Schema.md) | 545 | All | 36 tables, columns, indexes, relationships |
-| [Hook-Reference.md](Hook-Reference.md) | 687 | Developers | 14 hooks with code examples |
-| [AJAX-Reference.md](AJAX-Reference.md) | 687 | Developers | 70+ admin actions, parameters, responses |
+| [Database-Schema.md](Database-Schema.md) | 570+ | All | 36 tables, columns, indexes, relationships |
+| [Hook-Reference.md](Hook-Reference.md) | 720+ | Developers | 14 hooks with code examples |
+| [AJAX-Reference.md](AJAX-Reference.md) | 750+ | Developers | 75+ admin actions, parameters, responses |
+| [Server-Module-Guide.md](Server-Module-Guide.md) | 250+ | Admins/Resellers | fps_api server module, products, provisioning |
 
 ---
 
@@ -128,6 +137,12 @@ Implement FPS features in your applications:
 2. Read: [Adding-Providers.md](Adding-Providers.md) (provider development)
 3. Implement custom provider
 4. Read: [Hook-Reference.md](Hook-Reference.md) (integrate with hooks)
+
+**Sell FPS API access as a WHMCS product**
+1. Read: [Server-Module-Guide.md](Server-Module-Guide.md)
+2. Upload fps_api server module
+3. Create WHMCS products (Free, Basic, Premium)
+4. Clients auto-receive API keys on purchase
 
 **Integrate FPS API into my app**
 1. Read: [API-Documentation.md](API-Documentation.md)
@@ -195,13 +210,15 @@ See: [Architecture-Overview.md](Architecture-Overview.md)
 
 ### API Tiers
 
-Four-tier public API access:
-- **Anonymous** (5 req/min): Stats, hotspots only
-- **Free** (30 req/min): + Real-time events
-- **Basic** (120 req/min): + IP full, email basic lookups
-- **Premium** (600 req/min): + Email full, bulk, country reports
+Four-tier public API access (rate limits now configurable in Settings):
+- **Anonymous** (5 req/min default): Stats, hotspots only
+- **Free** (30 req/min default): + Real-time events -- $0/mo WHMCS product
+- **Basic** (120 req/min default): + IP full, email basic lookups -- $19/mo WHMCS product
+- **Premium** (600 req/min default): + Email full, bulk, country reports -- $99/mo WHMCS product
 
-See: [API-Documentation.md](API-Documentation.md)
+Rate limit resolution: per-key override > tier DB setting > hardcoded fallback.
+
+See: [API-Documentation.md](API-Documentation.md), [Server-Module-Guide.md](Server-Module-Guide.md)
 
 ---
 
@@ -276,7 +293,7 @@ Use these search terms to find sections:
 
 ## Contributing & Updates
 
-These docs are auto-generated from FPS v4.1.3 codebase. To update:
+These docs are auto-generated from FPS v4.2.0 codebase. To update:
 
 1. Read the source files in `/lib/` and `fraud_prevention_suite.php`
 2. Update relevant .md file with changes
@@ -295,6 +312,6 @@ These docs are auto-generated from FPS v4.1.3 codebase. To update:
 
 ---
 
-**Last Updated**: 2026-04-01
-**Module Version**: v4.1.3
-**Docs Version**: 1.0
+**Last Updated**: 2026-04-02
+**Module Version**: v4.2.0
+**Docs Version**: 1.1

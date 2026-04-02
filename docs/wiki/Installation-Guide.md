@@ -103,6 +103,64 @@ Open the FPS module (**Addons > Fraud Prevention Suite**). The Dashboard shows a
 
 See [Global Intel Setup](Global-Intel-Setup.md) for details.
 
+## Step 7: Set Up Server Module (Optional -- Sell API Access)
+
+The fps_api server module lets you sell FPS API access as WHMCS products. Clients auto-receive API keys when they purchase.
+
+### Upload Server Module
+
+Upload the server module directory:
+
+```
+modules/servers/fps_api/fps_api.php
+```
+
+Set permissions:
+```bash
+chown webuser:webuser modules/servers/fps_api/fps_api.php
+chmod 644 modules/servers/fps_api/fps_api.php
+```
+
+### Create Server
+
+1. Go to **Setup > Products/Services > Servers**
+2. Click **Add New Server**
+3. Set Name: "FPS API Server"
+4. Set Type: "FPS API (fps_api)"
+5. Set Hostname to your WHMCS domain
+6. Click **Save Changes**
+7. Click **Test Connection** to verify
+
+### Create Products
+
+Create up to 3 products in **Setup > Products/Services > Products/Services**:
+
+| Product | Tier | Price | Rate Limits (Default) |
+|---------|------|-------|-----------------------|
+| FPS API Free | free | $0/mo | 30/min, 5,000/day |
+| FPS API Basic | basic | $19/mo | 120/min, 50,000/day |
+| FPS API Premium | premium | $99/mo | 600/min, 500,000/day |
+
+For each product:
+1. Click **Create a New Product**
+2. Set Product Type: "Other"
+3. Set Product Group as desired
+4. Set Module: "FPS API (fps_api)"
+5. On the **Module Settings** tab, select the API Tier (free, basic, or premium)
+6. Set pricing on the **Pricing** tab
+7. Click **Save Changes**
+
+### How It Works
+
+- When a client purchases a product, `CreateAccount` auto-provisions an API key
+- The key is linked to their `client_id` and `service_id` in `mod_fps_api_keys`
+- The client area shows: API key, usage stats, tier, rate limits, and API docs link
+- Suspend/Unsuspend/Terminate actions manage key lifecycle
+- ChangePackage handles tier upgrades/downgrades
+- Clients can regenerate their key from the client area
+
+See [Server-Module-Guide.md](Server-Module-Guide.md) for the complete guide.
+
 ## Verification
 
 After installation, verify:
@@ -112,3 +170,5 @@ After installation, verify:
 - [ ] Setup Wizard shows provider status
 - [ ] Mass Scan completes without errors
 - [ ] No PHP errors in WHMCS Module Log (Utilities > Logs > Module Log)
+- [ ] (If server module installed) Test Connection succeeds on fps_api server
+- [ ] (If server module installed) Products show "FPS API" module in Module Settings

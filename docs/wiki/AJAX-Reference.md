@@ -2,7 +2,7 @@
 
 ## Overview
 
-FPS admin dashboard uses 70+ AJAX actions to load data, save settings, execute bulk operations, and stream progress. All actions are POST requests to `addonmodules.php?module=fraud_prevention_suite&ajax=1&a=action_name`.
+FPS admin dashboard uses 75+ AJAX actions to load data, save settings, execute bulk operations, and stream progress. All actions are POST requests to `addonmodules.php?module=fraud_prevention_suite&ajax=1&a=action_name`.
 
 ## Request Format
 
@@ -907,6 +907,149 @@ Triggers browser download of all global intel records in JSON format.
 | "Database error" | Query failed | Check Module Log |
 | "External API error" | Provider API timeout | Retry or check provider status |
 | "Validation failed" | Invalid input (e.g., bad email) | Fix input and retry |
+
+---
+
+## Review Queue Source Filter (v4.2.0+)
+
+### 64. get_review_queue (updated)
+
+The review queue now supports a `source` filter parameter:
+
+**Parameters**: `page`, `per_page`, `source` (optional: `signups_orders` or `all`)
+- `signups_orders` (default): Shows only new signups and orders (filters out manual re-scans)
+- `all`: Shows everything including manual re-scans
+
+---
+
+## Trust List Search (v4.2.0+)
+
+### 65. search_trust_list
+
+**Parameters**: `query` (search string), `page`, `per_page`
+**Returns**: Clients matching search by name, email, company, or client ID
+
+Uses LEFT JOIN to show all clients (not just manually-assigned trust entries). Each result includes WHMCS status (Active/Inactive/Closed).
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 150,
+    "items": [
+      {
+        "client_id": 50,
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john@example.com",
+        "company": "Acme Corp",
+        "whmcs_status": "Active",
+        "trust_status": "normal",
+        "reason": null
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Log Management (v4.2.0+)
+
+### 66. clear_fps_logs (updated)
+
+**Parameters**: None
+**Returns**: Count of module log entries deleted
+**Location**: Available on Alert Log tab via "Clear All Module Logs" button
+**Confirmation**: Requires user confirmation before execution
+
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": 245
+  }
+}
+```
+
+### 67. clear_all_checks (updated)
+
+**Parameters**: None
+**Returns**: Count of fraud checks deleted
+**Location**: Available on Alert Log tab and Dashboard via "Clear All Fraud Checks" button
+**Confirmation**: Requires user confirmation before execution
+
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": 1234
+  }
+}
+```
+
+---
+
+## Report Detail (v4.2.0+)
+
+### 68. get_report_detail
+
+**Parameters**: `report_id`
+**Returns**: Full report details including submission data, response, and status
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 10,
+    "check_id": 42,
+    "client_id": 50,
+    "report_type": "fraudrecord",
+    "report_data": { "...": "..." },
+    "submitted_at": "2026-04-01 10:30:00",
+    "response": { "...": "..." },
+    "status": "accepted"
+  }
+}
+```
+
+Note: The JS function `viewReportDetail()` calls `get_report_detail` (not `get_api_key_detail`).
+
+---
+
+## Bulk Flag & Terminate (v4.2.0+)
+
+### 69. bulk_flag
+
+**Parameters**: `check_ids` (CSV)
+**Returns**: Count of checks flagged for review
+
+```json
+{
+  "success": true,
+  "data": {
+    "flagged": 5
+  }
+}
+```
+
+Note: The JS function `scanBulkAction()` uses `bulk_flag` and `bulk_terminate` (not `scan_bulk_*` actions).
+
+---
+
+## JS-PHP Contract Reference (v4.2.0+)
+
+The following JS-to-PHP action mappings were corrected in v4.2.0:
+
+| JS Function | AJAX Action | Notes |
+|-------------|-------------|-------|
+| `scanBulkAction('flag')` | `bulk_flag` | Was incorrectly `scan_bulk_flag` |
+| `scanBulkAction('terminate')` | `bulk_terminate` | Was incorrectly `scan_bulk_terminate` |
+| `viewReportDetail(id)` | `get_report_detail` | Was incorrectly `get_api_key_detail` |
+| Report form submit | Uses `name` attributes + form ID | Form now has proper `id` and field `name` attributes |
+| MassScan filter | Uses wrapper `id` + `name` attributes | Filter elements now have proper identifiers |
+
+All 7 AJAX callbacks now include proper error handling.
 
 ---
 

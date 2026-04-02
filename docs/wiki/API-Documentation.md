@@ -6,12 +6,26 @@ FPS exposes a public REST API for fraud intelligence lookups, statistics, and ge
 
 ## Access Tiers
 
-| Tier | Per Minute | Per Day | Authentication | Cost |
-|------|-----------|---------|----------------|------|
-| Anonymous | 5 | 100 | None | Free |
-| Free | 30 | 5,000 | API Key | Free |
-| Basic | 120 | 50,000 | API Key | $0.005/query |
-| Premium | 600 | 500,000 | API Key | Custom |
+| Tier | Per Minute (Default) | Per Day (Default) | Authentication | WHMCS Product |
+|------|---------------------|-------------------|----------------|---------------|
+| Anonymous | 5 | 100 | None | -- |
+| Free | 30 | 5,000 | API Key | $0/mo |
+| Basic | 120 | 50,000 | API Key | $19/mo |
+| Premium | 600 | 500,000 | API Key | $99/mo |
+
+### Configurable Rate Limits (v4.2.0+)
+
+Rate limits are no longer hardcoded. The resolution chain is:
+
+1. **Per-key override**: `mod_fps_api_keys.rate_limit_per_minute` / `rate_limit_per_day` (if non-zero)
+2. **Tier DB setting**: Configured by admin in **Settings > API Access > Per-Tier Limits**
+3. **Hardcoded fallback**: The defaults shown in the table above
+
+Admins can configure per-tier limits in the Settings tab. Per-key overrides allow granting specific clients higher or lower limits than their tier default.
+
+### Auto-Provisioning via Server Module
+
+API keys can be auto-provisioned when clients purchase WHMCS products. See [Server-Module-Guide.md](Server-Module-Guide.md) for setup. The fps_api server module handles the full lifecycle: CreateAccount, SuspendAccount, UnsuspendAccount, TerminateAccount, and ChangePackage (tier upgrades/downgrades).
 
 ## Authentication
 
@@ -511,6 +525,19 @@ Old key stops working immediately; revocation is irreversible.
 - Status (active/revoked/expired)
 
 Click key to view detailed request logs and rate limit status.
+
+### Usage & Abuse Tracking (v4.2.0+)
+
+The API Keys tab now shows per-key usage analytics:
+
+- **Requests 24h / 7d**: Request counts for the last 24 hours and 7 days
+- **Rate Limit Hits**: Number of times the key has been rate-limited
+- **Unauthorized Attempts**: Failed authentication attempts using this key prefix
+- **Top 10 IPs**: Most active source IPs, with automatic ABUSE badge flagging (>5 rate limit hits = ABUSE)
+- **Top Endpoints**: Most-used endpoints with average response time
+- **Per-Key Breakdown**: Detailed usage metrics for individual keys
+
+This data helps identify abusive API consumers and optimize rate limits.
 
 ## Troubleshooting
 

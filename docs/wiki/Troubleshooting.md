@@ -381,6 +381,84 @@ curl "https://whmcs.example.com/modules/addons/fraud_prevention_suite/public/api
 4. If not listed, user is linked to real (non-bot) clients
 5. To delete, must first purge all associated bot clients
 
+## Pre-Checkout Not Blocking Guest Orders
+
+### Guest checkout rows are blank on Dashboard
+
+**Cause**: Pre-v4.2.0 did not capture guest POST data (email, phone, country)
+
+**Fix**:
+1. Update to FPS v4.2.0+ (includes guest data capture fix)
+2. The ShoppingCartValidateCheckout hook now reads `$_POST['email']`, `$_POST['phonenumber']`, and `$_POST['country']` for guest checkouts
+3. If no POST data is available, IP address is shown instead of blank
+4. Verify your checkout template submits these fields in the POST body
+
+### Pre-checkout not blocking high-risk guests
+
+**Cause**: Guest checkout may not have enough data for scoring
+
+**Fix**:
+1. Ensure Turnstile is enabled (blocks bots at the challenge level)
+2. Check that pre-checkout threshold is set appropriately (Settings > Pre-Checkout Blocking)
+3. Verify the hook fires: Check Module Log for `ShoppingCartValidateCheckout` entries
+4. Enable fingerprint collection on cart page (Settings > Fingerprinting)
+
+## Trust List Shows Empty or Missing Clients
+
+### "All Clients" view is empty or incomplete
+
+**Cause**: Pre-v4.2.0 only showed manually-assigned trust entries (INNER JOIN)
+
+**Fix**:
+1. Update to FPS v4.2.0+ (uses LEFT JOIN to show all clients)
+2. The "All Clients" view now shows EVERY client, including those with no trust assignment
+3. Search by name, email, company, or client ID using the search box
+4. Each row shows WHMCS status (Active/Inactive/Closed) and a quick-edit button
+
+## ionCube Loader Errors
+
+### Error: "The file was encoded by ionCube..."
+
+**Cause**: ionCube loader not installed or wrong version
+
+**Fix**:
+1. Check if ionCube is loaded: `php -m | grep ionCube`
+2. FPS does **not** require ionCube -- this error means another module is encoded
+3. If you see this error on FPS pages, verify you uploaded the correct (non-encoded) FPS files
+4. Check that no other addon module is conflicting: disable other addons one by one
+5. Verify PHP version matches: FPS requires PHP 8.2+; ionCube may require a specific loader version
+
+### Error: "Cannot load module" after ionCube conflict
+
+**Fix**:
+1. Clear WHMCS cache: Admin > Utilities > System > Clear All Caches
+2. Re-upload all FPS files from the distribution
+3. Re-activate the module
+4. If issue persists, check for .htaccess rules blocking PHP files
+
+## Server Module (fps_api) Issues
+
+### TestConnection fails on fps_api server
+
+**Cause**: FPS addon module not active or database not accessible
+
+**Fix**:
+1. Verify FPS addon is activated in Setup > Addon Modules
+2. Check that `mod_fps_api_keys` table exists: `SHOW TABLES LIKE 'mod_fps_api_keys'`
+3. Verify the server hostname matches your WHMCS domain
+4. Check Module Log for specific error messages
+
+### Client does not receive API key after purchase
+
+**Cause**: Product not linked to fps_api module or order not accepted
+
+**Fix**:
+1. Verify product Module Settings tab shows "FPS API (fps_api)"
+2. Check that the order was accepted (not just placed)
+3. Look in Module Log for CreateAccount errors
+4. Verify `mod_fps_api_keys` has a row with matching `service_id`
+5. Check the client area for the service -- the key should appear in the product details
+
 ## Getting Help
 
 Check these resources before contacting support:

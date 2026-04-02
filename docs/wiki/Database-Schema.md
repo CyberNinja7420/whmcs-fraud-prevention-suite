@@ -340,7 +340,7 @@ Per-payment-gateway risk thresholds (optional overrides).
 
 ### mod_fps_api_keys
 
-Public REST API keys with tier and rate limits.
+Public REST API keys with tier and rate limits. Linked to WHMCS clients/services when provisioned via server module.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -349,9 +349,11 @@ Public REST API keys with tier and rate limits.
 | key_prefix | VARCHAR(8) | First 8 chars of key (display) |
 | name | VARCHAR(255) | Human name (e.g., "Integration A") |
 | tier | VARCHAR(20) | free, basic, premium |
+| client_id | INT INDEX | WHMCS client ID (nullable; set by server module) |
+| service_id | INT INDEX | WHMCS service/hosting ID (nullable; set by server module) |
 | owner_email | VARCHAR(255) | Key owner email (nullable) |
-| rate_limit_per_minute | INT | Requests per minute |
-| rate_limit_per_day | INT | Requests per day |
+| rate_limit_per_minute | INT | Per-key override: requests per minute (0 = use tier default) |
+| rate_limit_per_day | INT | Per-key override: requests per day (0 = use tier default) |
 | allowed_endpoints | TEXT | JSON [endpoint, ...] or null (all) |
 | ip_whitelist | TEXT | JSON [IP, ...] or null (any) |
 | is_active | TINYINT | 1 = valid, 0 = revoked |
@@ -359,6 +361,8 @@ Public REST API keys with tier and rate limits.
 | expires_at | TIMESTAMP | Auto-expiration date (nullable) |
 | last_used_at | TIMESTAMP | Most recent request |
 | total_requests | BIGINT | Lifetime API calls |
+
+**v4.2.0 Changes**: Added `client_id` and `service_id` columns to support server module provisioning. The `rate_limit_per_minute` and `rate_limit_per_day` columns now act as per-key overrides; when set to 0, the tier default from `mod_fps_settings` is used instead.
 
 ### mod_fps_api_logs
 
