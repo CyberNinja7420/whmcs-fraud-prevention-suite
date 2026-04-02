@@ -73,6 +73,26 @@ html, body {
   padding: 0;
 }
 
+/* Globe container - must have explicit height for Three.js */
+.fps-topo-globe-container {
+  flex: 1;
+  min-height: 500px;
+  width: 100%;
+  position: relative;
+  background: radial-gradient(ellipse at center, #0a0a2e 0%, #050515 100%);
+}
+
+.fps-topo-globe-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fps-topo-globe-container .scene-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 500px;
+}
+
 /* Subtle star-field background */
 body::before {
   content: '';
