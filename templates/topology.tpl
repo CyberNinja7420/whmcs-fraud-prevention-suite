@@ -9,79 +9,79 @@
 </head>
 <body class="fps-topology-page" style="width:100vw;height:100vh;margin:0;padding:0;max-width:none;overflow-x:hidden;">
 
-    <div class="fps-topo-header">
-        <div class="fps-topo-brand">
-            <div class="fps-topo-logo">
+    <div class="topo-header">
+        <div class="topo-brand">
+            <div class="topo-brand-icon">
                 <i class="fas fa-shield-halved"></i>
             </div>
-            <div class="fps-topo-title">
-                <h1>Global Fraud Threat Topology</h1>
-                <span class="fps-topo-subtitle">Real-time fraud intelligence powered by FPS v4.1.2</span>
+            <div>
+                <div class="topo-brand-name">Global Fraud Threat Topology</div>
+                <div class="topo-brand-sub">Real-time fraud intelligence powered by FPS v4.1.3</div>
             </div>
         </div>
-        <div class="fps-topo-controls">
-            <div class="fps-topo-time-range">
-                <button class="fps-topo-time-btn" data-hours="1">1H</button>
-                <button class="fps-topo-time-btn active" data-hours="24">24H</button>
-                <button class="fps-topo-time-btn" data-hours="168">7D</button>
-                <button class="fps-topo-time-btn" data-hours="720">30D</button>
+        <div class="topo-controls">
+            <div class="topo-time-range">
+                <button class="topo-time-btn" data-hours="1">1H</button>
+                <button class="topo-time-btn topo-active" data-hours="24">24H</button>
+                <button class="topo-time-btn" data-hours="168">7D</button>
+                <button class="topo-time-btn" data-hours="720">30D</button>
             </div>
-            <button class="fps-topo-control-btn" id="fps-fullscreen" title="Fullscreen">
+            <button class="topo-control-btn" id="fps-fullscreen" title="Fullscreen">
                 <i class="fas fa-expand"></i>
             </button>
         </div>
     </div>
 
-    <div class="fps-topo-stats">
-        <div class="fps-topo-stat">
-            <div class="fps-topo-stat-value" id="fps-stat-events" data-countup="0">0</div>
-            <div class="fps-topo-stat-label">Events Tracked</div>
+    <div class="topo-stats">
+        <div class="topo-stat">
+            <div class="topo-stat-value" id="fps-stat-events" data-countup="0">0</div>
+            <div class="topo-stat-label">Events Tracked</div>
         </div>
-        <div class="fps-topo-stat">
-            <div class="fps-topo-stat-value fps-glow-cyan" id="fps-stat-countries" data-countup="0">0</div>
-            <div class="fps-topo-stat-label">Active Countries</div>
+        <div class="topo-stat">
+            <div class="topo-stat-value topo-cyan" id="fps-stat-countries" data-countup="0">0</div>
+            <div class="topo-stat-label">Active Countries</div>
         </div>
-        <div class="fps-topo-stat">
-            <div class="fps-topo-stat-value fps-glow-red" id="fps-stat-threats" data-countup="0">0</div>
-            <div class="fps-topo-stat-label">Active Threats</div>
+        <div class="topo-stat">
+            <div class="topo-stat-value topo-red" id="fps-stat-threats" data-countup="0">0</div>
+            <div class="topo-stat-label">Active Threats</div>
         </div>
-        <div class="fps-topo-stat">
-            <div class="fps-topo-stat-value fps-glow-amber" id="fps-stat-blockrate" data-countup="0">0%</div>
-            <div class="fps-topo-stat-label">Block Rate</div>
+        <div class="topo-stat">
+            <div class="topo-stat-value topo-amber" id="fps-stat-blockrate" data-countup="0">0%</div>
+            <div class="topo-stat-label">Block Rate</div>
         </div>
     </div>
 
-    <div class="fps-topo-main">
+    <div class="topo-main">
         <div class="fps-topo-globe-container" id="fps-globe-container">
-            <div class="fps-topo-loading" id="fps-globe-loading">
-                <div class="fps-topo-spinner"></div>
+            <div class="topo-loading" id="fps-globe-loading">
+                <div class="topo-spinner"></div>
                 <p>Initializing Threat Topology...</p>
             </div>
         </div>
 
-        <div class="fps-topo-sidebar">
-            <div class="fps-topo-sidebar-header">
+        <div class="topo-sidebar">
+            <div class="topo-sidebar-section">
                 <h3><i class="fas fa-bolt"></i> Live Threat Feed</h3>
-                <span class="fps-topo-live-indicator"><span class="fps-pulse-dot"></span> LIVE</span>
+                <span class="topo-live-dot"></span> <span style="color:var(--topo-green);font-size:0.75rem;font-weight:700;">LIVE</span>
             </div>
-            <div class="fps-topo-events-feed" id="fps-events-feed">
+            <div class="topo-event-feed" id="fps-events-feed">
                 <!-- Events populated by JS -->
             </div>
 
-            <div class="fps-topo-sidebar-section">
+            <div class="topo-sidebar-section">
                 <h4><i class="fas fa-globe-americas"></i> Top Threat Origins</h4>
-                <div id="fps-top-countries" class="fps-topo-country-list">
+                <div id="fps-top-countries" class="topo-country-list">
                     <!-- Countries populated by JS -->
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="fps-topo-footer">
-        <span>Fraud Prevention Suite v4.1.2 by EnterpriseVPS</span>
+    <div class="topo-footer">
+        <span>Fraud Prevention Suite v4.1.3 by EnterpriseVPS</span>
         <span>Data updated every 60 seconds</span>
-        <a href="?m=fraud_prevention_suite&api=1&endpoint=/v1/stats/global" class="fps-topo-api-link">
-            <i class="fas fa-code"></i> API Access
+        <a href="?m=fraud_prevention_suite" style="color:var(--topo-cyan);text-decoration:none;">
+            <i class="fas fa-arrow-left"></i> Back to Overview
         </a>
     </div>
 
