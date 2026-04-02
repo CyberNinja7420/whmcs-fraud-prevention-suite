@@ -1332,10 +1332,38 @@ function fps_ajaxRecentChecks(): array
     $checks = Capsule::table('mod_fps_checks')
         ->orderBy('created_at', 'desc')
         ->limit($limit)
-        ->get()
-        ->toArray();
+        ->get();
 
-    return ['success' => true, 'data' => $checks];
+    // Enrich with client details (name, company)
+    $enriched = [];
+    foreach ($checks as $check) {
+        $row = (array)$check;
+        $row['client_name'] = '';
+        $row['client_company'] = '';
+        if (!empty($check->client_id)) {
+            $client = Capsule::table('tblclients')
+                ->where('id', $check->client_id)
+                ->first(['firstname', 'lastname', 'companyname', 'email']);
+            if ($client) {
+                $row['client_name'] = trim($client->firstname . ' ' . $client->lastname);
+                $row['client_company'] = $client->companyname ?? '';
+                if (empty($row['email'])) {
+                    $row['email'] = $client->email;
+                }
+            } else {
+                // Client was purged -- try to read snapshot from check_context
+                $ctx = json_decode($check->check_context ?? '{}', true);
+                if (!empty($ctx['original_client'])) {
+                    $row['client_name'] = $ctx['original_client'];
+                } else {
+                    $row['client_name'] = '(Purged Client #' . $check->client_id . ')';
+                }
+            }
+        }
+        $enriched[] = $row;
+    }
+
+    return ['success' => true, 'data' => $enriched];
 }
 
 function fps_ajaxChartData(): array
@@ -2237,9 +2265,9 @@ function fps_ajaxGetTrustList(): array
                 'reason'    => $row->reason ?? '',
                 'admin_id'  => $row->set_by_admin_id ?? 0,
                 'updated_at' => $row->updated_at ?? $row->created_at ?? '',
-                'client_name' => $client ? trim($client->firstname . ' ' . $client->lastname) : 'Unknown',
-                'client_email' => $client->email ?? '',
-                'company' => $client->companyname ?? '',
+                'client_name' => $client ? trim($client->firstname . ' ' . $client->lastname) : '(Deleted Client #' . $row->client_id . ')',
+                'client_email' => $client ? ($client->email ?? '') : '',
+                'company' => $client ? ($client->companyname ?? '') : '',
             ];
         }
 

@@ -24,6 +24,7 @@ class TabAlertLog
         $this->fpsRenderProviderStatus();
         $this->fpsRenderRecentAlerts();
         $this->fpsRenderModuleLog();
+        $this->fpsRenderClearActions($ajaxUrl);
     }
 
     /**
@@ -189,5 +190,28 @@ class TabAlertLog
             echo FpsAdminRenderer::renderCard('Module Log', 'fa-scroll',
                 '<p class="fps-text-muted">Error: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</p>');
         }
+    }
+
+    /**
+     * Log management actions: clear module logs, clear error logs.
+     */
+    private function fpsRenderClearActions(string $ajaxUrl): void
+    {
+        $content = <<<HTML
+<div class="fps-form-row" style="gap:1rem;flex-wrap:wrap;">
+  <button type="button" class="fps-btn fps-btn-md fps-btn-danger"
+    onclick="FpsAdmin.clearFpsLogs('{$ajaxUrl}')">
+    <i class="fas fa-trash-alt"></i> Clear All Module Logs
+  </button>
+  <button type="button" class="fps-btn fps-btn-md fps-btn-warning"
+    onclick="FpsAdmin.clearAllChecks('{$ajaxUrl}')">
+    <i class="fas fa-eraser"></i> Clear All Fraud Checks
+  </button>
+  <p class="fps-text-muted" style="margin:0;font-size:0.85rem;align-self:center;">
+    <i class="fas fa-info-circle"></i> Clearing logs or checks is permanent and cannot be undone. Stats are preserved.
+  </p>
+</div>
+HTML;
+        echo FpsAdminRenderer::renderCard('Log Management', 'fa-broom', $content);
     }
 }

@@ -679,11 +679,32 @@ class FpsBotDetector
             }
         }
 
-        // Clean FPS-specific tables
+        // Preserve FPS fraud check history (snapshot client details before unlinking)
+        // Instead of deleting checks, mark them as belonging to a purged client
+        // so the dashboard and stats still show the fraud data
         try {
-            Capsule::table('mod_fps_checks')->where('client_id', $clientId)->delete();
+            $client = Capsule::table('tblclients')
+                ->where('id', $clientId)
+                ->first(['firstname', 'lastname', 'email', 'companyname']);
+            $snapshot = $client
+                ? trim($client->firstname . ' ' . $client->lastname) . ' <' . $client->email . '>'
+                : 'Purged Client #' . $clientId;
+
+            Capsule::table('mod_fps_checks')->where('client_id', $clientId)->update([
+                'action_taken' => Capsule::raw("CONCAT(COALESCE(action_taken,''), ' [purged]')"),
+                'check_context' => json_encode([
+                    'purged_at' => date('Y-m-d H:i:s'),
+                    'purged_by' => (int)($_SESSION['adminid'] ?? 0),
+                    'original_client' => $snapshot,
+                ]),
+            ]);
         } catch (\Throwable $e) {
-            // Ignore
+            // Fallback: if snapshot fails, still don't delete the checks
+            try {
+                Capsule::table('mod_fps_checks')->where('client_id', $clientId)->update([
+                    'action_taken' => 'purged',
+                ]);
+            } catch (\Throwable $e2) {}
         }
 
         // Clean client group pivots if table exists
