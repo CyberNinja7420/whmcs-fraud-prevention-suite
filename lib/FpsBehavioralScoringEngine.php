@@ -229,7 +229,7 @@ class FpsBehavioralScoringEngine
                 'paste_detected'    => $pasteDetected,
                 'behavioral_score'  => round($score, 2),
                 'raw_data'          => json_encode($behavioralData, JSON_UNESCAPED_SLASHES),
-                'created_at'        => now(),
+                'created_at'        => date('Y-m-d H:i:s'),
             ]);
         } catch (\Throwable $e) {
             logModuleCall(

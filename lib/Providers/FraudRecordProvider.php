@@ -203,10 +203,18 @@ class FraudRecordProvider implements FpsProviderInterface
     private function fps_getApiKey(): string
     {
         try {
+            // Primary: tbladdonmodules (WHMCS module config)
             $key = Capsule::table('tbladdonmodules')
                 ->where('module', 'fraud_prevention_suite')
                 ->where('setting', 'fraudrecord_api_key')
                 ->value('value');
+            if (is_string($key) && trim($key) !== '') {
+                return trim($key);
+            }
+            // Fallback: mod_fps_settings (admin settings save)
+            $key = Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'fraudrecord_api_key')
+                ->value('setting_value');
             return is_string($key) ? trim($key) : '';
         } catch (\Throwable $e) {
             return '';
