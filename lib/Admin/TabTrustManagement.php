@@ -12,8 +12,8 @@ use WHMCS\Database\Capsule;
 /**
  * TabTrustManagement -- allowlist/blacklist management for client trust status.
  *
- * Stats are queried directly from mod_fps_client_trust grouped by status.
- * The trust list table is loaded via AJAX. Trust status updates submit via AJAX.
+ * Shows ALL clients with their trust status (Normal by default).
+ * Admins can search, filter, and change trust levels per client.
  */
 class TabTrustManagement
 {
@@ -25,7 +25,7 @@ class TabTrustManagement
     }
 
     /**
-     * Render 4 stat cards: Trusted, Blacklisted, Suspended, Pending Review.
+     * Render 4 stat cards: Trusted, Blacklisted, Suspended, Total Clients.
      */
     private function fpsRenderStatsRow(): void
     {
@@ -33,7 +33,6 @@ class TabTrustManagement
             'trusted'  => 0,
             'blacklisted' => 0,
             'suspended' => 0,
-            'normal'   => 0,
         ];
 
         try {
@@ -47,15 +46,18 @@ class TabTrustManagement
                     $counts[$row->status] = (int)$row->cnt;
                 }
             }
-        } catch (\Throwable $e) {
-            // Silently zero-fill; table may not exist yet
-        }
+        } catch (\Throwable $e) {}
+
+        $totalClients = 0;
+        try {
+            $totalClients = Capsule::table('tblclients')->count();
+        } catch (\Throwable $e) {}
 
         echo '<div class="fps-stats-grid">';
         echo FpsAdminRenderer::renderStatCard('Trusted Clients',    $counts['trusted'],     'fa-shield-check',    'success');
         echo FpsAdminRenderer::renderStatCard('Blacklisted Clients', $counts['blacklisted'], 'fa-ban',             'danger');
         echo FpsAdminRenderer::renderStatCard('Suspended Clients',  $counts['suspended'],   'fa-user-lock',       'warning');
-        echo FpsAdminRenderer::renderStatCard('Pending Review',     $counts['normal'],      'fa-clock',           'info');
+        echo FpsAdminRenderer::renderStatCard('Total Clients',      $totalClients,          'fa-users',           'info');
         echo '</div>';
     }
 
@@ -85,7 +87,7 @@ class TabTrustManagement
 <div class="fps-form-row">
   <div class="fps-form-group" style="flex:1;">
     <label for="fps-trust-reason"><i class="fas fa-comment-alt"></i> Reason</label>
-    <textarea id="fps-trust-reason" class="fps-input" rows="3" placeholder="Enter reason for this trust status change..."></textarea>
+    <textarea id="fps-trust-reason" class="fps-input" rows="2" placeholder="Reason for this trust status change..."></textarea>
   </div>
 </div>
 <div class="fps-form-row">
@@ -102,25 +104,34 @@ HTML;
     }
 
     /**
-     * Render the Client Trust List card with filter buttons and AJAX-loaded table.
+     * Render the Client Trust List card with filter buttons, search, and AJAX-loaded table.
      */
     private function fpsRenderTrustList(string $modulelink): void
     {
         $jsAjaxUrl = json_encode($modulelink . '&ajax=1');
 
         $tableHtml = <<<HTML
-<div class="fps-filter-btn-group" style="margin-bottom:16px;">
-  <button type="button" class="fps-btn fps-btn-sm fps-btn-outline fps-filter-active" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, '')">
-    <i class="fas fa-list"></i> All
-  </button>
-  <button type="button" class="fps-btn fps-btn-sm fps-btn-success" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, 'trusted')">
-    <i class="fas fa-shield-check"></i> Trusted
-  </button>
-  <button type="button" class="fps-btn fps-btn-sm fps-btn-danger" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, 'blacklisted')">
-    <i class="fas fa-ban"></i> Blacklisted
-  </button>
-  <button type="button" class="fps-btn fps-btn-sm fps-btn-warning" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, 'suspended')">
-    <i class="fas fa-user-lock"></i> Suspended
+<div class="fps-form-row" style="align-items:flex-end;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
+  <div class="fps-filter-btn-group" style="display:flex;gap:4px;">
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-outline fps-filter-active" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, '')">
+      <i class="fas fa-list"></i> All Clients
+    </button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-success" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, 'trusted')">
+      <i class="fas fa-shield-check"></i> Trusted
+    </button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-danger" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, 'blacklisted')">
+      <i class="fas fa-ban"></i> Blacklisted
+    </button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-warning" onclick="FpsAdmin.loadTrustList({$jsAjaxUrl}, 'suspended')">
+      <i class="fas fa-user-lock"></i> Suspended
+    </button>
+  </div>
+  <div class="fps-form-group" style="flex:1;min-width:200px;margin:0;">
+    <input type="text" id="fps-trust-search" class="fps-input" placeholder="Search by name, email, company, or ID..."
+      onkeydown="if(event.key==='Enter'){FpsAdmin.searchTrustList({$jsAjaxUrl});}">
+  </div>
+  <button type="button" class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsAdmin.searchTrustList({$jsAjaxUrl})">
+    <i class="fas fa-search"></i> Search
   </button>
 </div>
 <div id="fps-trust-list-container">
