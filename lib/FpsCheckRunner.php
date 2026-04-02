@@ -460,7 +460,7 @@ class FpsCheckRunner
                     ->where('ip_address', $context->ip)
                     ->where('cached_at', '>=', date('Y-m-d H:i:s', time() - 86400))
                     ->first(['is_proxy', 'is_vpn']);
-                if ($cachedIpqs !== null) {
+                if ($cachedIpqs !== null && ($cachedIpqs->is_proxy !== null || $cachedIpqs->is_vpn !== null)) {
                     $ipqsScore = ((int)($cachedIpqs->is_proxy ?? 0) + (int)($cachedIpqs->is_vpn ?? 0)) * 25;
                     $ipqsResult = ['score' => (float)$ipqsScore, 'details' => ['cached'], 'raw' => null];
                 } else {
