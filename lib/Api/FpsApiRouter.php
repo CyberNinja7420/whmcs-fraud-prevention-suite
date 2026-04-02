@@ -65,7 +65,7 @@ class FpsApiRouter
 
             // Rate limiting (per-key overrides > tier settings > hardcoded defaults)
             $identifier = $keyId ? "key:{$keyId}" : "ip:" . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
-            $limit = $this->rateLimiter->resolveLimit($tier, $keyId);
+            $limit = $this->rateLimiter->resolveLimit($tier, (int)($keyId ?? 0));
 
             if (!$this->rateLimiter->consume($identifier, $limit)) {
                 $retryAfter = $this->rateLimiter->getRetryAfter($identifier, $limit);
