@@ -395,6 +395,30 @@ DailyCronJob Hook (Priority 1)
    (Email alerts, webhooks)
 ```
 
+## Dashboard Enhancements (v4.2.0+)
+
+### Recent Fraud Checks
+- Enriched with client name and company name
+- Action buttons per row: Approve, Deny, View Profile
+- Refresh and Clear All buttons
+- Guest checkout rows show IP address instead of blank
+
+### Review Queue Source Filter
+- Default view: "New Signups & Orders" (filters out manual re-scans)
+- Toggle to "All Checks" to include manual re-scans
+- Configurable via the `source` parameter on `get_review_queue`
+
+### Trust List Improvements
+- "All Clients" view uses LEFT JOIN to show every client (not just manually-assigned)
+- Search by name, email, company, or client ID
+- WHMCS Status column (Active/Inactive/Closed) per row
+- Quick-edit button for inline trust status changes
+
+### Log Management
+- "Clear All Module Logs" button on Alert Log tab
+- "Clear All Fraud Checks" button on Alert Log tab and Dashboard
+- Both require confirmation dialog before execution
+
 ## Performance Optimizations
 
 1. **Caching**: IP/email intel cached for 24 hours; reduces external API calls
