@@ -89,7 +89,7 @@ class TabGlobalIntel
       <button class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsGlobal.register()" id="fps-global-register-btn">
         <i class="fas fa-plug"></i> Register with Hub
       </button>
-      <button class="fps-btn fps-btn-sm" style="background:#38ef7d;color:#000;" onclick="FpsGlobal.toggle()" id="fps-global-toggle-btn">
+      <button class="fps-btn fps-btn-sm" style="background:#38ef7d;color:#1a1a2e;" onclick="FpsGlobal.toggle()" id="fps-global-toggle-btn">
         <i class="fas fa-power-off"></i> {$statusLabel}
       </button>
       <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsGlobal.pushNow()">
