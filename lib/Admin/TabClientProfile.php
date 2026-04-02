@@ -116,13 +116,13 @@ HTML;
             $this->fpsRenderRiskGauge($clientId);
 
             // IP intelligence
-            $this->fpsRenderIpIntelPanel($clientId);
+            $this->fpsRenderIpIntelPanel($clientId, $ajaxUrl);
 
             // Email intelligence
-            $this->fpsRenderEmailIntelPanel($client->email);
+            $this->fpsRenderEmailIntelPanel($client->email, $clientId, $ajaxUrl);
 
             // Device fingerprints
-            $this->fpsRenderFingerprintPanel($clientId);
+            $this->fpsRenderFingerprintPanel($clientId, $ajaxUrl);
 
             echo '</div>'; // .fps-profile-grid
 
@@ -671,7 +671,7 @@ HTML;
     /**
      * IP intelligence panel with pill badges and geo layout.
      */
-    private function fpsRenderIpIntelPanel(int $clientId): void
+    private function fpsRenderIpIntelPanel(int $clientId, string $ajaxUrl = ''): void
     {
         $ipIntel = null;
         $ipAddr  = '--';
@@ -703,9 +703,9 @@ HTML;
   </div>
   <div style="font-family:monospace;font-size:1.1rem;color:#667eea;margin-bottom:0.5rem;letter-spacing:0.05em;">{$safeIp}</div>
   <div style="color:#6a7195;font-size:0.85rem;margin-bottom:1.25rem;">No IP intelligence data cached for this address.</div>
-  <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:8px;background:rgba(102,126,234,0.1);border:1px solid rgba(102,126,234,0.3);color:#667eea;font-size:0.8rem;cursor:default;">
-    <i class="fas fa-radar"></i> Run a check to populate intelligence data
-  </div>
+  <button type="button" onclick="FpsAdmin.runManualCheck('{$ajaxUrl}', {$clientId})" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);border:none;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(102,126,234,0.3);transition:transform 0.15s,box-shadow 0.15s;" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(102,126,234,0.4)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(102,126,234,0.3)'">
+    <i class="fas fa-play"></i> Scan Now
+  </button>
 </div>
 HTML;
         } else {
@@ -785,7 +785,7 @@ HTML;
     /**
      * Email intelligence panel with domain highlight and traffic-light indicators.
      */
-    private function fpsRenderEmailIntelPanel(string $email): void
+    private function fpsRenderEmailIntelPanel(string $email, int $clientId = 0, string $ajaxUrl = ''): void
     {
         $emailIntel = null;
         try {
@@ -810,7 +810,10 @@ HTML;
   <div style="font-size:1.05rem;color:#c8d0e0;margin-bottom:0.5rem;font-family:monospace;">
     <span style="color:#a0aec0;">{$emailUser}</span><span style="color:#667eea;">@</span><span style="color:#7f8fcc;">{$emailDomain}</span>
   </div>
-  <div style="color:#6a7195;font-size:0.85rem;">No email intelligence data cached.</div>
+  <div style="color:#6a7195;font-size:0.85rem;margin-bottom:1rem;">No email intelligence data cached.</div>
+  <button type="button" onclick="FpsAdmin.runManualCheck('{$ajaxUrl}', {$clientId})" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);border:none;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(102,126,234,0.3);">
+    <i class="fas fa-play"></i> Scan Now
+  </button>
 </div>
 HTML;
         } else {
@@ -900,7 +903,7 @@ HTML;
     /**
      * Device fingerprints panel.
      */
-    private function fpsRenderFingerprintPanel(int $clientId): void
+    private function fpsRenderFingerprintPanel(int $clientId, string $ajaxUrl = ''): void
     {
         $fingerprints = [];
         try {
@@ -915,7 +918,13 @@ HTML;
         }
 
         if (empty($fingerprints)) {
-            $content = '<p class="fps-text-muted"><i class="fas fa-info-circle"></i> No device fingerprints recorded.</p>';
+            $content = '<div style="text-align:center;padding:1.5rem;">'
+                . '<div style="font-size:2rem;color:#667eea;opacity:0.3;margin-bottom:0.75rem;"><i class="fas fa-fingerprint"></i></div>'
+                . '<div style="color:#6a7195;font-size:0.85rem;margin-bottom:1rem;">No device fingerprints recorded yet.</div>'
+                . '<button type="button" onclick="FpsAdmin.runManualCheck(\'' . $ajaxUrl . '\', ' . $clientId . ')" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);border:none;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(102,126,234,0.3);">'
+                . '<i class="fas fa-play"></i> Scan Now</button>'
+                . '<div style="color:#4a5080;font-size:0.75rem;margin-top:0.75rem;">Device fingerprinting captures browser, screen, canvas, and WebGL data when clients visit your site with the Turnstile widget enabled.</div>'
+                . '</div>';
         } else {
             $headers = ['Hash', 'Times Seen', 'Screen', 'Browser', 'Canvas', 'Cross-Acct', 'Last Seen'];
             $rows = [];
