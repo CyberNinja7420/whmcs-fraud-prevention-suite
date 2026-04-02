@@ -161,63 +161,114 @@ HTML;
     }
 
     /**
-     * CSS-only circular risk gauge.
+     * Threat assessment command panel with animated gauge + breakdown.
      */
     private function fpsRenderRiskGauge(int $clientId): void
     {
         $avgScore = 0.0;
+        $checkCount = 0;
+        $lastCheck = null;
+        $providerBreakdown = [];
+
         try {
             $avgScore = (float)Capsule::table('mod_fps_checks')
-                ->where('client_id', $clientId)
-                ->avg('risk_score');
-        } catch (\Throwable $e) {
-            // Non-fatal
+                ->where('client_id', $clientId)->avg('risk_score');
+            $checkCount = Capsule::table('mod_fps_checks')
+                ->where('client_id', $clientId)->count();
+            $lastCheck = Capsule::table('mod_fps_checks')
+                ->where('client_id', $clientId)->orderByDesc('created_at')
+                ->first(['risk_score', 'risk_level', 'provider_scores', 'created_at', 'action_taken']);
+
+            if ($lastCheck && $lastCheck->provider_scores) {
+                $providerBreakdown = json_decode($lastCheck->provider_scores, true) ?: [];
+            }
+        } catch (\Throwable $e) {}
+
+        $score = round($avgScore, 1);
+        $pct = min(100, max(0, $score));
+
+        // Gradient stops for the arc
+        if ($pct >= 80) { $c1 = '#eb3349'; $c2 = '#f45c43'; $glow = 'rgba(235,51,73,0.4)'; }
+        elseif ($pct >= 60) { $c1 = '#f5576c'; $c2 = '#ff8a5c'; $glow = 'rgba(245,87,108,0.3)'; }
+        elseif ($pct >= 30) { $c1 = '#f5c842'; $c2 = '#ff8008'; $glow = 'rgba(245,200,66,0.3)'; }
+        else { $c1 = '#38ef7d'; $c2 = '#11998e'; $glow = 'rgba(56,239,125,0.3)'; }
+
+        $level = match (true) { $pct >= 80 => 'CRITICAL', $pct >= 60 => 'HIGH', $pct >= 30 => 'MEDIUM', default => 'LOW' };
+        $circumference = 2 * 3.14159 * 54;
+        $dashOffset = $circumference - ($circumference * $pct / 100);
+        $lastTime = $lastCheck ? htmlspecialchars($lastCheck->created_at, ENT_QUOTES, 'UTF-8') : 'Never';
+        $lastAction = $lastCheck ? htmlspecialchars($lastCheck->action_taken ?? 'none', ENT_QUOTES, 'UTF-8') : '--';
+
+        // Provider breakdown bars
+        $barsHtml = '';
+        if (!empty($providerBreakdown)) {
+            $barsHtml .= '<div style="margin-top:1rem;border-top:1px solid rgba(255,255,255,0.06);padding-top:0.75rem;">';
+            $barsHtml .= '<div style="font-size:0.7rem;color:#6a7195;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Provider Breakdown (Latest Check)</div>';
+            arsort($providerBreakdown);
+            foreach (array_slice($providerBreakdown, 0, 8, true) as $prov => $pScore) {
+                $pScore = round((float)$pScore, 1);
+                $barW = min(100, max(2, $pScore));
+                $barColor = $pScore >= 60 ? '#eb3349' : ($pScore >= 30 ? '#f5c842' : '#38ef7d');
+                $provName = htmlspecialchars(str_replace('_', ' ', $prov), ENT_QUOTES, 'UTF-8');
+                $barsHtml .= '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
+                $barsHtml .= '  <span style="width:90px;font-size:0.7rem;color:#8892b0;text-align:right;flex-shrink:0;">' . ucwords($provName) . '</span>';
+                $barsHtml .= '  <div style="flex:1;height:6px;background:rgba(255,255,255,0.04);border-radius:3px;overflow:hidden;">';
+                $barsHtml .= '    <div style="width:' . $barW . '%;height:100%;background:' . $barColor . ';border-radius:3px;transition:width 0.8s ease;"></div>';
+                $barsHtml .= '  </div>';
+                $barsHtml .= '  <span style="width:30px;font-size:0.7rem;color:#b0b8d0;font-weight:600;">' . $pScore . '</span>';
+                $barsHtml .= '</div>';
+            }
+            $barsHtml .= '</div>';
         }
-
-        $score      = round($avgScore, 1);
-        $percentage = min(100, max(0, $score));
-        $degrees    = (int)($percentage * 3.6);
-
-        if ($percentage >= 80) {
-            $gaugeColor = '#eb3349';
-        } elseif ($percentage >= 60) {
-            $gaugeColor = '#f5576c';
-        } elseif ($percentage >= 30) {
-            $gaugeColor = '#f5c842';
-        } else {
-            $gaugeColor = '#38ef7d';
-        }
-
-        $remaining = 100 - $percentage;
-        $levelLabel = match (true) {
-            $percentage >= 80 => 'Critical',
-            $percentage >= 60 => 'High',
-            $percentage >= 30 => 'Medium',
-            default => 'Low',
-        };
 
         $content = <<<HTML
-<div style="display:flex;flex-direction:column;align-items:center;padding:1.5rem 1rem;">
-  <div style="position:relative;width:160px;height:160px;">
-    <svg viewBox="0 0 160 160" style="transform:rotate(-90deg);">
-      <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14"/>
-      <circle cx="80" cy="80" r="70" fill="none" stroke="{$gaugeColor}" stroke-width="14"
-        stroke-dasharray="{$percentage} {$remaining}"
-        stroke-dashoffset="0" stroke-linecap="round"
-        pathLength="100" style="transition:stroke-dasharray 1s ease;"/>
-    </svg>
-    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-      <span style="font-size:2.2rem;font-weight:800;color:{$gaugeColor};line-height:1;">{$score}</span>
-      <span style="font-size:0.75rem;color:#b0b8d0;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Risk Score</span>
+<div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;">
+  <!-- Gauge -->
+  <div style="display:flex;flex-direction:column;align-items:center;min-width:180px;">
+    <div style="position:relative;width:140px;height:140px;filter:drop-shadow(0 0 12px {$glow});">
+      <svg viewBox="0 0 120 120" style="transform:rotate(-90deg);width:140px;height:140px;">
+        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="8"/>
+        <circle cx="60" cy="60" r="54" fill="none" stroke="url(#fpsGaugeGrad)" stroke-width="8"
+          stroke-dasharray="{$circumference}" stroke-dashoffset="{$dashOffset}"
+          stroke-linecap="round" style="transition:stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1);"/>
+        <defs>
+          <linearGradient id="fpsGaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="{$c1}"/>
+            <stop offset="100%" stop-color="{$c2}"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <span style="font-size:2rem;font-weight:900;color:#fff;line-height:1;text-shadow:0 0 20px {$glow};">{$score}</span>
+        <span style="font-size:0.6rem;color:#6a7195;text-transform:uppercase;letter-spacing:0.12em;margin-top:2px;">of 100</span>
+      </div>
+    </div>
+    <div style="margin-top:0.5rem;">
+      <span style="display:inline-block;padding:3px 14px;border-radius:20px;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;color:#fff;background:linear-gradient(135deg,{$c1},{$c2});box-shadow:0 2px 8px {$glow};">{$level}</span>
     </div>
   </div>
-  <div style="margin-top:0.75rem;text-align:center;">
-    <span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:0.8rem;font-weight:700;color:#fff;background:{$gaugeColor};">{$levelLabel} Risk</span>
+  <!-- Stats + Breakdown -->
+  <div style="flex:1;min-width:200px;">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:0.75rem;">
+      <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:1.3rem;font-weight:800;color:#667eea;">{$checkCount}</div>
+        <div style="font-size:0.65rem;color:#6a7195;text-transform:uppercase;letter-spacing:0.05em;">Total Checks</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:1.3rem;font-weight:800;color:#b0b8d0;">{$lastAction}</div>
+        <div style="font-size:0.65rem;color:#6a7195;text-transform:uppercase;letter-spacing:0.05em;">Last Action</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:0.8rem;font-weight:600;color:#b0b8d0;">{$lastTime}</div>
+        <div style="font-size:0.65rem;color:#6a7195;text-transform:uppercase;letter-spacing:0.05em;">Last Scanned</div>
+      </div>
+    </div>
+    {$barsHtml}
   </div>
 </div>
 HTML;
 
-        echo FpsAdminRenderer::renderCard('Overall Risk', 'fa-gauge-high', $content);
+        echo FpsAdminRenderer::renderCard('Threat Assessment', 'fa-shield-halved', $content);
     }
 
     /**
