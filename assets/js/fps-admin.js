@@ -1085,7 +1085,8 @@
     },
     revokeApiKey: function(keyId, ajaxUrl) {
       confirm('Revoke this API key? This cannot be undone.', function() {
-        ajax('revoke_api_key', {key_id: keyId}, function() {
+        ajax('revoke_api_key', {key_id: keyId}, function(err, data) {
+          if (err || (data && data.error)) { toast(data ? data.error : 'Revoke failed', 'error'); return; }
           toast('API key revoked', 'success'); location.reload();
         });
       });
@@ -1097,25 +1098,29 @@
 
     // Review Queue tab
     approveCheck: function(checkId, ajaxUrl) {
-      ajax('approve_check', {check_id: checkId}, function() {
+      ajax('approve_check', {check_id: checkId}, function(err, data) {
+        if (err || (data && data.error)) { toast(data ? data.error : 'Approve failed', 'error'); return; }
         toast('Check approved', 'success'); location.reload();
       });
     },
     denyCheck: function(checkId, ajaxUrl) {
-      ajax('deny_check', {check_id: checkId}, function() {
+      ajax('deny_check', {check_id: checkId}, function(err, data) {
+        if (err || (data && data.error)) { toast(data ? data.error : 'Deny failed', 'error'); return; }
         toast('Check denied', 'success'); location.reload();
       });
     },
     bulkAction: function(action, ajaxUrl) {
       var ids = getSelected('fps-queue-check');
       if (!ids.length) { toast('No items selected', 'warning'); return; }
-      ajax('bulk_' + action, {check_ids: ids.join(',')}, function() {
+      ajax('bulk_' + action, {check_ids: ids.join(',')}, function(err, data) {
+        if (err || (data && data.error)) { toast(data ? data.error : 'Bulk action failed', 'error'); return; }
         toast('Bulk ' + action + ' complete', 'success'); location.reload();
       });
     },
     reportToFraudRecord: function(checkId, ajaxUrl) {
       confirm('Report this check to FraudRecord?', function() {
-        ajax('report_fraudrecord', {check_id: checkId}, function() {
+        ajax('report_fraudrecord', {check_id: checkId}, function(err, data) {
+          if (err || (data && data.error)) { toast(data ? data.error : 'Report failed', 'error'); return; }
           toast('Reported to FraudRecord', 'success');
         });
       });
@@ -1270,7 +1275,10 @@
     },
     deleteRule: function(ruleId, ajaxUrl) {
       confirm('Delete this rule?', function() {
-        ajax('delete_rule', {rule_id: ruleId}, function() { toast('Rule deleted', 'success'); location.reload(); });
+        ajax('delete_rule', {rule_id: ruleId}, function(err, data) {
+          if (err || (data && data.error)) { toast(data ? data.error : 'Delete failed', 'error'); return; }
+          toast('Rule deleted', 'success'); location.reload();
+        });
       });
     },
     toggleRule: function(ruleId, enabled, ajaxUrl) {
@@ -1307,10 +1315,18 @@
       });
     },
     viewReportDetail: function(reportId, ajaxUrl) {
-      // For now, show an alert with the report ID - can be expanded to a modal later
-      ajax('get_api_key_detail', {report_id: reportId}, function(err, data) {
-        if (err || !data) return;
-        toast('Report #' + reportId + ' loaded', 'info');
+      ajax('get_report_detail', {report_id: reportId}, function(err, data) {
+        if (err || !data || data.error) { toast(data ? data.error : 'Failed to load report', 'error'); return; }
+        var r = data.report || {};
+        var c = data.client || {};
+        var html = '<div style="padding:10px;font-size:0.9rem;line-height:1.6;">';
+        html += '<p><strong>Report #' + r.id + '</strong> - ' + (r.status || 'pending') + '</p>';
+        html += '<p>Type: ' + (r.report_type || 'internal') + '</p>';
+        if (c.email) html += '<p>Client: ' + c.firstname + ' ' + c.lastname + ' (' + c.email + ')</p>';
+        html += '<p>Submitted: ' + (r.submitted_at || 'N/A') + '</p>';
+        if (r.report_data) html += '<p>Data: <pre style="white-space:pre-wrap;max-height:200px;overflow:auto;">' + r.report_data + '</pre></p>';
+        html += '</div>';
+        showModal('Report Detail', html);
       });
     },
     updateReportStatus: function(reportId, newStatus, ajaxUrl) {
@@ -1380,8 +1396,9 @@
     scanBulkAction: function(action, ajaxUrl) {
       var ids = getSelected('fps-scan-row-check');
       if (!ids.length) { toast('No items selected', 'warning'); return; }
-      ajax('scan_bulk_' + action, {client_ids: ids.join(',')}, function() {
-        toast('Bulk ' + action + ' complete', 'success'); location.reload();
+      ajax('bulk_' + action, {client_ids: ids.join(',')}, function(err, data) {
+        if (err || (data && data.error)) { toast(data ? data.error : 'Bulk action failed', 'error'); return; }
+        toast('Bulk ' + action + ' complete (' + (data.processed || 0) + ' clients)', 'success'); location.reload();
       });
     },
     scanExportCsv: function(ajaxUrl) {

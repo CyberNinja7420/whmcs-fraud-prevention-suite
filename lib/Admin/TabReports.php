@@ -183,16 +183,17 @@ class TabReports
         }
 
         $formContent = <<<HTML
+<form id="fps-report-form">
 <div class="fps-form-row">
   <div class="fps-form-group" style="flex:2;">
     <label for="fps-report-check"><i class="fas fa-search"></i> Select Fraud Check</label>
-    <select id="fps-report-check" class="fps-select">
+    <select id="fps-report-check" name="check_id" class="fps-select">
       {$options}
     </select>
   </div>
   <div class="fps-form-group" style="flex:1;">
     <label for="fps-report-reason"><i class="fas fa-list"></i> Reason</label>
-    <select id="fps-report-reason" class="fps-select">
+    <select id="fps-report-reason" name="reason" class="fps-select">
       <option value="fraudulent_order">Fraudulent Order</option>
       <option value="stolen_payment">Stolen Payment Method</option>
       <option value="identity_theft">Identity Theft</option>
@@ -204,7 +205,7 @@ class TabReports
 </div>
 <div class="fps-form-group">
   <label for="fps-report-notes"><i class="fas fa-pencil"></i> Notes</label>
-  <textarea id="fps-report-notes" class="fps-input fps-textarea" rows="3"
+  <textarea id="fps-report-notes" name="notes" class="fps-input fps-textarea" rows="3"
     placeholder="Additional details about this fraud report..."></textarea>
 </div>
 <div class="fps-form-row fps-form-row-right">
@@ -213,6 +214,7 @@ class TabReports
     <i class="fas fa-paper-plane"></i> Submit Report
   </button>
 </div>
+</form>
 HTML;
 
         echo FpsAdminRenderer::renderCard('Submit New Report', 'fa-paper-plane', $formContent);

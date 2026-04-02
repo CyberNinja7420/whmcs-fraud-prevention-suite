@@ -685,6 +685,36 @@ function fraud_prevention_suite_upgrade($vars): void
         if (version_compare($currentVersion, '2.0.0', '<')) {
             fps_migrate_to_2_0_0();
         }
+        // v4.1: Ensure GDPR table exists (may have been added between activations)
+        if (!Capsule::schema()->hasTable('mod_fps_gdpr_requests')) {
+            Capsule::schema()->create('mod_fps_gdpr_requests', function ($table) {
+                $table->increments('id');
+                $table->string('email', 255);
+                $table->string('email_hash', 64)->index();
+                $table->string('name', 255)->nullable();
+                $table->text('reason')->nullable();
+                $table->string('verification_token', 64)->nullable();
+                $table->tinyInteger('email_verified')->default(0);
+                $table->string('status', 20)->default('pending');
+                $table->integer('reviewed_by')->nullable();
+                $table->timestamp('reviewed_at')->nullable();
+                $table->text('admin_notes')->nullable();
+                $table->integer('records_purged')->default(0);
+                $table->string('ip_address', 45)->nullable();
+                $table->timestamp('created_at')->useCurrent();
+                $table->timestamp('updated_at')->nullable();
+            });
+        }
+        // v4.1: Ensure hub_url has a default value
+        try {
+            $hubUrl = Capsule::table('mod_fps_global_config')->where('setting_key', 'hub_url')->value('setting_value');
+            if (empty($hubUrl)) {
+                Capsule::table('mod_fps_global_config')->updateOrInsert(
+                    ['setting_key' => 'hub_url'],
+                    ['setting_value' => 'http://130.12.69.6:8400']
+                );
+            }
+        } catch (\Throwable $e) {}
     } catch (\Throwable $e) {
         logModuleCall('fraud_prevention_suite', 'Upgrade', json_encode($vars), $e->getMessage());
     }
@@ -1025,6 +1055,10 @@ function fps_handleAjax(string $modulelink): void
                 echo json_encode(fps_ajaxBulkDeny());
                 break;
 
+            case 'bulk_flag':
+                echo json_encode(fps_ajaxBulkFlag());
+                break;
+
             case 'report_fraudrecord':
                 echo json_encode(fps_ajaxReportFraudRecord());
                 break;
@@ -1047,6 +1081,10 @@ function fps_handleAjax(string $modulelink): void
 
             case 'get_api_key_detail':
                 echo json_encode(fps_ajaxGetApiKeyDetail());
+                break;
+
+            case 'get_report_detail':
+                echo json_encode(fps_ajaxGetReportDetail());
                 break;
 
             case 'export_csv':
@@ -1772,7 +1810,8 @@ function fps_ajaxTopologyData(): array
 function fps_ajaxBulkTerminate(): array
 {
     $clientIds = $_POST['client_ids'] ?? [];
-    if (!is_array($clientIds) || empty($clientIds)) {
+    if (is_string($clientIds)) $clientIds = array_filter(explode(',', $clientIds));
+    if (empty($clientIds)) {
         return ['error' => 'No clients selected'];
     }
 
@@ -1866,6 +1905,32 @@ function fps_ajaxBulkDeny(): array
     }
     logActivity("Fraud Prevention: Bulk denied {$count} checks by admin #{$_SESSION['adminid']}");
     return ['success' => true, 'count' => $count];
+}
+
+function fps_ajaxBulkFlag(): array
+{
+    $clientIds = $_POST['client_ids'] ?? [];
+    if (is_string($clientIds)) $clientIds = array_filter(explode(',', $clientIds));
+    if (empty($clientIds)) return ['error' => 'No clients selected'];
+
+    $flagged = 0;
+    foreach ($clientIds as $cid) {
+        $cid = (int)$cid;
+        if ($cid < 1) continue;
+        try {
+            // Flag all checks for this client as "high risk - manual flag"
+            Capsule::table('mod_fps_checks')->where('client_id', $cid)->update([
+                'reviewed_by' => (int)$_SESSION['adminid'],
+                'reviewed_at' => date('Y-m-d H:i:s'),
+                'action_taken' => 'flagged',
+            ]);
+            $flagged++;
+            logActivity("Fraud Prevention: Client #{$cid} flagged via bulk action by admin #{$_SESSION['adminid']}");
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+    }
+    return ['success' => true, 'processed' => $flagged];
 }
 
 function fps_ajaxReportFraudRecord(): array
@@ -2048,11 +2113,26 @@ function fraud_prevention_suite_clientarea(array $vars): array
         exit;
     }
 
-    // Topology is a full-screen standalone page -- serve directly
+    // Topology is a full-screen standalone page -- serve directly with injected stats
     if ($page === 'topology') {
         $tplPath = __DIR__ . '/templates/topology.tpl';
         if (file_exists($tplPath)) {
-            readfile($tplPath);
+            $stats = fps_getPublicStats();
+            $totalChecks = $stats['total_checks'] ?? 0;
+            $totalBlocks = $stats['threats_blocked'] ?? 0;
+            $blockRate = $totalChecks > 0 ? round(($totalBlocks / $totalChecks) * 100) : 0;
+            $initialData = json_encode([
+                'total_checks' => $totalChecks,
+                'active_countries' => $stats['countries_monitored'] ?? 0,
+                'total_blocks' => $totalBlocks,
+                'block_rate' => $blockRate,
+            ]);
+            $apiBase = 'index.php?m=fraud_prevention_suite&api=1';
+            $html = file_get_contents($tplPath);
+            // Inject data before closing </head>
+            $inject = '<script>window.FPS_INITIAL_STATS=' . $initialData . ';window.FPS_API_BASE="' . $apiBase . '";</script>';
+            $html = str_replace('</head>', $inject . "\n</head>", $html);
+            echo $html;
             exit;
         }
     }
@@ -2728,6 +2808,36 @@ function fps_ajaxUpdateReportStatus(): array
         ]);
         return ['success' => true, 'message' => "Report #{$reportId} marked as {$newStatus}"];
     } catch (\Throwable $e) { return ['error' => $e->getMessage()]; }
+}
+
+function fps_ajaxGetReportDetail(): array
+{
+    $reportId = (int)($_REQUEST['report_id'] ?? 0);
+    if ($reportId < 1) return ['error' => 'Invalid report ID'];
+
+    $report = Capsule::table('mod_fps_reports')->where('id', $reportId)->first();
+    if (!$report) return ['error' => 'Report not found'];
+
+    // Get associated check data
+    $check = null;
+    if ($report->check_id) {
+        $check = Capsule::table('mod_fps_checks')->where('id', $report->check_id)->first();
+    }
+
+    // Get client info
+    $client = null;
+    if ($report->client_id) {
+        $client = Capsule::table('tblclients')
+            ->select('id', 'firstname', 'lastname', 'email', 'companyname')
+            ->where('id', $report->client_id)->first();
+    }
+
+    return [
+        'success' => true,
+        'report' => (array)$report,
+        'check' => $check ? (array)$check : null,
+        'client' => $client ? (array)$client : null,
+    ];
 }
 
 function fps_ajaxRescanClient(): array
