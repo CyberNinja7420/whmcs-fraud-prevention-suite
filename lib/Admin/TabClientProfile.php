@@ -718,11 +718,9 @@ HTML;
             $content .= FpsAdminRenderer::renderTable($headers, $rows, 'fps-duplicate-table');
         }
 
-        echo FpsAdminRenderer::renderCard(
-            'Duplicate Account Detection <span class="fps-badge fps-badge-info" style="font-size:0.7rem;">' . count($duplicates) . ' found</span>',
-            'fa-users-between-lines',
-            $content
-        );
+        $dupCount = count($duplicates);
+        $content = '<div style="margin-bottom:0.75rem;"><span class="fps-badge ' . ($dupCount > 0 ? 'fps-badge-warning' : 'fps-badge-success') . '">' . $dupCount . ' found</span></div>' . $content;
+        echo FpsAdminRenderer::renderCard('Duplicate Account Detection', 'fa-users-between-lines', $content);
     }
 
     /**

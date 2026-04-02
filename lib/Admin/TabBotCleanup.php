@@ -206,10 +206,10 @@ HTML;
   <span style="border-left:1px solid rgba(255,255,255,0.15);margin:0 0.25rem;"></span>
 
   <!-- EXECUTE buttons -->
-  <button class="fps-btn fps-btn-sm" style="background:#f5c842;color:#000;" onclick="FpsBot.execute('flag')">
+  <button class="fps-btn fps-btn-sm" style="background:#f5c842;color:#1a1a2e;" onclick="FpsBot.execute('flag')">
     <i class="fas fa-flag"></i> Flag Selected
   </button>
-  <button class="fps-btn fps-btn-sm" style="background:#ff9800;color:#000;" onclick="FpsBot.execute('deactivate')">
+  <button class="fps-btn fps-btn-sm" style="background:#ff9800;color:#1a1a2e;" onclick="FpsBot.execute('deactivate')">
     <i class="fas fa-ban"></i> Deactivate Selected
   </button>
   <button class="fps-btn fps-btn-sm" style="background:#f5576c;" onclick="FpsBot.execute('purge')">

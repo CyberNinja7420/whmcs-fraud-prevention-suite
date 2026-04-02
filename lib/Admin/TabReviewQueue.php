@@ -270,8 +270,8 @@ class TabReviewQueue
 
             echo '<div class="fps-card" style="margin-top:1.5rem;">';
             echo '<div class="fps-card-header" style="background:linear-gradient(135deg,#f5a623,#f7c948);">';
-            echo '<h3 style="color:#000;"><i class="fas fa-exclamation-triangle"></i> Unscanned Accounts</h3>';
-            echo '<span class="fps-badge" style="background:rgba(0,0,0,0.15);color:#000;">' . $totalUnscanned . ' clients + ' . $unscannedUserCount . ' users</span>';
+            echo '<h3 style="color:#1a1a2e;"><i class="fas fa-exclamation-triangle"></i> Unscanned Accounts</h3>';
+            echo '<span class="fps-badge" style="background:rgba(0,0,0,0.15);color:#1a1a2e;">' . $totalUnscanned . ' clients + ' . $unscannedUserCount . ' users</span>';
             echo '</div>';
             echo '<div class="fps-card-body">';
 
