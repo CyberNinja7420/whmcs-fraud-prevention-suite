@@ -61,57 +61,74 @@ class FraudRecordProvider implements FpsProviderInterface
         }
 
         try {
-            $params = ['_action' => 'query', '_api' => $apiKey];
-
+            // FraudRecord v2 API: POST JSON with SHA1 hashes and camelCase apiKey
+            $data = [];
             if ($email !== '') {
-                $params['email'] = md5(strtolower(trim($email)));
+                $data['email'] = sha1(strtolower(trim($email)));
             }
             if ($ip !== '') {
-                $params['ip'] = md5(trim($ip));
+                $data['ip'] = sha1(trim($ip));
             }
             if ($phone !== '') {
-                $params['phone'] = md5(preg_replace('/[^0-9]/', '', $phone));
+                $data['phone'] = sha1(preg_replace('/[^0-9]/', '', $phone));
             }
 
-            $url = self::API_URL . '?' . http_build_query($params);
-            $response = $this->fps_httpGet($url);
+            $payload = json_encode([
+                'apiKey' => $apiKey,
+                'action' => 'query',
+                'data'   => $data,
+            ]);
 
-            if ($response === null) {
+            $ch = curl_init(self::API_URL);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => self::TIMEOUT,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $payload,
+                CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Accept: application/json'],
+                CURLOPT_ENCODING       => '',
+                CURLOPT_USERAGENT      => 'FPS-WHMCS/4.1',
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($response === false || $response === '' || $httpCode !== 200) {
+                logModuleCall('fraud_prevention_suite', 'FraudRecord API',
+                    'HTTP ' . $httpCode, $response ?: 'empty', '', [$apiKey]);
+                return array_merge($blank, ['details' => ['SKIPPED: API error: HTTP ' . $httpCode]]);
+            }
+
+            logModuleCall('fraud_prevention_suite', 'FraudRecord Query',
+                json_encode(['action' => 'query', 'hashes' => count($data)]),
+                $response, '', [$apiKey]);
+
+            $parsed = json_decode($response, true);
+            if (!is_array($parsed)) {
                 return $blank;
             }
 
-            $maskedKey = $this->fps_maskKey($apiKey);
-            logModuleCall(
-                'fraud_prevention_suite',
-                'FraudRecord Query',
-                str_replace($apiKey, $maskedKey, $url),
-                $response,
-                '',
-                [$apiKey]
-            );
+            // v2 response: {"status":"success","query":{"value":"0","count":0,"confidence":"0.0","queryId":"..."}}
+            $query = $parsed['query'] ?? $parsed;
+            $frValue = (float) ($query['value'] ?? 0);
+            $frCount = (int) ($query['count'] ?? 0);
+            $queryId = $query['queryId'] ?? null;
 
-            $parsed = $this->fps_parseResponse($response);
-            $score  = $this->fps_mapScore($parsed);
+            $score = $this->fps_mapScore([
+                'value' => $frValue,
+                'count' => $frCount,
+            ]);
 
             return [
                 'score'   => $score,
                 'details' => [
-                    'report_count'   => $parsed['count'] ?? 0,
-                    'reliability'    => $parsed['reliability'] ?? 'unknown',
-                    'value'          => $parsed['value'] ?? 0,
-                    'mapped_score'   => $score,
+                    $queryId ? "Full report: https://www.fraudrecord.com/query-result/{$queryId}" : 'No reports found',
                 ],
                 'raw' => $parsed,
             ];
         } catch (\Throwable $e) {
-            logModuleCall(
-                'fraud_prevention_suite',
-                'FraudRecord Error',
-                $e->getMessage(),
-                $e->getTraceAsString(),
-                '',
-                []
-            );
+            logModuleCall('fraud_prevention_suite', 'FraudRecord Error',
+                $e->getMessage(), $e->getTraceAsString(), '', []);
             return $blank;
         }
     }
@@ -139,37 +156,33 @@ class FraudRecordProvider implements FpsProviderInterface
         }
 
         try {
-            $params = [
-                '_action'  => 'report',
-                '_api'     => $apiKey,
-                '_reporter' => $reporter,
-                '_reason'  => $reason,
-            ];
+            // FraudRecord v2 API: POST JSON report
+            $data = ['reason' => $reason, 'reporter' => $reporter];
+            if ($email !== '') $data['email'] = sha1(strtolower(trim($email)));
+            if ($ip !== '') $data['ip'] = sha1(trim($ip));
+            if ($phone !== '') $data['phone'] = sha1(preg_replace('/[^0-9]/', '', $phone));
 
-            if ($email !== '') {
-                $params['email'] = md5(strtolower(trim($email)));
-            }
-            if ($ip !== '') {
-                $params['ip'] = md5(trim($ip));
-            }
-            if ($phone !== '') {
-                $params['phone'] = md5(preg_replace('/[^0-9]/', '', $phone));
-            }
+            $payload = json_encode([
+                'apiKey' => $apiKey,
+                'action' => 'report',
+                'data'   => $data,
+            ]);
 
-            $url = self::API_URL . '?' . http_build_query($params);
-            $response = $this->fps_httpGet($url);
+            $ch = curl_init(self::API_URL);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => self::TIMEOUT,
+                CURLOPT_POST => true, CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_USERAGENT => 'FPS-WHMCS/4.1',
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
-            $maskedKey = $this->fps_maskKey($apiKey);
-            logModuleCall(
-                'fraud_prevention_suite',
-                'FraudRecord Report',
-                str_replace($apiKey, $maskedKey, $url),
-                (string) $response,
-                '',
-                [$apiKey]
-            );
+            logModuleCall('fraud_prevention_suite', 'FraudRecord Report',
+                json_encode(['action' => 'report']), (string)$response, '', [$apiKey]);
 
-            return $response !== null;
+            return $httpCode === 200;
         } catch (\Throwable $e) {
             logModuleCall(
                 'fraud_prevention_suite',
