@@ -916,23 +916,35 @@
           return;
         }
 
-        var levels = { low: 'success', medium: 'warning', high: 'danger', critical: 'danger' };
         var rows = json.data.map(function (c) {
-          var lvl = levels[c.risk_level] || 'info';
+          var clientDisplay = c.client_name ? _esc(c.client_name) : ('#' + _esc(String(c.client_id || '')));
+          var actionClass = (c.action_taken === 'approved') ? 'fps-badge-low' :
+            (c.action_taken === 'denied' || c.action_taken === 'blocked') ? 'fps-badge-critical' :
+            (c.action_taken === 'held' || c.action_taken === 'flagged') ? 'fps-badge-medium' : '';
+          var actionLabel = _esc(c.action_taken || 'pending');
+
+          var actions = '<div class="fps-action-group" style="gap:2px;">';
+          if (!c.reviewed_by) {
+            actions += '<button class="fps-btn fps-btn-xs fps-btn-success" onclick="FpsAdmin.approveCheck(' + c.id + ')" title="Approve"><i class="fas fa-check"></i></button>';
+            actions += '<button class="fps-btn fps-btn-xs fps-btn-danger" onclick="FpsAdmin.denyCheck(' + c.id + ')" title="Deny"><i class="fas fa-times"></i></button>';
+          }
+          actions += '<a href="' + _state.modulelink + '&tab=client_profile&client_id=' + (c.client_id || 0) + '" class="fps-btn fps-btn-xs fps-btn-info" title="View Profile"><i class="fas fa-user-shield"></i></a>';
+          actions += '</div>';
+
           return '<tr>' +
-            '<td>' + _esc(c.id || '') + '</td>' +
-            '<td>' + _esc(c.client_id || '') + '</td>' +
-            '<td>' + _esc(c.email || '') + '</td>' +
-            '<td>' + _esc(c.ip_address || '') + '</td>' +
-            '<td><span class="fps-badge fps-badge-' + _esc(c.risk_level || 'low') + '">' + _esc(c.risk_level || '') + ' (' + _esc(String(c.risk_score || 0)) + ')</span></td>' +
-            '<td>' + _esc(c.action_taken || '') + '</td>' +
-            '<td>' + timeAgo(c.created_at || '') + '</td>' +
+            '<td style="font-size:0.85rem;">' + clientDisplay + '</td>' +
+            '<td style="font-size:0.85rem;">' + _esc(c.email || '') + '</td>' +
+            '<td style="font-size:0.85rem;">' + _esc(c.ip_address || '') + '</td>' +
+            '<td><span class="fps-badge fps-badge-' + _esc(c.risk_level || 'low') + '">' + _esc(c.risk_level || '') + ' (' + parseFloat(c.risk_score || 0).toFixed(0) + ')</span></td>' +
+            '<td><span class="fps-badge ' + actionClass + '">' + actionLabel + '</span></td>' +
+            '<td style="font-size:0.8rem;">' + timeAgo(c.created_at || '') + '</td>' +
+            '<td>' + actions + '</td>' +
             '</tr>';
         });
 
         container.innerHTML =
           '<table class="fps-table fps-table-striped" id="fps-recent-checks-table">' +
-          '<thead><tr><th>ID</th><th>Client</th><th>Email</th><th>IP</th><th>Risk</th><th>Action</th><th>Time</th></tr></thead>' +
+          '<thead><tr><th>Client</th><th>Email</th><th>IP</th><th>Risk</th><th>Status</th><th>Time</th><th>Actions</th></tr></thead>' +
           '<tbody>' + rows.join('') + '</tbody></table>';
 
         initTable('fps-recent-checks-table');
@@ -1157,7 +1169,28 @@
     },
     resetStatistics: function(ajaxUrl) {
       confirm('Reset all statistics? This cannot be undone.', function() {
-        ajax('reset_statistics', {}, function() { toast('Statistics reset', 'success'); });
+        ajax('reset_statistics', {}, function(err, data) {
+          if (err || (data && data.error)) { toast(data ? data.error : 'Reset failed', 'error'); return; }
+          toast('Statistics reset', 'success');
+        });
+      });
+    },
+    clearFpsLogs: function(ajaxUrl) {
+      confirm('Clear ALL module logs? This permanently deletes all log entries and cannot be undone.', function() {
+        ajax('clear_fps_logs', {}, function(err, data) {
+          if (err || (data && data.error)) { toast(data ? data.error : 'Clear failed', 'error'); return; }
+          toast('Cleared ' + (data.deleted || 0) + ' log entries', 'success');
+          setTimeout(function() { location.reload(); }, 1000);
+        });
+      });
+    },
+    clearAllChecks: function(ajaxUrl) {
+      confirm('Clear ALL fraud checks? This permanently deletes all check history and cannot be undone. Statistics are preserved.', function() {
+        ajax('clear_all_checks', {confirm: 'yes'}, function(err, data) {
+          if (err || (data && data.error)) { toast(data ? data.error : 'Clear failed', 'error'); return; }
+          toast('All fraud checks cleared', 'success');
+          setTimeout(function() { location.reload(); }, 1000);
+        });
       });
     },
     toggleAccordion: function(key) {

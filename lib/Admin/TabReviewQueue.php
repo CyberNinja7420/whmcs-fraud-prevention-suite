@@ -33,10 +33,17 @@ class TabReviewQueue
         $this->fpsRenderFilterBar($modulelink, $filterLevel, $filterSearch, $filterFrom, $filterTo);
 
         try {
-            // Show ALL unreviewed checks (not just high/critical)
-            // Admin can filter by risk level using the dropdown
+            // Show unreviewed checks from automated sources (new signups/orders)
+            // Exclude manual re-scans and validation tests - those go to client profile
+            $filterType = $_GET['check_type'] ?? 'auto_only';
             $query = Capsule::table('mod_fps_checks')
                 ->whereNull('reviewed_by');
+
+            if ($filterType === 'auto_only') {
+                // Default: only show automated checks (new signups, new orders, bot blocks)
+                $query->whereIn('check_type', ['pre_checkout', 'auto', 'bot_signup_block', 'bot_detection']);
+            }
+            // 'all' shows everything including manual re-scans
 
             if ($filterLevel !== '' && in_array($filterLevel, ['low', 'medium', 'high', 'critical'], true)) {
                 $query->where('risk_level', $filterLevel);
@@ -171,6 +178,16 @@ class TabReviewQueue
         // Preserve modulelink params
         echo '<input type="hidden" name="module" value="fraud_prevention_suite">';
         echo '<input type="hidden" name="tab" value="review_queue">';
+
+        // Source filter (auto vs all)
+        $filterType = $_GET['check_type'] ?? 'auto_only';
+        echo '<div class="fps-form-group">';
+        echo '  <label><i class="fas fa-filter"></i> Source</label>';
+        echo '  <select name="check_type" class="fps-select">';
+        echo '    <option value="auto_only"' . ($filterType === 'auto_only' ? ' selected' : '') . '>New Signups & Orders</option>';
+        echo '    <option value="all"' . ($filterType === 'all' ? ' selected' : '') . '>All Checks (incl. re-scans)</option>';
+        echo '  </select>';
+        echo '</div>';
 
         // Risk level
         echo '<div class="fps-form-group">';
