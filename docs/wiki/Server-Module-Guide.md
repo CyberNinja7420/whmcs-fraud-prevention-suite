@@ -137,6 +137,17 @@ When a client views their FPS API service in the client area, they see:
 - **API Documentation** link -- directs to the public API docs
 - **Regenerate Key** button -- allows client to rotate their key
 
+## API Usage & Abuse Tracking (Admin View)
+
+The API Keys tab in the FPS admin panel shows usage analytics for all provisioned keys:
+
+- **Per-Key Usage**: Requests in 24h/7d, rate limit hits, unauthorized attempts
+- **Top 10 IPs**: Most active source IPs per key, with automatic ABUSE badge flagging (>5 rate limit hits triggers ABUSE badge)
+- **Top Endpoints**: Most-used API endpoints with average response time
+- **Per-Key Breakdown**: Detailed metrics for individual keys
+
+This data helps identify abusive API consumers and supports decisions about rate limit adjustments or key revocation.
+
 ## Admin Actions
 
 Custom admin buttons available on each service:
