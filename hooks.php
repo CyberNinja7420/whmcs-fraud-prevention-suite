@@ -247,6 +247,18 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $context['domain'] = strtolower(substr($email, strpos($email, '@') + 1));
         }
 
+        // Trust check FIRST -- before any scoring to avoid wasting resources
+        if ($clientId > 0 && class_exists('\\FraudPreventionSuite\\Lib\\FpsClientTrustManager')) {
+            $trustMgr = new \FraudPreventionSuite\Lib\FpsClientTrustManager();
+            if ($trustMgr->shouldSkipCheck($clientId)) {
+                return []; // Trusted client, skip all checks
+            }
+            if ($trustMgr->shouldAutoBlock($clientId)) {
+                logActivity("Fraud Prevention: Pre-checkout BLOCKED -- blacklisted client #{$clientId}");
+                return ['We were unable to process your order at this time. Please contact support if you believe this is an error. Reference: FPS-' . date('ymdHi')];
+            }
+        }
+
         // Run quick checks only (providers where isQuick() = true)
         $score = 0;
         $details = [];
@@ -367,7 +379,6 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
         }
 
         $score = min($score, 100);
-        $durationMs = (int)((microtime(true) - $startTime) * 1000);
 
         // Get default thresholds
         $blockThreshold = (float)(Capsule::table('tbladdonmodules')
@@ -394,17 +405,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             }
         }
 
-        // v3.0: Check client trust status FIRST (before any scoring persistence)
-        if ($clientId > 0 && class_exists('\\FraudPreventionSuite\\Lib\\FpsClientTrustManager')) {
-            $trustMgr = new \FraudPreventionSuite\Lib\FpsClientTrustManager();
-            if ($trustMgr->shouldSkipCheck($clientId)) {
-                return []; // Trusted client, skip all checks
-            }
-            if ($trustMgr->shouldAutoBlock($clientId)) {
-                logActivity("Fraud Prevention: Pre-checkout BLOCKED -- blacklisted client #{$clientId}");
-                return ['We were unable to process your order at this time. Please contact support if you believe this is an error. Reference: FPS-' . date('ymdHi')];
-            }
-        }
+        // (Trust check moved to top of hook, before scoring pipeline)
 
         // v3.0: Velocity check (BEFORE persistence so score is complete)
         if ($ip !== '' && class_exists('\\FraudPreventionSuite\\Lib\\FpsVelocityEngine')) {
@@ -428,6 +429,9 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                 $details[] = 'Tor/DC: ' . json_encode($torResult['details'] ?? []);
             }
         }
+
+        // Measure duration AFTER all checks complete (accurate timing)
+        $durationMs = (int)((microtime(true) - $startTime) * 1000);
 
         // NOW persist -- score includes ALL checks (providers + velocity + Tor)
         $riskLevel = 'low';

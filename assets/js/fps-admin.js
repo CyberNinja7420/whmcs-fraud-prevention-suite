@@ -1333,6 +1333,17 @@
     },
 
     // Statistics tab
+    loadCustomChartRange: function(ajaxUrl) {
+      var fromEl = document.getElementById('fps-chart-date-from');
+      var toEl = document.getElementById('fps-chart-date-to');
+      var from = fromEl ? fromEl.value : '';
+      var to = toEl ? toEl.value : '';
+      if (!from || !to) { toast('Select both start and end dates', 'warning'); return; }
+      ajax('get_chart_data', {date_from: from, date_to: to}, function(err, data) {
+        if (err || !data) return;
+        if (typeof FpsCharts !== 'undefined' && FpsCharts.update) FpsCharts.update(data);
+      });
+    },
     setChartRange: function(days, ajaxUrl, btn) {
       document.querySelectorAll('.fps-chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
       if (btn) btn.classList.add('active');
