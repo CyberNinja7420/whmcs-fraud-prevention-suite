@@ -2236,42 +2236,81 @@ function fps_ajaxSetClientTrust(): array
 function fps_ajaxGetTrustList(): array
 {
     $status  = $_GET['filter'] ?? $_POST['filter'] ?? '';
+    $search  = trim($_GET['search'] ?? $_POST['search'] ?? '');
     $page    = max(1, (int) ($_GET['page'] ?? $_POST['page'] ?? 1));
+    $perPage = 25;
 
     try {
-        $manager = new \FraudPreventionSuite\Lib\FpsClientTrustManager();
+        // When a specific status filter is set, query the trust table
+        if ($status !== '' && in_array($status, ['trusted', 'blacklisted', 'suspended'], true)) {
+            $manager = new \FraudPreventionSuite\Lib\FpsClientTrustManager();
+            $result = $manager->getClientsWithStatus($status, $page, $perPage);
 
-        if ($status !== '' && in_array($status, ['trusted', 'normal', 'blacklisted', 'suspended'], true)) {
-            $result = $manager->getClientsWithStatus($status, $page, 25);
-        } else {
-            // Get all non-normal entries
-            $rows = [];
-            $total = 0;
-            foreach (['trusted', 'blacklisted', 'suspended'] as $s) {
-                $partial = $manager->getClientsWithStatus($s, 1, 100);
-                $rows = array_merge($rows, $partial['rows']);
-                $total += $partial['total'];
+            $enriched = [];
+            foreach ($result['rows'] as $row) {
+                $client = Capsule::table('tblclients')->where('id', $row->client_id)
+                    ->first(['firstname', 'lastname', 'email', 'companyname', 'status']);
+                $enriched[] = [
+                    'client_id'    => $row->client_id,
+                    'status'       => $row->status,
+                    'reason'       => $row->reason ?? '',
+                    'admin_id'     => $row->set_by_admin_id ?? 0,
+                    'updated_at'   => $row->updated_at ?? $row->created_at ?? '',
+                    'client_name'  => $client ? trim($client->firstname . ' ' . $client->lastname) : '(Deleted #' . $row->client_id . ')',
+                    'client_email' => $client ? ($client->email ?? '') : '',
+                    'company'      => $client ? ($client->companyname ?? '') : '',
+                    'whmcs_status' => $client ? ($client->status ?? '') : '',
+                ];
             }
-            $result = ['rows' => array_slice($rows, ($page - 1) * 25, 25), 'total' => $total, 'pages' => (int) ceil($total / 25)];
+            return ['success' => true, 'rows' => $enriched, 'total' => $result['total'], 'pages' => $result['pages']];
         }
 
-        // Enrich with client data
+        // "All" or empty filter: show ALL clients with their trust status (LEFT JOIN)
+        $query = Capsule::table('tblclients')
+            ->leftJoin('mod_fps_client_trust', 'tblclients.id', '=', 'mod_fps_client_trust.client_id')
+            ->select(
+                'tblclients.id as client_id',
+                'tblclients.firstname', 'tblclients.lastname',
+                'tblclients.email', 'tblclients.companyname',
+                'tblclients.status as whmcs_status',
+                'mod_fps_client_trust.status as trust_status',
+                'mod_fps_client_trust.reason',
+                'mod_fps_client_trust.set_by_admin_id',
+                'mod_fps_client_trust.updated_at'
+            );
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('tblclients.email', 'LIKE', '%' . $search . '%')
+                  ->orWhere('tblclients.firstname', 'LIKE', '%' . $search . '%')
+                  ->orWhere('tblclients.lastname', 'LIKE', '%' . $search . '%')
+                  ->orWhere('tblclients.companyname', 'LIKE', '%' . $search . '%')
+                  ->orWhere('tblclients.id', '=', (int)$search);
+            });
+        }
+
+        $total = $query->count();
+        $rows = $query->orderBy('tblclients.id', 'desc')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
+
         $enriched = [];
-        foreach ($result['rows'] as $row) {
-            $client = Capsule::table('tblclients')->where('id', $row->client_id)->first(['firstname', 'lastname', 'email', 'companyname']);
+        foreach ($rows as $row) {
             $enriched[] = [
-                'client_id' => $row->client_id,
-                'status'    => $row->status,
-                'reason'    => $row->reason ?? '',
-                'admin_id'  => $row->set_by_admin_id ?? 0,
-                'updated_at' => $row->updated_at ?? $row->created_at ?? '',
-                'client_name' => $client ? trim($client->firstname . ' ' . $client->lastname) : '(Deleted Client #' . $row->client_id . ')',
-                'client_email' => $client ? ($client->email ?? '') : '',
-                'company' => $client ? ($client->companyname ?? '') : '',
+                'client_id'    => $row->client_id,
+                'status'       => $row->trust_status ?? 'normal',
+                'reason'       => $row->reason ?? '',
+                'admin_id'     => $row->set_by_admin_id ?? 0,
+                'updated_at'   => $row->updated_at ?? '',
+                'client_name'  => trim(($row->firstname ?? '') . ' ' . ($row->lastname ?? '')),
+                'client_email' => $row->email ?? '',
+                'company'      => $row->companyname ?? '',
+                'whmcs_status' => $row->whmcs_status ?? '',
             ];
         }
 
-        return ['success' => true, 'rows' => $enriched, 'total' => $result['total'], 'pages' => $result['pages']];
+        return ['success' => true, 'rows' => $enriched, 'total' => $total, 'pages' => max(1, (int)ceil($total / $perPage))];
     } catch (\Throwable $e) {
         return ['error' => $e->getMessage()];
     }

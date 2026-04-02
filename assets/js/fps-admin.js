@@ -1206,22 +1206,27 @@
     },
 
     // Trust Management tab
-    loadTrustList: function(ajaxUrl, filter) {
+    loadTrustList: function(ajaxUrl, filter, search) {
       var container = document.getElementById('fps-trust-list-container');
       if (!container) return;
       container.innerHTML = '<div style="text-align:center;padding:2rem;opacity:0.5;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
 
-      ajax('get_trust_list', {filter: filter || ''}, function(err, data) {
-        if (err || !data) { container.innerHTML = '<div class="fps-alert fps-alert-danger">Failed to load</div>'; return; }
+      var params = {filter: filter || ''};
+      if (search) params.search = search;
+
+      ajax('get_trust_list', params, function(err, data) {
+        if (err || !data) { container.innerHTML = '<div class="fps-alert fps-alert-danger">Failed to load trust list</div>'; return; }
         if (data.error) { container.innerHTML = '<div class="fps-alert fps-alert-danger">' + _esc(data.error) + '</div>'; return; }
 
         var rows = data.rows || [];
         if (rows.length === 0) {
-          container.innerHTML = '<div style="text-align:center;padding:2rem;opacity:0.5;">No clients found with this filter</div>';
+          container.innerHTML = '<div style="text-align:center;padding:2rem;opacity:0.5;"><i class="fas fa-users-slash"></i> No clients found matching this filter.</div>';
           return;
         }
 
-        var html = '<table class="fps-table"><thead><tr><th>Client ID</th><th>Name</th><th>Email</th><th>Company</th><th>Status</th><th>Reason</th><th>Updated</th></tr></thead><tbody>';
+        var html = '<table class="fps-table" id="fps-trust-table"><thead><tr>'
+          + '<th>ID</th><th>Client</th><th>Email</th><th>WHMCS Status</th><th>Trust Status</th><th>Reason</th><th>Action</th>'
+          + '</tr></thead><tbody>';
         for (var i = 0; i < rows.length; i++) {
           var r = rows[i];
           var ts = r.trust_status || r.status || 'normal';
@@ -1229,20 +1234,39 @@
             ts === 'blacklisted' ? '<span class="fps-badge fps-badge-critical">Blacklisted</span>' :
             ts === 'suspended' ? '<span class="fps-badge fps-badge-high">Suspended</span>' :
             '<span class="fps-badge fps-badge-medium">Normal</span>';
+          var whmcsStatus = _esc(r.whmcs_status || '');
+          var whmcsBadge = whmcsStatus === 'Active' ? '<span class="fps-badge fps-badge-low">' + whmcsStatus + '</span>' :
+            whmcsStatus === 'Inactive' ? '<span class="fps-badge fps-badge-medium">' + whmcsStatus + '</span>' :
+            whmcsStatus === 'Closed' ? '<span class="fps-badge fps-badge-critical">' + whmcsStatus + '</span>' :
+            '<span class="fps-badge">' + whmcsStatus + '</span>';
+
+          // Quick-action button to set trust from the list
+          var quickAction = '<button class="fps-btn fps-btn-xs fps-btn-outline" onclick="'
+            + 'document.getElementById(\'fps-trust-client-id\').value=' + (r.client_id || 0)
+            + ';document.getElementById(\'fps-trust-client-id\').scrollIntoView({behavior:\'smooth\'})"'
+            + ' title="Edit trust for this client"><i class="fas fa-pen"></i></button>';
+
           html += '<tr>' +
             '<td>#' + (r.client_id || '') + '</td>' +
-            '<td>' + _esc(r.client_name || r.name || '') + '</td>' +
-            '<td style="font-size:0.85rem;">' + _esc(r.client_email || r.email || '') + '</td>' +
-            '<td style="font-size:0.85rem;">' + _esc(r.company || r.companyname || '') + '</td>' +
+            '<td>' + _esc(r.client_name || '') + (r.company ? ' <span style="opacity:0.6;font-size:0.8rem;">(' + _esc(r.company) + ')</span>' : '') + '</td>' +
+            '<td style="font-size:0.85rem;">' + _esc(r.client_email || '') + '</td>' +
+            '<td>' + whmcsBadge + '</td>' +
             '<td>' + statusBadge + '</td>' +
-            '<td style="font-size:0.85rem;">' + _esc(r.reason || '-') + '</td>' +
-            '<td style="font-size:0.85rem;">' + _esc(r.updated_at || r.created_at || '') + '</td>' +
+            '<td style="font-size:0.85rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;">' + _esc(r.reason || '-') + '</td>' +
+            '<td>' + quickAction + '</td>' +
             '</tr>';
         }
         html += '</tbody></table>';
-        html += '<div style="margin-top:0.5rem;font-size:0.85rem;opacity:0.7;">' + rows.length + ' clients shown</div>';
+        var totalInfo = data.total ? (data.total + ' total, page ' + Math.ceil((data.total > 0 ? 1 : 0)) + ' of ' + (data.pages || 1)) : rows.length + ' shown';
+        html += '<div style="margin-top:0.5rem;font-size:0.85rem;opacity:0.7;">' + totalInfo + '</div>';
         container.innerHTML = html;
+        initTable('fps-trust-table');
       });
+    },
+    searchTrustList: function(ajaxUrl) {
+      var searchInput = document.getElementById('fps-trust-search');
+      var searchVal = searchInput ? searchInput.value.trim() : '';
+      this.loadTrustList(ajaxUrl, '', searchVal);
     },
     setClientTrust: function(ajaxUrl) {
       var clientId = document.getElementById('fps-trust-client-id');
