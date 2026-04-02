@@ -188,13 +188,31 @@ HTML;
             $gaugeColor = '#38ef7d';
         }
 
+        $remaining = 100 - $percentage;
+        $levelLabel = match (true) {
+            $percentage >= 80 => 'Critical',
+            $percentage >= 60 => 'High',
+            $percentage >= 30 => 'Medium',
+            default => 'Low',
+        };
+
         $content = <<<HTML
-<div class="fps-risk-gauge-container">
-  <div class="fps-risk-gauge" style="background: conic-gradient({$gaugeColor} {$degrees}deg, #2d2d3d {$degrees}deg);">
-    <div class="fps-risk-gauge-inner">
-      <span class="fps-risk-gauge-value">{$score}</span>
-      <span class="fps-risk-gauge-label">Risk Score</span>
+<div style="display:flex;flex-direction:column;align-items:center;padding:1.5rem 1rem;">
+  <div style="position:relative;width:160px;height:160px;">
+    <svg viewBox="0 0 160 160" style="transform:rotate(-90deg);">
+      <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14"/>
+      <circle cx="80" cy="80" r="70" fill="none" stroke="{$gaugeColor}" stroke-width="14"
+        stroke-dasharray="{$percentage} {$remaining}"
+        stroke-dashoffset="0" stroke-linecap="round"
+        pathLength="100" style="transition:stroke-dasharray 1s ease;"/>
+    </svg>
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <span style="font-size:2.2rem;font-weight:800;color:{$gaugeColor};line-height:1;">{$score}</span>
+      <span style="font-size:0.75rem;color:#b0b8d0;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Risk Score</span>
     </div>
+  </div>
+  <div style="margin-top:0.75rem;text-align:center;">
+    <span style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:0.8rem;font-weight:700;color:#fff;background:{$gaugeColor};">{$levelLabel} Risk</span>
   </div>
 </div>
 HTML;
@@ -703,38 +721,54 @@ HTML;
         $maxDay = max($sparkValues ?: [0]);
         $jsonData = json_encode($sparkValues);
 
-        // Heatmap: 7 days per row, 13 weeks
-        $heatmapHtml = '<div class="fps-velocity-heatmap">';
-        for ($i = 0; $i < count($sparkValues); $i++) {
-            $val = $sparkValues[$i];
-            if ($val === 0) {
-                $color = 'rgba(102, 126, 234, 0.05)';
-            } elseif ($val === 1) {
-                $color = 'rgba(102, 126, 234, 0.3)';
-            } elseif ($val <= 3) {
-                $color = 'rgba(102, 126, 234, 0.6)';
-            } else {
-                $color = 'rgba(245, 87, 108, 0.8)';
-            }
-            $date = date('M j', strtotime('-' . (89 - $i) . ' days'));
-            $heatmapHtml .= '<div class="fps-heatmap-cell" title="' . htmlspecialchars($date, ENT_QUOTES, 'UTF-8') . ': ' . $val . ' orders" style="background:' . $color . ';"></div>';
-        }
-        $heatmapHtml .= '</div>';
-
         $containerId = 'fps-velocity-spark-' . $clientId;
 
-        $content = '<div class="fps-velocity-summary">';
-        $content .= '  <div class="fps-velocity-stat"><strong>' . $totalOrders . '</strong><br><small class="fps-text-muted">Orders (90d)</small></div>';
-        $content .= '  <div class="fps-velocity-stat"><strong>' . $maxDay . '</strong><br><small class="fps-text-muted">Max/Day</small></div>';
-        $content .= '  <div class="fps-velocity-stat"><strong>' . number_format($totalOrders / 90, 1) . '</strong><br><small class="fps-text-muted">Avg/Day</small></div>';
-        $content .= '  <div class="fps-velocity-spark" id="' . $containerId . '"></div>';
+        // Summary stats with explicit colors for visibility
+        $content = '<div class="fps-velocity-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">';
+        $content .= '<div style="text-align:center;padding:0.75rem 1.25rem;background:rgba(102,126,234,0.1);border-radius:8px;min-width:90px;">';
+        $content .= '  <div style="font-size:1.6rem;font-weight:800;color:#667eea;">' . $totalOrders . '</div>';
+        $content .= '  <div style="font-size:0.7rem;color:#8892b0;text-transform:uppercase;letter-spacing:0.05em;">Orders (90d)</div>';
         $content .= '</div>';
-        $content .= $heatmapHtml;
-        $content .= '<script>document.addEventListener("DOMContentLoaded", function() {';
-        $content .= '  if (typeof FpsAdmin !== "undefined" && FpsAdmin.sparkline) {';
-        $content .= '    FpsAdmin.sparkline("#' . $containerId . '", ' . $jsonData . ', {width:200, height:40, color:"#667eea"});';
-        $content .= '  }';
-        $content .= '});</script>';
+        $content .= '<div style="text-align:center;padding:0.75rem 1.25rem;background:rgba(102,126,234,0.1);border-radius:8px;min-width:90px;">';
+        $content .= '  <div style="font-size:1.6rem;font-weight:800;color:#667eea;">' . $maxDay . '</div>';
+        $content .= '  <div style="font-size:0.7rem;color:#8892b0;text-transform:uppercase;letter-spacing:0.05em;">Max/Day</div>';
+        $content .= '</div>';
+        $content .= '<div style="text-align:center;padding:0.75rem 1.25rem;background:rgba(102,126,234,0.1);border-radius:8px;min-width:90px;">';
+        $content .= '  <div style="font-size:1.6rem;font-weight:800;color:#667eea;">' . number_format($totalOrders / 90, 1) . '</div>';
+        $content .= '  <div style="font-size:0.7rem;color:#8892b0;text-transform:uppercase;letter-spacing:0.05em;">Avg/Day</div>';
+        $content .= '</div>';
+        $content .= '</div>';
+
+        // Only show heatmap if there are actual orders (don't show 90 blank tiles)
+        if ($totalOrders > 0) {
+            $content .= '<div class="fps-velocity-heatmap" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0.5rem 0;">';
+            for ($i = 0; $i < count($sparkValues); $i++) {
+                $val = $sparkValues[$i];
+                if ($val === 0) {
+                    $color = 'rgba(255,255,255,0.04)';
+                } elseif ($val === 1) {
+                    $color = 'rgba(56,239,125,0.35)';
+                } elseif ($val <= 3) {
+                    $color = 'rgba(245,200,66,0.5)';
+                } else {
+                    $color = 'rgba(245,87,108,0.7)';
+                }
+                $date = date('M j', strtotime('-' . (89 - $i) . ' days'));
+                $content .= '<div title="' . htmlspecialchars($date, ENT_QUOTES, 'UTF-8') . ': ' . $val . ' orders" style="aspect-ratio:1;border-radius:3px;min-width:12px;min-height:12px;background:' . $color . ';cursor:default;transition:transform 0.15s;" onmouseover="this.style.transform=\'scale(1.3)\'" onmouseout="this.style.transform=\'scale(1)\'"></div>';
+            }
+            $content .= '</div>';
+            $content .= '<div style="display:flex;gap:0.75rem;margin-top:0.5rem;font-size:0.7rem;color:#8892b0;">';
+            $content .= '  <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,255,255,0.04);vertical-align:middle;"></span> No orders</span>';
+            $content .= '  <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(56,239,125,0.35);vertical-align:middle;"></span> 1 order</span>';
+            $content .= '  <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(245,200,66,0.5);vertical-align:middle;"></span> 2-3 orders</span>';
+            $content .= '  <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(245,87,108,0.7);vertical-align:middle;"></span> 4+ orders</span>';
+            $content .= '</div>';
+        } else {
+            $content .= '<div style="text-align:center;padding:1.5rem;color:#8892b0;font-size:0.9rem;">';
+            $content .= '  <i class="fas fa-chart-area" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:0.5rem;"></i>';
+            $content .= '  No orders in the last 90 days';
+            $content .= '</div>';
+        }
 
         echo FpsAdminRenderer::renderCard('Order Velocity (90 Days)', 'fa-bolt', $content);
     }
