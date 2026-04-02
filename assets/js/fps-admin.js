@@ -1282,6 +1282,30 @@
     },
 
     // Reports tab
+    submitReport: function(ajaxUrl) {
+      var form = document.getElementById('fps-report-form');
+      var data = {};
+      if (form) form.querySelectorAll('input, select, textarea').forEach(function(el) { if (el.name) data[el.name] = el.value; });
+      ajax('report_fraudrecord', data, function(err, r) {
+        if (err) { toast('Submit failed', 'error'); return; }
+        if (r && r.error) { toast(r.error, 'error'); return; }
+        toast('Report submitted', 'success');
+        location.reload();
+      });
+    },
+    confirmReport: function(ajaxUrl) {
+      var form = document.getElementById('fps-report-form');
+      var data = {};
+      if (form) form.querySelectorAll('input, select, textarea').forEach(function(el) { if (el.name) data[el.name] = el.value; });
+      confirm('Submit this fraud report?', function() {
+        ajax('report_fraudrecord', data, function(err, r) {
+          if (err) { toast('Report failed', 'error'); return; }
+          if (r && r.error) { toast(r.error, 'error'); return; }
+          toast('Fraud report confirmed and submitted', 'success');
+          location.reload();
+        });
+      });
+    },
     viewReportDetail: function(reportId, ajaxUrl) {
       // For now, show an alert with the report ID - can be expanded to a modal later
       ajax('get_api_key_detail', {report_id: reportId}, function(err, data) {
@@ -1305,6 +1329,19 @@
           toast('Report deleted', 'success');
           location.reload();
         });
+      });
+    },
+
+    // Statistics tab
+    setChartRange: function(days, ajaxUrl, btn) {
+      document.querySelectorAll('.fps-chart-range-btn').forEach(function(b) { b.classList.remove('active'); });
+      if (btn) btn.classList.add('active');
+      ajax('get_chart_data', {days: days}, function(err, data) {
+        if (err || !data) return;
+        // Update charts if FpsCharts is available
+        if (typeof FpsCharts !== 'undefined' && FpsCharts.update) {
+          FpsCharts.update(data);
+        }
       });
     },
 
