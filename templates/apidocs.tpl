@@ -75,7 +75,7 @@
 .fps-api-tier ul li{padding:4px 0;display:flex;align-items:center;gap:6px;}
 .fps-api-tier ul li i.y{color:#11998e;}.fps-api-tier ul li i.n{color:#ccc;}
 </style>
-<script>(function(){var s=localStorage.getItem('fps-pub-theme');if(s==='dark'){document.body.classList.add('fps-dark-mode');}else if(s!=='light'){var bg=window.getComputedStyle(document.body).backgroundColor;var m=bg.match(/\d+/g);if(m&&(parseInt(m[0])+parseInt(m[1])+parseInt(m[2]))<384){document.body.classList.add('fps-dark-mode');}}})();</script>
+<script>(function(){document.body.classList.add('fps-dark-mode');})();</script>
 {/literal}
 
 <div class="fps-api">
@@ -87,7 +87,6 @@
             Base URL: /modules/addons/fraud_prevention_suite/public/api.php?endpoint=
         </div>
         <div style="margin-top:16px;">
-            <button onclick="document.body.classList.toggle('fps-dark-mode');localStorage.setItem('fps-pub-theme',document.body.classList.contains('fps-dark-mode')?'dark':'light')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:0.85rem;"><i class="fas fa-adjust"></i> Theme</button>
         </div>
     </div>
 

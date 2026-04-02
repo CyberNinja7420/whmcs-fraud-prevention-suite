@@ -91,7 +91,7 @@
 .fps-pub-cta a:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.2);}
 @media(max-width:768px){.fps-pub-hero h1{font-size:1.6rem;}.fps-pub-hero p{font-size:1rem;}.fps-pub-stat-value{font-size:1.5rem;}}
 </style>
-<script>(function(){var s=localStorage.getItem('fps-pub-theme');if(s==='dark'){document.body.classList.add('fps-dark-mode');}else if(s!=='light'){var bg=window.getComputedStyle(document.body).backgroundColor;var m=bg.match(/\d+/g);if(m&&(parseInt(m[0])+parseInt(m[1])+parseInt(m[2]))<384){document.body.classList.add('fps-dark-mode');}}})();</script>
+<script>(function(){document.body.classList.add('fps-dark-mode');})();</script>
 {/literal}
 
 <div class="fps-pub">
@@ -114,7 +114,6 @@
             <a href="{$gdpr_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
                 <i class="fas fa-user-shield"></i> Data Removal
             </a>
-            <button onclick="document.body.classList.toggle('fps-dark-mode');localStorage.setItem('fps-pub-theme',document.body.classList.contains('fps-dark-mode')?'dark':'light')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:0.85rem;"><i class="fas fa-adjust"></i> Theme</button>
         </div>
     </div>
 

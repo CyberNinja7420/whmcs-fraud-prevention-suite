@@ -58,7 +58,7 @@
 .fps-gdpr-info p{font-size:0.9rem;color:var(--fps-pub-text-secondary);margin:0 0 8px;}
 .fps-gdpr-info ul{margin:8px 0;padding-left:20px;font-size:0.9rem;color:var(--fps-pub-text-secondary);}
 </style>
-<script>(function(){var s=localStorage.getItem('fps-pub-theme');if(s==='dark'){document.body.classList.add('fps-dark-mode');}else if(s!=='light'){var bg=window.getComputedStyle(document.body).backgroundColor;var m=bg.match(/\d+/g);if(m&&(parseInt(m[0])+parseInt(m[1])+parseInt(m[2]))<384){document.body.classList.add('fps-dark-mode');}}})();</script>
+<script>(function(){document.body.classList.add('fps-dark-mode');})();</script>
 {/literal}
 
 <div class="fps-gdpr">
@@ -67,7 +67,6 @@
         <h1><i class="fas fa-user-shield"></i> Data Removal Request</h1>
         <p>Request removal of your data from our fraud prevention system. GDPR Article 17 -- Right to Erasure.</p>
         <div style="margin-top:16px;">
-            <button onclick="document.body.classList.toggle('fps-dark-mode');localStorage.setItem('fps-pub-theme',document.body.classList.contains('fps-dark-mode')?'dark':'light')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:0.85rem;"><i class="fas fa-adjust"></i> Theme</button>
         </div>
     </div>
 
