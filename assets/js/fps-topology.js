@@ -370,6 +370,20 @@
             }, 30);
         },
 
+        setRange: function(range) {
+            // Convert range string (1h, 6h, 24h, 7d, 30d) to hours
+            const map = {'1h': 1, '6h': 6, '24h': 24, '7d': 168, '30d': 720};
+            this.currentHours = map[range] || 24;
+            this.loadData();
+        },
+
+        stopAutoRefresh: function() {
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+                this.refreshInterval = null;
+            }
+        },
+
         startAutoRefresh: function(interval) {
             if (this.refreshInterval) clearInterval(this.refreshInterval);
             this.refreshInterval = setInterval(() => this.loadData(), interval);

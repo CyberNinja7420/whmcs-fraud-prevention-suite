@@ -1284,6 +1284,8 @@
         toast(data && data.message ? data.message : 'Updated', 'success');
         var result = document.getElementById('fps-trust-result');
         if (result) { result.style.display = 'block'; result.innerHTML = '<div class="fps-alert fps-alert-success">' + _esc(data.message || 'Trust status updated') + '</div>'; }
+        // Reload the trust list to show the change
+        setTimeout(function() { location.reload(); }, 1000);
       });
     },
 

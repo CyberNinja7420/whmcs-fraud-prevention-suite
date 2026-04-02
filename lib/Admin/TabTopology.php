@@ -45,10 +45,10 @@ class TabTopology
             '30d' => '30 Days',
         ];
         foreach ($ranges as $val => $label) {
-            $active = $val === '24h' ? ' active' : '';
+            $active = $val === '24h' ? ' fps-filter-active fps-topo-range-btn' : ' fps-topo-range-btn';
             $safeVal   = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
             $safeLabel = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
-            echo '<button type="button" class="fps-btn fps-btn-sm fps-btn-outline' . $active . '" '
+            echo '<button type="button" class="fps-btn fps-btn-sm fps-btn-outline fps-topo-range-btn' . $active . '" '
                 . 'onclick="FpsAdmin.setTopologyRange(\'' . $safeVal . '\', \'' . $ajaxUrl . '\', this)">'
                 . $safeLabel . '</button>';
         }
