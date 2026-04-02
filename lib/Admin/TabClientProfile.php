@@ -21,23 +21,61 @@ class TabClientProfile
 {
     public function render(array $vars, string $modulelink): void
     {
-        $clientId = (int)($_GET['client_id'] ?? 0);
-        $ajaxUrl  = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+        $input = trim($_GET['client_id'] ?? '');
+        $clientId = 0;
 
-        $this->fpsRenderSearchForm($modulelink, $clientId);
+        if ($input !== '') {
+            if (is_numeric($input)) {
+                $clientId = (int)$input;
+            } else {
+                // Treat as email lookup
+                try {
+                    $client = Capsule::table('tblclients')
+                        ->where('email', $input)
+                        ->first(['id']);
+                    if ($client) {
+                        $clientId = (int)$client->id;
+                    }
+                } catch (\Throwable $e) {}
+
+                if ($clientId === 0) {
+                    // Try partial name match
+                    try {
+                        $client = Capsule::table('tblclients')
+                            ->where(function ($q) use ($input) {
+                                $q->where('email', 'LIKE', '%' . $input . '%')
+                                  ->orWhereRaw("CONCAT(firstname, ' ', lastname) LIKE ?", ['%' . $input . '%'])
+                                  ->orWhere('companyname', 'LIKE', '%' . $input . '%');
+                            })
+                            ->first(['id']);
+                        if ($client) {
+                            $clientId = (int)$client->id;
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
+        }
+
+        $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+
+        $this->fpsRenderSearchForm($modulelink, $clientId, $input);
 
         if ($clientId > 0) {
             $this->fpsRenderProfileContent($clientId, $modulelink, $ajaxUrl);
+        } elseif ($input !== '' && $clientId === 0) {
+            echo '<div style="padding:1.5rem;text-align:center;color:#f5576c;font-size:0.95rem;">'
+                . '<i class="fas fa-exclamation-triangle"></i> No client found matching "<strong>'
+                . htmlspecialchars($input, ENT_QUOTES, 'UTF-8') . '</strong>". Try a client ID, email, or name.</div>';
         }
     }
 
     /**
      * Client search input and load button.
      */
-    private function fpsRenderSearchForm(string $modulelink, int $currentId): void
+    private function fpsRenderSearchForm(string $modulelink, int $currentId, string $originalInput = ''): void
     {
         $safeLink = htmlspecialchars($modulelink, ENT_QUOTES, 'UTF-8');
-        $safeId   = $currentId > 0 ? (string)$currentId : '';
+        $safeId   = $originalInput !== '' ? htmlspecialchars($originalInput, ENT_QUOTES, 'UTF-8') : ($currentId > 0 ? (string)$currentId : '');
 
         $formHtml = <<<HTML
 <div class="fps-form-row">
