@@ -234,6 +234,30 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $country = trim($_POST['country'] ?? '');
         }
 
+        // Turnstile validation (if enabled for checkout)
+        try {
+            $libDir = __DIR__ . '/lib/';
+            if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsConfig')) {
+                if (file_exists($libDir . 'FpsConfig.php')) require_once $libDir . 'FpsConfig.php';
+            }
+            if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsTurnstileValidator')) {
+                if (file_exists($libDir . 'FpsTurnstileValidator.php')) require_once $libDir . 'FpsTurnstileValidator.php';
+            }
+            if (class_exists('\\FraudPreventionSuite\\Lib\\FpsTurnstileValidator')) {
+                $tsValidator = new \FraudPreventionSuite\Lib\FpsTurnstileValidator();
+                if ($tsValidator->isEnabled() && $tsValidator->isFormProtected('checkout')) {
+                    $tsToken = $_POST['cf-turnstile-response'] ?? '';
+                    $tsResult = $tsValidator->validate($tsToken, $ip);
+                    if (!$tsResult['success'] && !in_array('network-error-failopen', $tsResult['error_codes'] ?? [])) {
+                        logActivity("Fraud Prevention: Turnstile FAILED at checkout -- IP: {$ip}, errors: " . implode(', ', $tsResult['error_codes'] ?? []));
+                        return ['Bot protection verification failed. Please refresh the page and try again. Reference: FPS-TS-' . date('ymdHi')];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fail open on Turnstile errors to not block real users
+        }
+
         // Process fingerprint data if submitted
         $fingerprintData = $_POST['fps_fingerprint'] ?? '';
 
@@ -589,77 +613,150 @@ add_hook('ClientAreaPageCart', 1, function ($vars) {
 // 6b. ClientAreaHeaderOutput -- Inject Turnstile API script
 // ---------------------------------------------------------------------------
 add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
+    $output = '';
+
+    // Turnstile CAPTCHA script (only when enabled + key configured)
     try {
         $turnstileEnabled = Capsule::table('mod_fps_settings')
             ->where('setting_key', 'turnstile_enabled')
             ->value('setting_value');
 
-        if ($turnstileEnabled !== '1') return '';
+        if ($turnstileEnabled === '1') {
+            $siteKey = Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'turnstile_site_key')
+                ->value('setting_value');
 
-        $siteKey = Capsule::table('mod_fps_settings')
-            ->where('setting_key', 'turnstile_site_key')
-            ->value('setting_value');
-
-        if (empty($siteKey)) return '';
-
-        $output = '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>';
+            if (!empty($siteKey)) {
+                $output .= '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>';
+            }
+        }
     } catch (\Throwable $e) {
-        $output = '';
+        // Turnstile load failed silently - CSS still loads below
     }
 
-    // Inject site-wide CSS fixes for light background with Futuristic style text colors
+    // Inject site-wide CSS for vibrant light theme (EVPS 1000X palette)
+    // Palette: Navy #0f172a headings, Slate #334155 body, Brand Green #16a34a,
+    //   Accent Blue #2563eb links, Clean White #ffffff surfaces, Warm Gray #f8fafc bg
     $output .= '<style>'
-        // Body and main text
-        . 'body{color:#2c3e50!important}'
-        . '.main-content,.main-body,.main-content p,.main-content li,.main-content td,.main-content span,.main-content div{color:#2c3e50!important}'
-        . 'h1,h2,h3,h4,h5,h6,.main-content h1,.main-content h2,.main-content h3,.main-content h4,.main-content h5{color:#1a2040!important}'
-        // Links
-        . '.main-content a:not(.btn):not([class*="btn"]){color:#4a6cf7!important}'
-        // Muted text
-        . '.text-muted,small,.main-content .text-muted,.main-content small{color:#6b7c93!important}'
-        // Cards and panels
-        . '.package,.card,.panel,.well,.alert{color:#2c3e50!important}'
-        // News section
-        . '.news-title,.news-title a,.timeline-title,.timeline-title a{color:#1a2040!important}'
-        . '.timeline-body,.timeline-body p{color:#3a4a60!important}'
-        // Footer
-        . '.footer,.footer-content,.footer a{color:#5a6b80!important}'
-        // Nav - dark text on white header
-        . '.main-menu a,.nav-link,.navbar-nav a,.item-text,.main-menu .item-text{color:#2c3e50!important}'
-        . '.main-menu a:hover,.nav-link:hover,.main-menu a:hover .item-text{color:#25a75b!important}'
-        // Top utility bar (View Cart, USD)
-        . '.header-top .item-text,.header-top a,.utility-nav a,.utility-nav .item-text{color:#5a6b80!important}'
-        // Page header banner (keep dark with white text)
-        . '.page-head{background:linear-gradient(135deg,#2c3e6b,#3a5088)!important}'
-        . '.page-head h1,.page-head .breadcrumbs,.page-head .breadcrumbs a,.page-head .breadcrumb li,.page-head .breadcrumb a{color:#fff!important}'
-        // Sidebar
-        . '.sidebar a,.sidebar .list-group-item,.sidebar-content,.sidebar-categories a,.sidebar-category a{color:#2c3e50!important}'
-        . '.sidebar .list-group-item{background:#fff!important;border-color:#e2e8f0!important}'
-        . '.sidebar .list-group-item.active,.sidebar .list-group-item:hover{background:#f0f4f8!important}'
-        // Section titles (white text on light bg = invisible)
-        . '.section-title,.section-heading,.widget-title,.panel-heading,.panel-title{color:#1a2040!important}'
-        // Timeline / news / announcements
-        . '.timeline-title,.timeline-title a,.timeline-heading h4,.timeline-heading h5,.ann-title,.ann-title a{color:#1a2040!important}'
-        . '.timeline-body,.timeline-body p,.ann-body,.ann-body p,.ann-desc{color:#3a4a60!important}'
-        . '.timeline-date,.date-badge,.ann-date{color:#6b7c93!important}'
-        . '.timeline-panel,.ann-card,.news-item{background:#fff!important;border:1px solid #e2e8f0!important}'
-        // Card/package text
-        . '.package-name,.package-price,.package-desc{color:#2c3e50!important}'
-        . '.package .list-group-item{color:#3a4a60!important;background:#fff!important}'
-        // Modal headers (keep dark text)
-        . '.modal-title{color:#1a2040!important}'
-        . '.modal-body,.modal-body p{color:#2c3e50!important}'
-        // Form labels
-        . 'label,.control-label,.form-label{color:#2c3e50!important}'
-        . '.form-control{color:#2c3e50!important;background:#fff!important;border-color:#d2d6dc!important}'
-        // Dropdown menus
-        . '.dropdown-menu{background:#fff!important;border:1px solid rgba(0,0,0,0.1)!important}'
-        . '.dropdown-menu a,.dropdown-item{color:#2c3e50!important}'
-        . '.dropdown-menu a:hover,.dropdown-item:hover{background:#f0f2f5!important}'
-        // Alert boxes
-        . '.alert{color:#2c3e50!important}'
-        // Table text
-        . 'table td,table th,.table td,.table th{color:#2c3e50!important}'
+        // === ROOT CSS VARIABLE OVERRIDES (fixes everything at source) ===
+        . ':root{'
+        . '--body-bg:#f8fafc!important;'
+        . '--body-color:#334155!important;'
+        . '--text-color:#334155!important;'
+        . '--heading-color:#0f172a!important;'
+        . '--link-color:#2563eb!important;'
+        . '--nav-link-color:#1e293b!important;'
+        . '--card-bg:#fff!important;'
+        . '--tile-bg:#fff!important;'
+        . '--border-color:#e2e8f0!important;'
+        . '--svg-icon-color-1:#16a34a!important;'
+        . '--svg-icon-color-2:#15803d!important;'
+        . '--svg-icon-color-3:#0f172a!important;'
+        . '--svg-icon-color-4:#64748b!important;'
+        . '--svg-icon-color-5:#cbd5e1!important;'
+        . '--footer-bg:#0f172a!important;'
+        . '--footer-color:#94a3b8!important;'
+        . '--primary:#16a34a!important;'
+        . '--secondary:#2563eb!important;'
+        . '}'
+        // === GLOBAL TEXT ===
+        . 'body{color:#334155!important;background:#f8fafc!important}'
+        . '.main-content,.main-body,.main-content p,.main-content li,.main-content td,.main-content span,.main-content div{color:#334155!important}'
+        . 'h1,h2,h3,h4,h5,h6,.main-content h1,.main-content h2,.main-content h3,.main-content h4,.main-content h5{color:#0f172a!important;font-weight:700!important}'
+        // === LINKS - vibrant blue ===
+        . '.main-content a:not(.btn):not([class*="btn"]){color:#2563eb!important;transition:color .2s!important}'
+        . '.main-content a:not(.btn):not([class*="btn"]):hover{color:#1d4ed8!important}'
+        // === MUTED TEXT - warm not gray ===
+        . '.text-muted,small,.main-content .text-muted,.main-content small{color:#64748b!important}'
+        // === CARDS & PANELS - crisp white with colored shadows ===
+        . '.package,.card,.panel,.well{color:#334155!important;background:#fff!important;border:1px solid #e2e8f0!important;box-shadow:0 1px 3px rgba(15,23,42,0.06),0 1px 2px rgba(15,23,42,0.04)!important;border-radius:12px!important}'
+        . '.card:hover,.panel:hover,.package:hover{box-shadow:0 4px 12px rgba(37,99,235,0.08),0 2px 4px rgba(15,23,42,0.04)!important}'
+        // === ALERTS - keep functional but crisp ===
+        . '.alert{color:#334155!important;border-radius:10px!important}'
+        // === NEWS / TIMELINE ===
+        . '.news-title,.news-title a,.timeline-title,.timeline-title a,.timeline-heading h4,.timeline-heading h5,.ann-title,.ann-title a{color:#0f172a!important;font-weight:700!important}'
+        . '.timeline-body,.timeline-body p,.ann-body,.ann-body p,.ann-desc{color:#475569!important}'
+        . '.timeline-date,.date-badge,.ann-date{color:#16a34a!important;font-weight:600!important}'
+        . '.timeline-panel,.ann-card,.news-item{background:#fff!important;border:1px solid #e2e8f0!important;border-radius:12px!important;box-shadow:0 1px 3px rgba(15,23,42,0.06)!important}'
+        // === FOOTER ===
+        . '.footer,.footer-content{color:#94a3b8!important}'
+        . '.footer a{color:#cbd5e1!important}'
+        . '.footer a:hover{color:#16a34a!important}'
+        // === NAVIGATION - catch ALL nav links including classless ones ===
+        . '.main-menu a,.nav-link,.navbar-nav a,.item-text,.main-menu .item-text,.menu-primary a,.menu a{color:#1e293b!important;font-weight:500!important}'
+        . '.main-menu a:hover,.nav-link:hover,.main-menu a:hover .item-text,.menu-primary a:hover,.menu a:hover{color:#16a34a!important}'
+        . '.main-menu .active .item-text,.nav-link.active{color:#16a34a!important}'
+        // === TOP UTILITY BAR ===
+        . '.header-top .item-text,.header-top a,.utility-nav a,.utility-nav .item-text{color:#64748b!important}'
+        . '.header-top a:hover,.utility-nav a:hover{color:#16a34a!important}'
+        // === PAGE HEADER BANNER - rich gradient ===
+        . '.page-head{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#16a34a 150%)!important;padding:28px 0 22px!important}'
+        . '.page-head h1{color:#fff!important;font-weight:800!important;font-size:1.4rem!important}'
+        . '.page-head .breadcrumbs,.page-head .breadcrumbs a,.page-head .breadcrumb li,.page-head .breadcrumb a{color:rgba(255,255,255,0.8)!important}'
+        // === SIDEBAR + LIST GROUPS (store categories, support sidebar) ===
+        . '.sidebar a,.sidebar .list-group-item,.sidebar-content,.sidebar-categories a,.sidebar-category a{color:#334155!important}'
+        . '.list-group-item,.list-group-item a{color:#334155!important;background:#fff!important;border-color:#e2e8f0!important}'
+        . '.list-group-item.active,.list-group-item.active a{background:#f0fdf4!important;border-left:3px solid #16a34a!important;color:#16a34a!important}'
+        . '.list-group-item:hover,.list-group-item:hover a{background:#f0fdf4!important;color:#16a34a!important}'
+        // === SECTION TITLES ===
+        . '.section-title,.section-heading,.widget-title,.panel-heading,.panel-title{color:#0f172a!important;font-weight:700!important}'
+        // === PACKAGE / PRODUCT CARDS ===
+        . '.package-name{color:#0f172a!important;font-weight:700!important}'
+        . '.package-price{color:#16a34a!important;font-weight:800!important}'
+        . '.package-desc{color:#475569!important}'
+        . '.package .list-group-item{color:#475569!important;background:#fff!important;border-color:#f1f5f9!important}'
+        // === MODALS ===
+        . '.modal-title{color:#0f172a!important;font-weight:700!important}'
+        . '.modal-body,.modal-body p{color:#334155!important}'
+        . '.modal-content{border-radius:16px!important;border:none!important;box-shadow:0 20px 60px rgba(15,23,42,0.15)!important}'
+        // === FORMS - clean with focus states ===
+        . 'label,.control-label,.form-label{color:#1e293b!important;font-weight:600!important}'
+        . '.form-control{color:#1e293b!important;background:#fff!important;border:1.5px solid #cbd5e1!important;border-radius:8px!important;transition:border-color .2s,box-shadow .2s!important}'
+        . '.form-control:focus{border-color:#2563eb!important;box-shadow:0 0 0 3px rgba(37,99,235,0.1)!important}'
+        // === DROPDOWNS ===
+        . '.dropdown-menu{background:#fff!important;border:1px solid #e2e8f0!important;border-radius:10px!important;box-shadow:0 8px 24px rgba(15,23,42,0.1)!important}'
+        . '.dropdown-menu a,.dropdown-item{color:#334155!important}'
+        . '.dropdown-menu a:hover,.dropdown-item:hover{background:#f0fdf4!important;color:#16a34a!important}'
+        // === TABLES ===
+        . 'table td,table th,.table td,.table th{color:#334155!important}'
+        . '.table th{color:#0f172a!important;font-weight:700!important;background:#f8fafc!important}'
+        . '.table-striped tbody tr:nth-of-type(odd){background:#f8fafc!important}'
+        . '.table-hover tbody tr:hover{background:#f0fdf4!important}'
+        // === BUTTONS - vibrant green primary ===
+        . '.btn-primary,.btn-success{background:linear-gradient(135deg,#16a34a,#15803d)!important;border:none!important;color:#fff!important;border-radius:8px!important;font-weight:600!important;box-shadow:0 2px 8px rgba(22,163,74,0.25)!important}'
+        . '.btn-primary:hover,.btn-success:hover{background:linear-gradient(135deg,#15803d,#166534)!important;box-shadow:0 4px 12px rgba(22,163,74,0.35)!important;transform:translateY(-1px)!important}'
+        . '.btn-info{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;border:none!important;color:#fff!important;border-radius:8px!important}'
+        . '.btn-default,.btn-secondary{background:#fff!important;color:#334155!important;border:1.5px solid #cbd5e1!important;border-radius:8px!important}'
+        . '.btn-default:hover,.btn-secondary:hover{background:#f8fafc!important;border-color:#2563eb!important;color:#2563eb!important}'
+        // === BADGES ===
+        . '.badge-success,.label-success{background:#16a34a!important}'
+        . '.badge-info,.label-info{background:#2563eb!important}'
+        . '.badge-warning,.label-warning{background:#f59e0b!important}'
+        . '.badge-danger,.label-danger{background:#ef4444!important}'
+        // === RSTHEMES TILE CARDS (How can we help) ===
+        . '.tile,.tile-home{background:#fff!important;background-image:none!important;border:1px solid #e2e8f0!important;border-radius:14px!important;box-shadow:0 2px 8px rgba(15,23,42,0.06)!important;color:#334155!important}'
+        . '.tile:hover,.tile-home:hover{box-shadow:0 6px 20px rgba(22,163,74,0.1)!important;border-color:#16a34a!important;transform:translateY(-2px)!important}'
+        . '.tile-title{color:#0f172a!important;font-weight:700!important}'
+        . '.tile .lm,.tile i,.tile svg{color:#16a34a!important}'
+        // SVG icons now fixed via --svg-icon-color CSS variables above
+        // === RSTHEMES ANNOUNCEMENTS / NEWS LIST ===
+        . '.announcements-list,.announcements-list.list-group{background:#fff!important;background-image:none!important;border:1px solid #e2e8f0!important;border-radius:14px!important;box-shadow:0 2px 8px rgba(15,23,42,0.06)!important;overflow:hidden!important}'
+        . '.list-group-item-heading{color:#0f172a!important;font-weight:700!important}'
+        . '.list-group-item-text,.list-group-item-text p{color:#475569!important}'
+        . '.list-group-item-link{background:transparent!important;border-bottom:1px solid #f1f5f9!important}'
+        . '.list-group-item-link:hover{background:#f8fafc!important}'
+        // === RSTHEMES NAV - dropdown toggles still white ===
+        . '.dropdown-toggle,.dropdown-toggle .item-text{color:#1e293b!important}'
+        . '.dropdown-toggle:hover,.dropdown-toggle:hover .item-text{color:#16a34a!important}'
+        . '.nav-item-cart a,.nav-item-cart .item-text{color:#64748b!important}'
+        // === RSTHEMES DATE BADGES in news ===
+        . '.list-group-item .date,.ann-date-badge{color:#16a34a!important;font-weight:600!important;font-size:0.8rem!important}'
+        // === FOOTER - more visible ===
+        . 'footer,footer *,.site-footer,.site-footer *{color:#64748b!important}'
+        . 'footer a,.site-footer a{color:#475569!important}'
+        . 'footer a:hover,.site-footer a:hover{color:#16a34a!important}'
+        // === READ MORE BUTTON in news ===
+        . '.btn-read-more,.list-group-item .btn{color:#2563eb!important;border-color:#2563eb!important}'
         . '</style>';
 
     // Inject FPS-specific CSS on FPS module pages
@@ -688,6 +785,35 @@ add_hook('ClientAreaFooterOutput', 1, function ($vars) {
         if ($enabled !== '1') return '';
 
         return '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-fingerprint.js" defer></script>';
+    } catch (\Throwable $e) {
+        return '';
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 7b. ClientAreaFooterOutput -- Inject Turnstile widgets into protected forms
+// ---------------------------------------------------------------------------
+add_hook('ClientAreaFooterOutput', 2, function ($vars) {
+    try {
+        $libDir = __DIR__ . '/lib/';
+        // Require classes if not yet loaded
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsConfig')) {
+            if (file_exists($libDir . 'FpsConfig.php')) {
+                require_once $libDir . 'FpsConfig.php';
+            } else {
+                return '';
+            }
+        }
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsTurnstileValidator')) {
+            if (file_exists($libDir . 'FpsTurnstileValidator.php')) {
+                require_once $libDir . 'FpsTurnstileValidator.php';
+            } else {
+                return '';
+            }
+        }
+
+        $validator = new \FraudPreventionSuite\Lib\FpsTurnstileValidator();
+        return $validator->getInjectionScript();
     } catch (\Throwable $e) {
         return '';
     }
