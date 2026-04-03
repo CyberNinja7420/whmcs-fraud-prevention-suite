@@ -1,264 +1,266 @@
 /**
- * FPS Lagom2 Theme Compatibility
- * Overrides and enhancements for FPS module pages within the Lagom2 WHMCS theme.
- * Loaded AFTER the main theme CSS to ensure our styles take precedence.
+ * FPS Lagom2 Theme Compatibility - EVPS 1000X Palette
+ * Vibrant light theme: Navy headings, Slate body, Green accents, Blue links
+ * Loaded AFTER the main theme CSS on FPS module pages only.
  */
 
 /* ============================================================
-   DARK THEME CLARITY - brighter text, cleaner backgrounds
+   COLOR VARIABLES (reference only - not used as CSS vars)
+   Navy:    #0f172a  (headings)
+   Slate:   #334155  (body text)
+   Green:   #16a34a  (primary/brand)
+   Blue:    #2563eb  (links/info)
+   Surface: #ffffff  (cards)
+   Page BG: #f8fafc  (background)
+   Border:  #e2e8f0  (subtle borders)
    ============================================================ */
-
-/* Text readability on FPS pages - works on both light and dark backgrounds */
-.main-body,
-.main-content {
-  color: #2c3e50 !important;
-}
-.main-content h1, .main-content h2, .main-content h3, .main-content h4 {
-  color: #1a1a2e !important;
-}
-.main-content a:not(.btn):not(.tier-btn) {
-  color: #4a6cf7 !important;
-}
-
-/* All text in FPS areas should be bright enough to read easily */
-body .main-content h1, body .main-content h2, body .main-content h3,
-body .main-content h4, body .main-content h5 {
-  color: #e8ecf4 !important;
-}
-
-body .main-content p,
-body .main-content li,
-body .main-content td,
-body .main-content span {
-  color: #c0c8e0 !important;
-}
-
-/* Links should pop on dark backgrounds */
-body .main-content a:not(.btn):not(.tier-btn) {
-  color: #7b93f0 !important;
-}
-body .main-content a:not(.btn):not(.tier-btn):hover {
-  color: #9bb0ff !important;
-}
-
-/* Card backgrounds - white cards on light background */
-body .main-content .fps-pub-stat,
-body .main-content .fps-pub-tier,
-body .main-content .fps-pub-feature-card {
-  background: #fff !important;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
-  color: #2c3e50 !important;
-}
-
-/* Clean visible borders */
-body .main-content .fps-pub-stat,
-body .main-content .fps-pub-tier,
-body .main-content .fps-pub-feature-card,
-body .main-content .fps-pub-endpoint {
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-}
-
-/* Card text on white backgrounds */
-body .main-content .fps-pub-stat-label {
-  color: #6b7c93 !important;
-}
-body .main-content .fps-pub-feature-card h3 {
-  color: #1a2040 !important;
-}
-body .main-content .fps-pub-feature-card p {
-  color: #5a6b80 !important;
-}
 
 /* ============================================================
-   PUBLIC PAGES - Visual polish for Lagom2 dark theme
+   PUBLIC PAGES - Hero, Stats, Features, Pricing, API Docs
    ============================================================ */
 
-/* Hero section - ensure gradient overlaps Lagom2's page header */
+/* Hero section - rich gradient with glow */
 .fps-pub-hero {
-  border-radius: 16px !important;
-  margin: -10px 0 30px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  border-radius: 20px !important;
+  margin: -10px 0 36px !important;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12), 0 0 60px rgba(22, 163, 74, 0.06) !important;
+  overflow: hidden !important;
+}
+.fps-pub-hero h1 {
+  color: #fff !important;
+  font-weight: 900 !important;
+}
+.fps-pub-hero p {
+  color: rgba(255, 255, 255, 0.85) !important;
 }
 
-/* Stat cards - elevated on lighter background */
+/* Stat cards - white with green accent shadow */
 .fps-pub-stat {
-  background: rgba(70, 88, 120, 0.8) !important;
-  border: 1px solid rgba(160, 180, 230, 0.15) !important;
-  border-radius: 12px !important;
-  padding: 20px 16px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  padding: 22px 18px !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 }
 .fps-pub-stat:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.1), 0 2px 8px rgba(15, 23, 42, 0.06) !important;
 }
 .fps-pub-stat-value {
-  font-size: 2rem !important;
-  font-weight: 800 !important;
+  font-size: 2.2rem !important;
+  font-weight: 900 !important;
   line-height: 1.1 !important;
+  color: #0f172a !important;
+  background: linear-gradient(135deg, #16a34a, #2563eb) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
 }
 .fps-pub-stat-label {
-  font-size: 0.68rem !important;
+  font-size: 0.7rem !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  opacity: 0.7 !important;
-  margin-top: 6px !important;
+  letter-spacing: 0.1em !important;
+  color: #64748b !important;
+  font-weight: 600 !important;
+  margin-top: 8px !important;
 }
 
-/* Detection engine cards - lighter than body */
+/* Detection engine cards - white with hover border */
 .fps-pub-feature-card {
-  background: rgba(65, 82, 115, 0.8) !important;
-  border: 1px solid rgba(160, 180, 230, 0.15) !important;
-  border-radius: 12px !important;
-  padding: 24px 20px !important;
-  transition: border-color 0.2s ease, transform 0.2s ease !important;
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  padding: 28px 22px !important;
+  transition: border-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
 }
 .fps-pub-feature-card:hover {
-  border-color: rgba(102, 126, 234, 0.25) !important;
-  transform: translateY(-2px) !important;
+  border-color: #16a34a !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.08) !important;
 }
 .fps-pub-feature-card h3 {
-  font-size: 0.95rem !important;
-  font-weight: 700 !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
   margin-bottom: 8px !important;
 }
 .fps-pub-feature-card p {
-  font-size: 0.82rem !important;
-  line-height: 1.5 !important;
-  opacity: 0.7 !important;
+  font-size: 0.85rem !important;
+  line-height: 1.6 !important;
+  color: #475569 !important;
+}
+
+/* Feature card icons */
+.fps-pub-feature-card .icon,
+.fps-pub-feature-card i {
+  color: #16a34a !important;
+  font-size: 1.4rem !important;
+  margin-bottom: 12px !important;
 }
 
 /* Section headings */
 .fps-pub-section h2,
 .fps-pub-section-title {
-  font-size: 1.4rem !important;
-  font-weight: 800 !important;
-  color: #e0e6f0 !important;
+  font-size: 1.5rem !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
   margin-bottom: 8px !important;
 }
 .fps-pub-section .subtitle {
   font-size: 0.9rem !important;
-  opacity: 0.6 !important;
-  margin-bottom: 24px !important;
+  color: #64748b !important;
+  margin-bottom: 28px !important;
 }
 
-/* API tier cards - elevated */
+/* API tier cards - white with colored top border */
 .fps-pub-tier {
-  background: rgba(65, 82, 115, 0.8) !important;
-  border: 1px solid rgba(160, 180, 230, 0.15) !important;
-  border-radius: 14px !important;
-  padding: 28px 24px !important;
-  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-top: 3px solid #cbd5e1 !important;
+  border-radius: 16px !important;
+  padding: 32px 26px !important;
+  transition: transform 0.2s ease, box-shadow 0.25s ease !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
 }
 .fps-pub-tier:hover {
-  transform: translateY(-3px) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1) !important;
 }
 .fps-pub-tier.featured {
-  border-color: rgba(102, 126, 234, 0.4) !important;
-  box-shadow: 0 0 20px rgba(102, 126, 234, 0.1) !important;
+  border-top-color: #16a34a !important;
+  box-shadow: 0 4px 16px rgba(22, 163, 74, 0.1) !important;
+}
+.fps-pub-tier.featured:hover {
+  box-shadow: 0 12px 32px rgba(22, 163, 74, 0.15) !important;
 }
 .fps-pub-tier h3 {
   font-size: 1.2rem !important;
   font-weight: 800 !important;
+  color: #0f172a !important;
 }
 .fps-pub-tier .price {
-  font-size: 1.8rem !important;
+  font-size: 2rem !important;
   font-weight: 900 !important;
-  margin: 8px 0 16px !important;
+  color: #16a34a !important;
+  margin: 10px 0 18px !important;
 }
 .fps-pub-tier .price span {
-  font-size: 0.8rem !important;
-  font-weight: 400 !important;
-  opacity: 0.5 !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+}
+.fps-pub-tier ul li {
+  color: #475569 !important;
+  font-size: 0.88rem !important;
+  padding: 4px 0 !important;
+}
+.fps-pub-tier ul li::before {
+  color: #16a34a !important;
 }
 
 /* Tier buttons */
 .tier-btn {
   display: inline-block !important;
-  padding: 10px 24px !important;
-  border-radius: 8px !important;
+  padding: 12px 28px !important;
+  border-radius: 10px !important;
   font-weight: 700 !important;
   font-size: 0.9rem !important;
   text-decoration: none !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
-  margin-top: 12px !important;
+  transition: transform 0.15s ease, box-shadow 0.2s ease !important;
+  margin-top: 16px !important;
+  letter-spacing: 0.01em !important;
 }
 .tier-btn:hover {
-  transform: translateY(-1px) !important;
+  transform: translateY(-2px) !important;
 }
 .tier-btn.primary {
-  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  background: linear-gradient(135deg, #16a34a, #15803d) !important;
   color: #fff !important;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3) !important;
+}
+.tier-btn.primary:hover {
+  box-shadow: 0 6px 20px rgba(22, 163, 74, 0.4) !important;
 }
 .tier-btn.outline {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: #e0e6f0 !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: #fff !important;
+  color: #334155 !important;
+  border: 2px solid #e2e8f0 !important;
+}
+.tier-btn.outline:hover {
+  border-color: #16a34a !important;
+  color: #16a34a !important;
 }
 
-/* API endpoint sections - clear and readable */
+/* API endpoint sections */
 .fps-pub-endpoint {
-  background: rgba(50, 65, 95, 0.6) !important;
-  border: 1px solid rgba(140, 160, 220, 0.12) !important;
-  border-radius: 8px !important;
-  padding: 12px 16px !important;
-  margin-bottom: 8px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 14px 18px !important;
+  margin-bottom: 10px !important;
+  transition: background 0.2s !important;
+}
+.fps-pub-endpoint:hover {
+  background: #f0fdf4 !important;
 }
 .fps-pub-endpoint .method-badge {
   font-weight: 800 !important;
   font-size: 0.72rem !important;
-  padding: 2px 8px !important;
-  border-radius: 4px !important;
+  padding: 3px 10px !important;
+  border-radius: 6px !important;
   letter-spacing: 0.04em !important;
 }
 
 /* Provider badge pills */
 .fps-pub-provider-badge {
-  background: rgba(102, 126, 234, 0.1) !important;
-  border: 1px solid rgba(102, 126, 234, 0.2) !important;
-  color: #8892b0 !important;
+  background: #f0fdf4 !important;
+  border: 1px solid #bbf7d0 !important;
+  color: #16a34a !important;
   border-radius: 20px !important;
-  padding: 4px 12px !important;
+  padding: 4px 14px !important;
   font-size: 0.75rem !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
 }
 
-/* Code blocks within API docs */
+/* Code blocks */
 .fps-pub-code-block {
-  background: #0d1117 !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
-  border-radius: 8px !important;
-  padding: 16px !important;
-  font-family: 'Courier New', monospace !important;
+  background: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 10px !important;
+  padding: 18px !important;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important;
   font-size: 0.82rem !important;
-  line-height: 1.6 !important;
+  line-height: 1.7 !important;
   overflow-x: auto !important;
+  color: #e2e8f0 !important;
 }
 
 /* Bottom CTA section */
 .fps-pub-cta {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.06)) !important;
-  border-radius: 16px !important;
-  padding: 48px 32px !important;
+  background: linear-gradient(135deg, #0f172a, #1e3a5f) !important;
+  border-radius: 20px !important;
+  padding: 52px 36px !important;
   text-align: center !important;
-  margin-top: 40px !important;
+  margin-top: 48px !important;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.2) !important;
 }
 .fps-pub-cta h2 {
-  font-size: 1.6rem !important;
-  font-weight: 800 !important;
+  font-size: 1.8rem !important;
+  font-weight: 900 !important;
   color: #fff !important;
+}
+.fps-pub-cta p {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 /* ============================================================
-   HEADER/BANNER - Compact page header on FPS pages
+   HEADER/BANNER - Compact on FPS pages
    ============================================================ */
 
-/* Shrink the Lagom2 page banner on FPS module pages */
 .page-head {
-  padding: 20px 0 16px !important;
+  padding: 22px 0 18px !important;
   min-height: auto !important;
 }
 .page-head h1 {
@@ -269,54 +271,57 @@ body .main-content .fps-pub-feature-card p {
 .page-head .breadcrumb {
   font-size: 0.75rem !important;
   margin-top: 4px !important;
-  opacity: 0.6 !important;
 }
 
-/* Make the entire page header banner thinner */
+/* Thinner site banner */
 .site-banner,
 .banner {
-  padding: 24px 0 20px !important;
+  padding: 26px 0 22px !important;
   min-height: auto !important;
 }
 .site-banner h1,
 .banner-title {
   font-size: 1.4rem !important;
+  font-weight: 800 !important;
 }
 .site-banner p,
 .banner-desc p {
   font-size: 0.85rem !important;
   margin: 4px 0 0 !important;
+  color: rgba(255, 255, 255, 0.75) !important;
 }
 
 /* ============================================================
-   ADMIN MODULE - Lagom2 admin panel adjustments
+   ADMIN MODULE - Clean card styling
    ============================================================ */
 
-/* Make FPS admin cards blend with WHMCS admin theme */
 .fps-card {
-  border-radius: 10px !important;
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
 }
 .fps-card-header {
-  border-radius: 10px 10px 0 0 !important;
+  border-radius: 12px 12px 0 0 !important;
 }
-
-/* Ensure text is readable on WHMCS admin dark sidebar */
 .fps-text-muted {
-  color: #8892b0 !important;
+  color: #64748b !important;
 }
 
 /* ============================================================
-   RESPONSIVE ADJUSTMENTS
+   RESPONSIVE
    ============================================================ */
 
 @media (max-width: 768px) {
   .fps-pub-stat-value {
-    font-size: 1.5rem !important;
+    font-size: 1.6rem !important;
   }
   .fps-pub-hero h1 {
-    font-size: 1.6rem !important;
+    font-size: 1.5rem !important;
   }
   .fps-pub-tier {
     margin-bottom: 16px !important;
+  }
+  .fps-pub-cta {
+    padding: 36px 20px !important;
   }
 }

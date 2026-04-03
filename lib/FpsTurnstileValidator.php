@@ -252,19 +252,27 @@ class FpsTurnstileValidator
             if (!form) continue;
             // Check if already has Turnstile widget
             if (form.querySelector('.cf-turnstile')) continue;
-            // Find submit button
-            var submit = form.querySelector('input[type="submit"], button[type="submit"], .btn-primary');
-            if (!submit) submit = form.querySelector('button');
-            if (!submit) continue;
-            // Create Turnstile container
+            // Find best insertion point:
+            // 1. Try form footer / submit section
+            // 2. Fall back to before submit button
+            var target = form.querySelector('.form-actions, .modal-footer, .order-summary, [class*="submit"], [class*="checkout-submit"]');
+            var insertBefore = true;
+            if (!target) {
+                target = form.querySelector('input[type="submit"], button[type="submit"]');
+                if (!target) target = form.querySelector('.btn-primary, button');
+            }
+            if (!target) continue;
+            // Create Turnstile container with proper sizing
+            var wrapper = document.createElement('div');
+            wrapper.style.cssText = 'clear:both;width:100%;padding:12px 0;display:flex;justify-content:center;overflow:visible;';
             var div = document.createElement('div');
             div.className = 'cf-turnstile';
             div.setAttribute('data-sitekey', siteKey);
-            div.setAttribute('data-theme', 'auto');
-            div.setAttribute('data-size', 'flexible');
-            div.style.marginBottom = '12px';
-            // Insert before submit
-            submit.parentNode.insertBefore(div, submit);
+            div.setAttribute('data-theme', 'light');
+            div.setAttribute('data-size', 'normal');
+            wrapper.appendChild(div);
+            // Insert the wrapper before the target element
+            target.parentNode.insertBefore(wrapper, target);
             injected = true;
         }
     }

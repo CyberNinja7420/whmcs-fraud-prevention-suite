@@ -1,97 +1,104 @@
 {literal}
 <style>
+/* FPS Overview - EVPS 1000X Light Palette */
+/* Navy #0f172a headings, Slate #334155 body, Green #16a34a primary, Blue #2563eb accent */
 :root {
-  --fps-pub-bg: #ffffff;
-  --fps-pub-text: #1a1a2e;
-  --fps-pub-text-secondary: #555;
-  --fps-pub-text-muted: #888;
+  --fps-pub-bg: #f8fafc;
+  --fps-pub-text: #334155;
+  --fps-pub-text-secondary: #475569;
+  --fps-pub-text-muted: #64748b;
   --fps-pub-card-bg: #ffffff;
-  --fps-pub-card-border: #e8ecf4;
-  --fps-pub-card-shadow: rgba(0,0,0,0.08);
+  --fps-pub-card-border: #e2e8f0;
+  --fps-pub-card-shadow: rgba(15,23,42,0.06);
   --fps-pub-input-bg: #ffffff;
-  --fps-pub-input-border: #ddd;
-  --fps-pub-table-header: #f8f9fc;
-  --fps-pub-table-border: #f0f0f5;
-  --fps-pub-code-bg: #1a1a2e;
-  --fps-pub-code-text: #b0b8d1;
+  --fps-pub-input-border: #cbd5e1;
+  --fps-pub-table-header: #f8fafc;
+  --fps-pub-table-border: #f1f5f9;
+  --fps-pub-code-bg: #0f172a;
+  --fps-pub-code-text: #e2e8f0;
 }
-.fps-dark-mode {
-  --fps-pub-bg: #1a1a3e;
-  --fps-pub-text: #f0f0ff;
-  --fps-pub-text-secondary: #dde4ff;
-  --fps-pub-text-muted: #b8c0e0;
-  --fps-pub-card-bg: #232350;
-  --fps-pub-card-border: #3a3a6e;
-  --fps-pub-card-shadow: rgba(0,0,0,0.4);
-  --fps-pub-input-bg: #232350;
-  --fps-pub-input-border: #4a4a7e;
-  --fps-pub-table-header: #2a2a5e;
-  --fps-pub-table-border: #3a3a6e;
-  --fps-pub-code-bg: #0a0820;
-  --fps-pub-code-text: #c8d0e8;
-}
-.fps-dark-mode .fps-pub-provider-badge{color:#c8d0ff;border-color:#667eea55;}
-.fps-pub{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:inherit;line-height:1.7;}
+.fps-pub{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#334155;line-height:1.7;}
 .fps-pub *{box-sizing:border-box;}
-.fps-pub-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:60px 30px;text-align:center;border-radius:16px;margin-bottom:32px;position:relative;overflow:hidden;}
-.fps-pub-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 40%,rgba(102,126,234,0.12),transparent 60%),radial-gradient(ellipse at 70% 60%,rgba(118,75,162,0.08),transparent 50%);pointer-events:none;}
-.fps-pub-hero h1{font-size:2.4rem;font-weight:800;margin:0 0 12px;letter-spacing:-0.5px;position:relative;z-index:1;}
-.fps-pub-hero h1 i{color:#667eea;margin-right:10px;}
-.fps-pub-hero p{font-size:1.15rem;color:#b0b8d1;margin:0 auto 28px;max-width:700px;position:relative;z-index:1;}
-.fps-pub-hero .fps-pub-version{background:rgba(102,126,234,0.2);border:1px solid rgba(102,126,234,0.3);border-radius:20px;padding:4px 16px;font-size:0.85rem;color:#a0b0ff;display:inline-block;margin-bottom:16px;position:relative;z-index:1;}
+
+/* Hero - dark gradient (looks great on light page) */
+.fps-pub-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#16a34a 150%);color:#fff;padding:60px 30px;text-align:center;border-radius:20px;margin-bottom:36px;position:relative;overflow:hidden;box-shadow:0 12px 40px rgba(15,23,42,0.12);}
+.fps-pub-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 40%,rgba(22,163,74,0.1),transparent 60%),radial-gradient(ellipse at 70% 60%,rgba(37,99,235,0.08),transparent 50%);pointer-events:none;}
+.fps-pub-hero h1{font-size:2.4rem;font-weight:900;margin:0 0 12px;letter-spacing:-0.5px;position:relative;z-index:1;color:#fff;}
+.fps-pub-hero h1 i{color:#4ade80;margin-right:10px;}
+.fps-pub-hero p{font-size:1.15rem;color:rgba(255,255,255,0.75);margin:0 auto 28px;max-width:700px;position:relative;z-index:1;}
+.fps-pub-hero .fps-pub-version{background:rgba(22,163,74,0.2);border:1px solid rgba(22,163,74,0.3);border-radius:20px;padding:4px 16px;font-size:0.85rem;color:#86efac;display:inline-block;margin-bottom:16px;position:relative;z-index:1;}
+
+/* Stat cards - white with green accent hover */
 .fps-pub-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;margin-bottom:40px;}
-.fps-pub-stat{background:var(--fps-pub-card-bg);border-radius:12px;padding:28px 24px;text-align:center;box-shadow:0 4px 16px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);transition:transform 0.2s,box-shadow 0.2s;}
-.fps-pub-stat:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(102,126,234,0.15);}
-.fps-pub-stat-value{font-size:2.2rem;font-weight:800;color:var(--fps-pub-text);display:block;}
-.fps-pub-stat-label{font-size:1rem;color:#dde4ff !important;text-transform:uppercase;letter-spacing:0.3px;margin-top:8px;display:block;font-weight:700;}
-.fps-pub-stat-value.danger{color:#eb3349;}
-.fps-pub-stat-value.primary{color:#667eea;}
-.fps-pub-stat-value.success{color:#11998e;}
+.fps-pub-stat{background:#fff;border-radius:14px;padding:28px 24px;text-align:center;box-shadow:0 2px 8px rgba(15,23,42,0.06);border:1px solid #e2e8f0;transition:transform 0.2s,box-shadow 0.2s;}
+.fps-pub-stat:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(22,163,74,0.1);}
+.fps-pub-stat-value{font-size:2.2rem;font-weight:900;color:#0f172a;display:block;}
+.fps-pub-stat-label{font-size:0.8rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;display:block;font-weight:700;}
+.fps-pub-stat-value.danger{color:#ef4444;}
+.fps-pub-stat-value.primary{color:#2563eb;}
+.fps-pub-stat-value.success{color:#16a34a;}
+
+/* Section headings */
 .fps-pub-section{margin-bottom:40px;}
-.fps-pub-section h2{font-size:1.6rem;font-weight:700;color:inherit;margin:0 0 8px;display:flex;align-items:center;gap:10px;}
-.fps-pub-section h2 i{color:#667eea;}
-.fps-pub-section p.subtitle{font-size:1rem;color:inherit;opacity:0.7;margin:0 0 24px;}
+.fps-pub-section h2{font-size:1.6rem;font-weight:800;color:#0f172a;margin:0 0 8px;display:flex;align-items:center;gap:10px;}
+.fps-pub-section h2 i{color:#16a34a;}
+.fps-pub-section p.subtitle{font-size:1rem;color:#64748b;margin:0 0 24px;}
+
+/* Detection engine cards - white with green hover border */
 .fps-pub-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
-.fps-pub-feature{background:var(--fps-pub-card-bg);border-radius:12px;padding:24px;box-shadow:0 2px 8px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);color:var(--fps-pub-text);}
-.fps-pub-feature h3{font-size:1.2rem;font-weight:800;margin:0 0 10px;display:flex;align-items:center;gap:10px;color:#ffffff !important;}
-.fps-pub-feature h3 i{color:#88a4ff;width:22px;text-align:center;font-size:1.1rem;}
-.fps-pub-feature p{font-size:1rem;color:#dde4ff !important;margin:0;line-height:1.6;}
+.fps-pub-feature{background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 8px rgba(15,23,42,0.04);border:1px solid #e2e8f0;transition:border-color 0.25s,transform 0.2s,box-shadow 0.2s;}
+.fps-pub-feature:hover{border-color:#16a34a;transform:translateY(-2px);box-shadow:0 6px 20px rgba(22,163,74,0.08);}
+.fps-pub-feature h3{font-size:1.1rem;font-weight:800;margin:0 0 10px;display:flex;align-items:center;gap:10px;color:#0f172a !important;}
+.fps-pub-feature h3 i{color:#16a34a;width:22px;text-align:center;font-size:1.1rem;}
+.fps-pub-feature p{font-size:0.92rem;color:#475569 !important;margin:0;line-height:1.6;}
+
+/* API tier cards */
 .fps-pub-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;margin-bottom:40px;}
-.fps-pub-tier{background:var(--fps-pub-card-bg);border-radius:16px;padding:32px 24px;box-shadow:0 4px 16px var(--fps-pub-card-shadow);border:2px solid var(--fps-pub-card-border);text-align:center;transition:border-color 0.3s,transform 0.2s;color:var(--fps-pub-text);}
-.fps-pub-tier:hover{transform:translateY(-4px);}
-.fps-pub-tier.featured{border-color:#667eea;box-shadow:0 8px 32px rgba(102,126,234,0.2);}
-.fps-pub-tier h3{font-size:1.4rem;font-weight:800;margin:0 0 4px;color:#ffffff !important;}
-.fps-pub-tier .price{font-size:2rem;font-weight:800;color:#667eea;margin:12px 0;}
-.fps-pub-tier .price span{font-size:0.85rem;color:var(--fps-pub-text-muted);font-weight:400;}
-.fps-pub-tier .price.free{color:#11998e;}
+.fps-pub-tier{background:#fff;border-radius:16px;padding:32px 24px;box-shadow:0 2px 8px rgba(15,23,42,0.06);border:2px solid #e2e8f0;border-top:3px solid #cbd5e1;text-align:center;transition:border-color 0.3s,transform 0.2s;}
+.fps-pub-tier:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(15,23,42,0.08);}
+.fps-pub-tier.featured{border-color:#16a34a;border-top-color:#16a34a;box-shadow:0 4px 16px rgba(22,163,74,0.1);}
+.fps-pub-tier h3{font-size:1.4rem;font-weight:800;margin:0 0 4px;color:#0f172a !important;}
+.fps-pub-tier .price{font-size:2rem;font-weight:900;color:#16a34a;margin:12px 0;}
+.fps-pub-tier .price span{font-size:0.85rem;color:#94a3b8;font-weight:400;}
+.fps-pub-tier .price.free{color:#16a34a;}
 .fps-pub-tier ul{list-style:none;padding:0;margin:16px 0 24px;text-align:left;}
-.fps-pub-tier ul li{padding:8px 0;font-size:1rem;color:#dde4ff !important;border-bottom:1px solid var(--fps-pub-table-border);display:flex;align-items:center;gap:8px;}
-.fps-pub-tier ul li i.check{color:#11998e;}
-.fps-pub-tier ul li i.cross{color:#ccc;}
-.fps-pub-tier .tier-btn{display:inline-block;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all 0.2s;}
-.fps-pub-tier .tier-btn.primary{background:#667eea;color:#fff;}
-.fps-pub-tier .tier-btn.primary:hover{background:#5a6fd6;}
-.fps-pub-tier .tier-btn.outline{background:var(--fps-pub-card-bg);color:#667eea;border:2px solid #667eea;}
-.fps-pub-tier .tier-btn.outline:hover{background:#667eea;color:#fff;}
+.fps-pub-tier ul li{padding:8px 0;font-size:0.92rem;color:#475569 !important;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;}
+.fps-pub-tier ul li i.check{color:#16a34a;}
+.fps-pub-tier ul li i.cross{color:#cbd5e1;}
+.fps-pub-tier .tier-btn{display:inline-block;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:all 0.2s;}
+.fps-pub-tier .tier-btn.primary{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 4px 14px rgba(22,163,74,0.3);}
+.fps-pub-tier .tier-btn.primary:hover{box-shadow:0 6px 20px rgba(22,163,74,0.4);transform:translateY(-1px);}
+.fps-pub-tier .tier-btn.outline{background:#fff;color:#334155;border:2px solid #e2e8f0;}
+.fps-pub-tier .tier-btn.outline:hover{border-color:#16a34a;color:#16a34a;}
+
+/* Provider badges */
 .fps-pub-providers{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
-.fps-pub-provider-badge{background:linear-gradient(135deg,#667eea22,#764ba222);border:1px solid #667eea44;border-radius:20px;padding:6px 16px;font-size:0.85rem;color:inherit;font-weight:600;opacity:0.85;}
-.fps-pub-endpoint{background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-.fps-pub-endpoint .method{background:#11998e;color:#fff;padding:3px 10px;border-radius:4px;font-size:0.75rem;font-weight:700;font-family:monospace;min-width:50px;text-align:center;}
-.fps-pub-endpoint .method.post{background:#667eea;}
-.fps-pub-endpoint .method.delete{background:#eb3349;}
-.fps-pub-endpoint .path{font-family:'Fira Code',monospace;font-size:0.9rem;color:var(--fps-pub-text);flex:1;}
-.fps-pub-endpoint .desc{font-size:0.82rem;color:var(--fps-pub-text-muted);}
-.fps-pub-endpoint .tier-badge{background:#667eea22;color:#667eea;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:700;}
-.fps-pub-endpoint .tier-badge.free{background:#11998e22;color:#11998e;}
-.fps-pub-endpoint .tier-badge.premium{background:#eb334922;color:#eb3349;}
-.fps-pub-cta{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;text-align:center;padding:48px 30px;border-radius:16px;margin-top:40px;}
-.fps-pub-cta h2{font-size:1.8rem;font-weight:800;margin:0 0 12px;color:#fff;}
-.fps-pub-cta p{font-size:1.05rem;color:#d0d8ff;margin:0 auto 24px;max-width:600px;}
-.fps-pub-cta a{display:inline-block;padding:14px 32px;background:#fff;color:#667eea;border-radius:10px;font-weight:700;text-decoration:none;transition:all 0.2s;}
-.fps-pub-cta a:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.2);}
+.fps-pub-provider-badge{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:6px 16px;font-size:0.85rem;color:#16a34a;font-weight:700;}
+
+/* API endpoints */
+.fps-pub-endpoint{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;transition:background 0.2s;}
+.fps-pub-endpoint:hover{background:#f0fdf4;}
+.fps-pub-endpoint .method{background:#16a34a;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;font-family:monospace;min-width:50px;text-align:center;}
+.fps-pub-endpoint .method.post{background:#2563eb;}
+.fps-pub-endpoint .method.delete{background:#ef4444;}
+.fps-pub-endpoint .path{font-family:'Fira Code','JetBrains Mono',monospace;font-size:0.9rem;color:#0f172a;flex:1;font-weight:600;}
+.fps-pub-endpoint .desc{font-size:0.82rem;color:#64748b;}
+.fps-pub-endpoint .tier-badge{background:#f0fdf4;color:#16a34a;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;border:1px solid #bbf7d0;}
+.fps-pub-endpoint .tier-badge.free{background:#f0fdf4;color:#16a34a;border-color:#bbf7d0;}
+.fps-pub-endpoint .tier-badge.premium{background:#fef2f2;color:#ef4444;border-color:#fecaca;}
+
+/* Bottom CTA */
+.fps-pub-cta{background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;text-align:center;padding:52px 36px;border-radius:20px;margin-top:40px;box-shadow:0 8px 32px rgba(15,23,42,0.2);}
+.fps-pub-cta h2{font-size:1.8rem;font-weight:900;margin:0 0 12px;color:#fff;}
+.fps-pub-cta p{font-size:1.05rem;color:rgba(255,255,255,0.7);margin:0 auto 24px;max-width:600px;}
+.fps-pub-cta a{display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:10px;font-weight:700;text-decoration:none;transition:all 0.2s;box-shadow:0 4px 14px rgba(22,163,74,0.3);}
+.fps-pub-cta a:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(22,163,74,0.4);}
+
+/* Code blocks (auth & response format) */
+.fps-pub pre,.fps-pub code{background:#0f172a;color:#e2e8f0;border-radius:10px;font-family:'Fira Code','JetBrains Mono',monospace;}
+
 @media(max-width:768px){.fps-pub-hero h1{font-size:1.6rem;}.fps-pub-hero p{font-size:1rem;}.fps-pub-stat-value{font-size:1.5rem;}}
 </style>
-<script>(function(){document.body.classList.add('fps-dark-mode');})();</script>
 {/literal}
 
 <div class="fps-pub">
@@ -102,7 +109,7 @@
         <h1><i class="fas fa-shield-halved"></i> Fraud Prevention Suite</h1>
         <p>Enterprise-grade fraud detection platform with {$stats.provider_count}+ detection engines, real-time bot blocking, device fingerprinting, and shared global threat intelligence.</p>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1;">
-            <a href="{$store_url}" style="padding:12px 28px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(102,126,234,0.3);">
+            <a href="{$store_url}" style="padding:12px 28px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:10px;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(22,163,74,0.3);">
                 <i class="fas fa-rocket"></i> Get API Access
             </a>
             <a href="{$topology_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
@@ -119,7 +126,7 @@
 
     {* === LIVE STATS === *}
     <div class="fps-pub-section">
-        <h2 style="color:#fff;font-size:1.6rem;"><i class="fas fa-chart-bar" style="color:#88a4ff;"></i> Live Platform Statistics</h2>
+        <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-chart-bar" style="color:#16a34a;"></i> Live Platform Statistics</h2>
         <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Real-time data from our fraud detection infrastructure.</p>
     </div>
 
@@ -134,7 +141,7 @@
 
     {* === ANONYMITY DETECTION STATS === *}
     <div class="fps-pub-section">
-        <h2 style="color:#fff;font-size:1.6rem;"><i class="fas fa-mask" style="color:#88a4ff;"></i> Anonymity Network Detection</h2>
+        <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-mask" style="color:#16a34a;"></i> Anonymity Network Detection</h2>
         <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
     </div>
 
@@ -149,20 +156,20 @@
 
     {* === DETECTION ENGINES === *}
     <div class="fps-pub-section">
-        <h2 style="color:#fff;font-size:1.6rem;"><i class="fas fa-puzzle-piece" style="color:#88a4ff;"></i> Detection Engines</h2>
+        <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-puzzle-piece" style="color:#16a34a;"></i> Detection Engines</h2>
         <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Multi-layered fraud detection combining {$stats.provider_count}+ independent intelligence sources.</p>
     </div>
 
     <div class="fps-pub-features">
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-shield-halved" style="color:#88a4ff;"></i> Cloudflare Turnstile</h3><p style="color:#dde4ff;font-size:1rem;">Invisible bot challenge on all forms. Blocks automated signups without CAPTCHAs. Zero friction.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-fingerprint" style="color:#88a4ff;"></i> Device Fingerprinting</h3><p style="color:#dde4ff;font-size:1rem;">Canvas, WebGL, font, screen, timezone, and audio fingerprinting. Links fraud accounts across sessions.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-robot" style="color:#88a4ff;"></i> Bot Pattern Detection</h3><p style="color:#dde4ff;font-size:1rem;">Plus-addressing, SMS gateways, disposable emails, numeric locals, signup velocity. 15-pattern engine.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-network-wired" style="color:#88a4ff;"></i> IP Intelligence</h3><p style="color:#dde4ff;font-size:1rem;">Multi-source: ip-api.com, AbuseIPDB, IPQualityScore. Proxy, VPN, Tor, and datacenter detection.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-users-between-lines" style="color:#88a4ff;"></i> 15-Dimension Duplicate Detection</h3><p style="color:#dde4ff;font-size:1rem;">IP subnet, email base, phone, fingerprint, geo-mismatch, name, signup timing linkage.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-globe" style="color:#88a4ff;"></i> Geographic Analysis</h3><p style="color:#dde4ff;font-size:1rem;">Cross-correlates IP, billing country, phone prefix, BIN country. Detects impossible travel patterns.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-gauge-high" style="color:#88a4ff;"></i> Behavioral Biometrics</h3><p style="color:#dde4ff;font-size:1rem;">Mouse movement entropy, keystroke cadence, form fill speed, paste detection.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-bolt" style="color:#88a4ff;"></i> Velocity Engine</h3><p style="color:#dde4ff;font-size:1rem;">Rate limiting: orders/IP, registrations/IP, failed payments, checkout attempts, BIN reuse.</p></div>
-        <div class="fps-pub-feature"><h3 style="color:#fff;font-size:1.2rem;font-weight:800;"><i class="fas fa-earth-americas" style="color:#88a4ff;"></i> Global Threat Intel</h3><p style="color:#dde4ff;font-size:1rem;">Cross-instance fraud sharing. SHA-256 hashed data with GDPR compliance. Hub-and-spoke architecture.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-shield-halved" style="color:#16a34a;"></i> Cloudflare Turnstile</h3><p style="color:#475569;font-size:0.92rem;">Invisible bot challenge on all forms. Blocks automated signups without CAPTCHAs. Zero friction.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-fingerprint" style="color:#16a34a;"></i> Device Fingerprinting</h3><p style="color:#475569;font-size:0.92rem;">Canvas, WebGL, font, screen, timezone, and audio fingerprinting. Links fraud accounts across sessions.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-robot" style="color:#16a34a;"></i> Bot Pattern Detection</h3><p style="color:#475569;font-size:0.92rem;">Plus-addressing, SMS gateways, disposable emails, numeric locals, signup velocity. 15-pattern engine.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-network-wired" style="color:#16a34a;"></i> IP Intelligence</h3><p style="color:#475569;font-size:0.92rem;">Multi-source: ip-api.com, AbuseIPDB, IPQualityScore. Proxy, VPN, Tor, and datacenter detection.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-users-between-lines" style="color:#16a34a;"></i> 15-Dimension Duplicate Detection</h3><p style="color:#475569;font-size:0.92rem;">IP subnet, email base, phone, fingerprint, geo-mismatch, name, signup timing linkage.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-globe" style="color:#16a34a;"></i> Geographic Analysis</h3><p style="color:#475569;font-size:0.92rem;">Cross-correlates IP, billing country, phone prefix, BIN country. Detects impossible travel patterns.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-gauge-high" style="color:#16a34a;"></i> Behavioral Biometrics</h3><p style="color:#475569;font-size:0.92rem;">Mouse movement entropy, keystroke cadence, form fill speed, paste detection.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-bolt" style="color:#16a34a;"></i> Velocity Engine</h3><p style="color:#475569;font-size:0.92rem;">Rate limiting: orders/IP, registrations/IP, failed payments, checkout attempts, BIN reuse.</p></div>
+        <div class="fps-pub-feature"><h3 style="color:#0f172a;font-size:1.1rem;font-weight:800;"><i class="fas fa-earth-americas" style="color:#16a34a;"></i> Global Threat Intel</h3><p style="color:#475569;font-size:0.92rem;">Cross-instance fraud sharing. SHA-256 hashed data with GDPR compliance. Hub-and-spoke architecture.</p></div>
     </div>
 
     {* === Active providers === *}
@@ -180,7 +187,7 @@
     </div>
 
     {* === API TIERS === *}
-    <div class="fps-pub-section" style="margin-top:48px;color:#fff;">
+    <div class="fps-pub-section" style="margin-top:48px;color:#334155;">
         <h2><i class="fas fa-key"></i> API Access Tiers</h2>
         <p class="subtitle">Integrate fraud intelligence into your applications with our REST API.</p>
     </div>
