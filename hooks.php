@@ -764,6 +764,78 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-lagom2.css?v=' . time() . '">';
     }
 
+    // ---------------------------------------------------------------------------
+    // Accessibility: Colorblind-friendly mode toggle
+    // Swaps green primary to blue, increases contrast, adds pattern indicators
+    // ---------------------------------------------------------------------------
+    $output .= '<style>'
+        // Colorblind mode overrides (activated when body has .cb-mode)
+        . 'body.cb-mode{--primary:#2563eb!important;--svg-icon-color-1:#2563eb!important;--svg-icon-color-2:#1d4ed8!important}'
+        // Primary buttons: green -> blue
+        . 'body.cb-mode .btn-primary,body.cb-mode .btn-success{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 2px 8px rgba(37,99,235,0.25)!important}'
+        . 'body.cb-mode .btn-primary:hover,body.cb-mode .btn-success:hover{background:linear-gradient(135deg,#1d4ed8,#1e40af)!important;box-shadow:0 4px 12px rgba(37,99,235,0.35)!important}'
+        // Prices and accent text: green -> blue
+        . 'body.cb-mode .package-price{color:#2563eb!important}'
+        . 'body.cb-mode .list-group-item.active,body.cb-mode .list-group-item.active a{border-left-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}'
+        . 'body.cb-mode .list-group-item:hover,body.cb-mode .list-group-item:hover a{background:#eff6ff!important;color:#2563eb!important}'
+        . 'body.cb-mode .sidebar .list-group-item.active{border-left-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}'
+        // Tile hover: green border -> blue border
+        . 'body.cb-mode .tile:hover,body.cb-mode .tile-home:hover{border-color:#2563eb!important;box-shadow:0 6px 20px rgba(37,99,235,0.1)!important}'
+        . 'body.cb-mode .tile .lm,body.cb-mode .tile i,body.cb-mode .tile svg{color:#2563eb!important}'
+        // Nav hover: green -> blue
+        . 'body.cb-mode .main-menu a:hover,body.cb-mode .nav-link:hover,body.cb-mode .main-menu a:hover .item-text,body.cb-mode .menu-primary a:hover,body.cb-mode .menu a:hover{color:#2563eb!important}'
+        . 'body.cb-mode .main-menu .active .item-text,body.cb-mode .nav-link.active{color:#2563eb!important}'
+        // Dates and accents: green -> blue
+        . 'body.cb-mode .timeline-date,body.cb-mode .date-badge,body.cb-mode .ann-date,body.cb-mode .list-group-item .date{color:#2563eb!important}'
+        // Dropdown hover: green -> blue
+        . 'body.cb-mode .dropdown-menu a:hover,body.cb-mode .dropdown-item:hover{background:#eff6ff!important;color:#2563eb!important}'
+        // Table hover: green -> blue
+        . 'body.cb-mode .table-hover tbody tr:hover{background:#eff6ff!important}'
+        // Badges: ensure distinct colors for all states
+        . 'body.cb-mode .badge-success,.cb-mode .label-success{background:#2563eb!important}'
+        . 'body.cb-mode .badge-warning,.cb-mode .label-warning{background:#f59e0b!important;color:#000!important}'
+        . 'body.cb-mode .badge-danger,.cb-mode .label-danger{background:#dc2626!important}'
+        // Higher contrast body text
+        . 'body.cb-mode,body.cb-mode .main-content,body.cb-mode .main-content p,body.cb-mode .main-content div{color:#1e293b!important}'
+        . 'body.cb-mode h1,body.cb-mode h2,body.cb-mode h3,body.cb-mode h4,body.cb-mode h5,body.cb-mode h6{color:#0a0f1e!important}'
+        // Focus indicators: thicker, blue
+        . 'body.cb-mode .form-control:focus{border-color:#2563eb!important;box-shadow:0 0 0 4px rgba(37,99,235,0.2)!important}'
+        . 'body.cb-mode a:focus-visible{outline:3px solid #2563eb!important;outline-offset:2px!important}'
+        // Underline links for better distinction
+        . 'body.cb-mode .main-content a:not(.btn):not([class*="btn"]){text-decoration:underline!important;text-underline-offset:2px!important}'
+        // Hue-rotate green elements to blue (catches inline-styled green backgrounds)
+        . 'body.cb-mode [style*="background:linear-gradient(135deg,#16a34a"],body.cb-mode [style*="background:linear-gradient(135deg, #16a34a"]{filter:hue-rotate(210deg) saturate(1.2)!important}'
+        // FPS page nav active state
+        . 'body.cb-mode .fps-pub-nav a.active{background:#2563eb!important;border-color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-nav a:hover{border-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}'
+        // Toggle button styling
+        . '.fps-cb-toggle{position:fixed;bottom:20px;left:20px;z-index:9999;width:48px;height:48px;border-radius:50%;border:2px solid #cbd5e1;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.1);transition:all 0.3s;font-size:1.2rem;}'
+        . '.fps-cb-toggle:hover{box-shadow:0 6px 20px rgba(0,0,0,0.15);transform:scale(1.05);}'
+        . '.fps-cb-toggle[aria-pressed="true"]{background:#2563eb;border-color:#2563eb;color:#fff;}'
+        . '.fps-cb-toggle .fps-cb-tooltip{display:none;position:absolute;bottom:56px;left:0;background:#0f172a;color:#fff;padding:6px 12px;border-radius:8px;font-size:0.75rem;white-space:nowrap;pointer-events:none;}'
+        . '.fps-cb-toggle:hover .fps-cb-tooltip{display:block;}'
+        . '</style>';
+
+    // Accessibility toggle button + JS
+    $output .= '<button class="fps-cb-toggle" id="fps-cb-btn" aria-pressed="false" aria-label="Toggle colorblind-friendly mode" title="Colorblind-friendly mode">'
+        . '<span style="font-size:1.1rem;">&#128065;</span>'
+        . '<span class="fps-cb-tooltip">Colorblind-Friendly Mode</span>'
+        . '</button>'
+        . '<script>'
+        . '(function(){'
+        . 'var btn=document.getElementById("fps-cb-btn");'
+        . 'if(!btn)return;'
+        . 'var active=localStorage.getItem("fps-cb-mode")==="1";'
+        . 'if(active){document.body.classList.add("cb-mode");btn.setAttribute("aria-pressed","true");}'
+        . 'btn.addEventListener("click",function(){'
+        . 'active=!active;'
+        . 'document.body.classList.toggle("cb-mode",active);'
+        . 'btn.setAttribute("aria-pressed",active?"true":"false");'
+        . 'localStorage.setItem("fps-cb-mode",active?"1":"0");'
+        . '});'
+        . '})();'
+        . '</script>';
+
     return $output;
 });
 
