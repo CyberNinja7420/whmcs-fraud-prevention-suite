@@ -35,20 +35,21 @@ body .main-content a:not(.btn):not(.tier-btn):hover {
   color: #9bb0ff !important;
 }
 
-/* Card backgrounds - subtle elevation without being too dark */
+/* Card backgrounds - LIGHTER than body (#2C374C) for elevation effect */
 body .main-content .fps-pub-stat,
 body .main-content .fps-pub-tier,
 body .main-content .fps-pub-feature-card {
-  background: rgba(20, 28, 50, 0.6) !important;
+  background: rgba(55, 70, 100, 0.7) !important;
   backdrop-filter: blur(4px) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
 }
 
-/* Slightly brighter borders for card definition */
+/* Clean visible borders */
 body .main-content .fps-pub-stat,
 body .main-content .fps-pub-tier,
 body .main-content .fps-pub-feature-card,
 body .main-content .fps-pub-endpoint {
-  border-color: rgba(140, 160, 220, 0.12) !important;
+  border: 1px solid rgba(160, 180, 230, 0.15) !important;
 }
 
 /* ============================================================
@@ -62,12 +63,13 @@ body .main-content .fps-pub-endpoint {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Stat cards - glass morphism effect */
+/* Stat cards - elevated on lighter background */
 .fps-pub-stat {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(60, 78, 110, 0.7) !important;
+  border: 1px solid rgba(160, 180, 230, 0.15) !important;
   border-radius: 12px !important;
   padding: 20px 16px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 }
 .fps-pub-stat:hover {
@@ -87,10 +89,10 @@ body .main-content .fps-pub-endpoint {
   margin-top: 6px !important;
 }
 
-/* Detection engine cards */
+/* Detection engine cards - lighter than body */
 .fps-pub-feature-card {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(55, 70, 100, 0.7) !important;
+  border: 1px solid rgba(160, 180, 230, 0.15) !important;
   border-radius: 12px !important;
   padding: 24px 20px !important;
   transition: border-color 0.2s ease, transform 0.2s ease !important;
@@ -124,10 +126,10 @@ body .main-content .fps-pub-endpoint {
   margin-bottom: 24px !important;
 }
 
-/* API tier cards */
+/* API tier cards - elevated */
 .fps-pub-tier {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(55, 70, 100, 0.7) !important;
+  border: 1px solid rgba(160, 180, 230, 0.15) !important;
   border-radius: 14px !important;
   padding: 28px 24px !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease !important;
@@ -180,10 +182,10 @@ body .main-content .fps-pub-endpoint {
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
-/* API endpoint sections - better readability */
+/* API endpoint sections - clear and readable */
 .fps-pub-endpoint {
-  background: rgba(255, 255, 255, 0.02) !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  background: rgba(50, 65, 95, 0.6) !important;
+  border: 1px solid rgba(140, 160, 220, 0.12) !important;
   border-radius: 8px !important;
   padding: 12px 16px !important;
   margin-bottom: 8px !important;
