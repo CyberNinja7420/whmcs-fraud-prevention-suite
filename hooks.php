@@ -820,6 +820,131 @@ add_hook('ClientAreaFooterOutput', 2, function ($vars) {
 });
 
 // ---------------------------------------------------------------------------
+// 7c. ClientAreaFooterOutput -- Inject Featured Products on Homepage
+// ---------------------------------------------------------------------------
+add_hook('ClientAreaFooterOutput', 3, function ($vars) {
+    try {
+        // Only inject on homepage
+        // WHMCS passes 'filename' without extension, Lagom2 homepage = 'homepage'
+        $filename = $vars['filename'] ?? '';
+        $tpl = $vars['templatefile'] ?? '';
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        // Homepage detection: check filename, templatefile, or URI
+        $isHomepage = ($filename === 'homepage' || $tpl === 'homepage'
+            || $uri === '/' || $uri === '/index.php' || $uri === '');
+        if (!$isHomepage) {
+            return '';
+        }
+
+        // Fetch visible product groups with products
+        $groups = Capsule::table('tblproductgroups')
+            ->where('hidden', 0)
+            ->orderBy('order')
+            ->get();
+
+        if ($groups->isEmpty()) {
+            return '';
+        }
+
+        $html = '<script>(function(){';
+        // Find the News section (2nd .section on homepage) or fallback to last .section
+        $html .= 'var sections = document.querySelectorAll(".main-body .section");';
+        $html .= 'var target = null;';
+        $html .= 'for(var i=0;i<sections.length;i++){';
+        $html .= '  if(sections[i].querySelector(".announcements-list,.list-group")){target=sections[i];break;}';
+        $html .= '}';
+        $html .= 'if(!target && sections.length > 0) target = sections[sections.length-1];';
+        $html .= 'if(!target) return;';
+
+        // Build the products HTML
+        $cardsHtml = '<div class="section" style="margin-bottom:32px;">'
+            . '<div class="section-header"><h2 class="section-title" style="color:#0f172a;font-weight:800;">'
+            . '<i class="fas fa-boxes-stacked" style="color:#16a34a;margin-right:8px;"></i>Our Products & Services</h2></div>'
+            . '<div class="section-body">'
+            . '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">';
+
+        foreach ($groups as $group) {
+            $products = Capsule::table('tblproducts')
+                ->where('gid', $group->id)
+                ->where('retired', 0)
+                ->where('hidden', 0)
+                ->orderBy('order')
+                ->limit(3)
+                ->get();
+
+            if ($products->isEmpty()) continue;
+
+            $startingPrice = '';
+            foreach ($products as $p) {
+                $price = Capsule::table('tblpricing')
+                    ->where('type', 'product')
+                    ->where('relid', $p->id)
+                    ->where('currency', 1)
+                    ->first();
+                if ($price && $price->monthly > 0) {
+                    $startingPrice = '$' . number_format((float)$price->monthly, 2) . '/mo';
+                    break;
+                } elseif ($price && $price->monthly == 0) {
+                    $startingPrice = 'Free';
+                    break;
+                }
+            }
+
+            $groupSlug = Capsule::table('tblproducts_slugs')
+                ->where('group_id', $group->id)
+                ->value('group_slug');
+            $storeUrl = $groupSlug ? "store/{$groupSlug}" : "cart.php";
+            $productCount = $products->count();
+            $escapedName = htmlspecialchars($group->name, ENT_QUOTES);
+            $escapedTagline = htmlspecialchars($group->tagline ?? '', ENT_QUOTES);
+            $icon = 'fa-server';
+            if (stripos($group->name, 'hosting') !== false) $icon = 'fa-hard-drive';
+            if (stripos($group->name, 'vps') !== false) $icon = 'fa-server';
+            if (stripos($group->name, 'fraud') !== false || stripos($group->name, 'api') !== false) $icon = 'fa-shield-halved';
+            if (stripos($group->name, 'ssl') !== false) $icon = 'fa-lock';
+            if (stripos($group->name, 'domain') !== false) $icon = 'fa-globe';
+
+            $cardsHtml .= '<a href="' . $storeUrl . '" style="'
+                . 'display:block;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px 24px;'
+                . 'text-decoration:none;transition:all 0.25s;box-shadow:0 2px 8px rgba(15,23,42,0.04);'
+                . '" onmouseover="this.style.borderColor=\'#16a34a\';this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 8px 24px rgba(22,163,74,0.1)\'"'
+                . ' onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.transform=\'none\';this.style.boxShadow=\'0 2px 8px rgba(15,23,42,0.04)\'">'
+                . '<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">'
+                . '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#15803d);display:flex;align-items:center;justify-content:center;">'
+                . '<i class="fas ' . $icon . '" style="color:#fff;font-size:1.1rem;"></i></div>'
+                . '<div><div style="font-size:1.1rem;font-weight:800;color:#0f172a;">' . $escapedName . '</div>'
+                . '<div style="font-size:0.78rem;color:#64748b;">' . $productCount . ' plan' . ($productCount > 1 ? 's' : '') . ' available</div></div></div>';
+
+            if ($escapedTagline) {
+                $cardsHtml .= '<p style="font-size:0.88rem;color:#475569;margin:0 0 14px;line-height:1.5;">' . $escapedTagline . '</p>';
+            }
+
+            if ($startingPrice) {
+                $cardsHtml .= '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                    . '<span style="font-size:0.82rem;color:#64748b;">Starting at</span>'
+                    . '<span style="font-size:1.1rem;font-weight:800;color:#16a34a;">' . $startingPrice . '</span></div>';
+            }
+
+            $cardsHtml .= '</a>';
+        }
+
+        $cardsHtml .= '</div></div></div>';
+
+        // Escape for JS insertion
+        $jsHtml = str_replace(["'", "\n", "\r"], ["\\'", '', ''], $cardsHtml);
+
+        $html .= "var div = document.createElement('div');";
+        $html .= "div.innerHTML = '" . $jsHtml . "';";
+        $html .= "target.parentNode.insertBefore(div.firstChild, target);";
+        $html .= '})();</script>';
+
+        return $html;
+    } catch (\Throwable $e) {
+        return '';
+    }
+});
+
+// ---------------------------------------------------------------------------
 // 8. ClientAdd -- Check new client registrations
 // ---------------------------------------------------------------------------
 add_hook('ClientAdd', 1, function ($vars) {
