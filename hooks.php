@@ -602,10 +602,17 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
 
         if (empty($siteKey)) return '';
 
-        return '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>';
+        $output = '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>';
     } catch (\Throwable $e) {
-        return '';
+        $output = '';
     }
+
+    // Always inject Lagom2 compatibility CSS on FPS pages
+    if (isset($_GET['m']) && $_GET['m'] === 'fraud_prevention_suite') {
+        $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-lagom2.css?v=' . time() . '">';
+    }
+
+    return $output;
 });
 
 // ---------------------------------------------------------------------------
