@@ -5,7 +5,54 @@
  */
 
 /* ============================================================
-   PUBLIC PAGES - General polish for Lagom2 dark theme
+   DARK THEME CLARITY - brighter text, cleaner backgrounds
+   ============================================================ */
+
+/* Override Lagom2 dark body for FPS pages - slightly lighter for readability */
+body .main-content .fps-pub-section,
+body .main-content [class*="fps-pub"] {
+  color: #d0d8f0 !important;
+}
+
+/* All text in FPS areas should be bright enough to read easily */
+body .main-content h1, body .main-content h2, body .main-content h3,
+body .main-content h4, body .main-content h5 {
+  color: #e8ecf4 !important;
+}
+
+body .main-content p,
+body .main-content li,
+body .main-content td,
+body .main-content span {
+  color: #c0c8e0 !important;
+}
+
+/* Links should pop on dark backgrounds */
+body .main-content a:not(.btn):not(.tier-btn) {
+  color: #7b93f0 !important;
+}
+body .main-content a:not(.btn):not(.tier-btn):hover {
+  color: #9bb0ff !important;
+}
+
+/* Card backgrounds - subtle elevation without being too dark */
+body .main-content .fps-pub-stat,
+body .main-content .fps-pub-tier,
+body .main-content .fps-pub-feature-card {
+  background: rgba(20, 28, 50, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+/* Slightly brighter borders for card definition */
+body .main-content .fps-pub-stat,
+body .main-content .fps-pub-tier,
+body .main-content .fps-pub-feature-card,
+body .main-content .fps-pub-endpoint {
+  border-color: rgba(140, 160, 220, 0.12) !important;
+}
+
+/* ============================================================
+   PUBLIC PAGES - Visual polish for Lagom2 dark theme
    ============================================================ */
 
 /* Hero section - ensure gradient overlaps Lagom2's page header */
