@@ -97,7 +97,14 @@
 /* Code blocks (auth & response format) */
 .fps-pub pre,.fps-pub code{background:#0f172a;color:#e2e8f0;border-radius:10px;font-family:'Fira Code','JetBrains Mono',monospace;}
 
-@media(max-width:768px){.fps-pub-hero h1{font-size:1.6rem;}.fps-pub-hero p{font-size:1rem;}.fps-pub-stat-value{font-size:1.5rem;}}
+/* Page navigation bar */
+.fps-pub-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px;padding:16px 0;border-bottom:1px solid #e2e8f0;}
+.fps-pub-nav a{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;font-size:0.88rem;font-weight:600;text-decoration:none;color:#334155;background:#fff;border:1px solid #e2e8f0;transition:all 0.2s;}
+.fps-pub-nav a:hover{border-color:#16a34a;color:#16a34a;background:#f0fdf4;transform:translateY(-1px);}
+.fps-pub-nav a.active{background:#16a34a;color:#fff;border-color:#16a34a;}
+.fps-pub-nav a i{font-size:0.9rem;}
+
+@media(max-width:768px){.fps-pub-hero h1{font-size:1.6rem;}.fps-pub-hero p{font-size:1rem;}.fps-pub-stat-value{font-size:1.5rem;}.fps-pub-nav{gap:6px;}.fps-pub-nav a{padding:6px 12px;font-size:0.8rem;}}
 </style>
 {/literal}
 
@@ -124,10 +131,20 @@
         </div>
     </div>
 
+    {* === PAGE NAVIGATION === *}
+    <div class="fps-pub-nav">
+        <a href="index.php?m=fraud_prevention_suite" class="active"><i class="fas fa-chart-line"></i> Overview</a>
+        <a href="{$store_url}"><i class="fas fa-shopping-cart"></i> API Plans & Pricing</a>
+        <a href="{$api_docs_url}"><i class="fas fa-book"></i> API Documentation</a>
+        <a href="{$topology_url}"><i class="fas fa-globe"></i> Live Threat Map</a>
+        <a href="index.php?m=fraud_prevention_suite&page=global"><i class="fas fa-network-wired"></i> Global Intel</a>
+        <a href="{$gdpr_url}"><i class="fas fa-user-shield"></i> Data Removal</a>
+    </div>
+
     {* === LIVE STATS === *}
     <div class="fps-pub-section">
         <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-chart-bar" style="color:#16a34a;"></i> Live Platform Statistics</h2>
-        <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Real-time data from our fraud detection infrastructure.</p>
+        <p class="subtitle" style="color:#64748b;font-size:1rem;">Real-time data from our fraud detection infrastructure.</p>
     </div>
 
     <div class="fps-pub-stats">
@@ -142,7 +159,7 @@
     {* === ANONYMITY DETECTION STATS === *}
     <div class="fps-pub-section">
         <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-mask" style="color:#16a34a;"></i> Anonymity Network Detection</h2>
-        <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
+        <p class="subtitle" style="color:#64748b;font-size:1rem;">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
     </div>
 
     <div class="fps-pub-stats">
@@ -157,7 +174,7 @@
     {* === DETECTION ENGINES === *}
     <div class="fps-pub-section">
         <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-puzzle-piece" style="color:#16a34a;"></i> Detection Engines</h2>
-        <p class="subtitle" style="color:#b8c0e0;font-size:1rem;">Multi-layered fraud detection combining {$stats.provider_count}+ independent intelligence sources.</p>
+        <p class="subtitle" style="color:#64748b;font-size:1rem;">Multi-layered fraud detection combining {$stats.provider_count}+ independent intelligence sources.</p>
     </div>
 
     <div class="fps-pub-features">
