@@ -653,9 +653,218 @@ function fraud_prevention_suite_activate(): array
             logModuleCall('fraud_prevention_suite', 'SeedSettings', '', $e->getMessage());
         }
 
-        return ['status' => 'success', 'description' => 'Fraud Prevention Suite v4.2.0 activated successfully. All tables ready.'];
+        // Auto-enable core features on activation
+        try {
+            $autoEnable = [
+                'public_api_enabled' => '1',
+                'topology_enabled' => '1',
+            ];
+            foreach ($autoEnable as $k => $v) {
+                Capsule::table('mod_fps_settings')->updateOrInsert(
+                    ['setting_key' => $k], ['setting_value' => $v]
+                );
+            }
+            // Enable pre-checkout blocking in WHMCS module config
+            Capsule::table('tbladdonmodules')->updateOrInsert(
+                ['module' => 'fraud_prevention_suite', 'setting' => 'pre_checkout_blocking'],
+                ['value' => 'on']
+            );
+            // Set hub URL default
+            if (Capsule::schema()->hasTable('mod_fps_global_config')) {
+                $hubUrl = Capsule::table('mod_fps_global_config')->where('setting_key', 'hub_url')->value('setting_value');
+                if (empty($hubUrl)) {
+                    Capsule::table('mod_fps_global_config')->updateOrInsert(
+                        ['setting_key' => 'hub_url'], ['setting_value' => 'http://130.12.69.6:8400']
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        // Auto-create API products
+        $productResult = fps_createDefaultProducts();
+
+        $desc = 'Fraud Prevention Suite v4.2.0 activated successfully. All tables ready.';
+        if (!empty($productResult['created'])) {
+            $desc .= ' Created ' . $productResult['created'] . ' API products.';
+        }
+
+        return ['status' => 'success', 'description' => $desc];
     } catch (\Throwable $e) {
         return ['status' => 'error', 'description' => 'Activation failed: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Auto-create FPS API products and product group in WHMCS.
+ * Idempotent: skips if products already exist.
+ */
+function fps_createDefaultProducts(): array
+{
+    $created = 0;
+
+    try {
+        // Create product group
+        $group = Capsule::table('tblproductgroups')->where('name', 'Fraud Intelligence API')->first();
+        $groupId = $group->id ?? 0;
+
+        if ($groupId === 0) {
+            $groupId = Capsule::table('tblproductgroups')->insertGetId([
+                'name'           => 'Fraud Intelligence API',
+                'headline'       => 'Real-time fraud detection and threat intelligence API',
+                'tagline'        => 'Protect your business with enterprise-grade fraud prevention',
+                'orderfrmtpl'    => '',
+                'disabledgateways' => '',
+                'hidden'         => 0,
+                'order'          => 0,
+            ]);
+        }
+
+        if ($groupId <= 0) return ['created' => 0, 'error' => 'Failed to create product group'];
+
+        // Product definitions with rich HTML descriptions
+        $products = [
+            [
+                'name'  => 'FPS API - Free Tier',
+                'tier'  => 'free',
+                'price' => '0.00',
+                'desc'  => '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#e0e0e0;line-height:1.7;">'
+                    . '<h3 style="color:#38ef7d;margin:0 0 8px;">Fraud Intelligence API &mdash; Free Tier</h3>'
+                    . '<p style="color:#b0b8d0;">Get started with real-time fraud detection at no cost. Perfect for small sites, development, and evaluation.</p>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">What\'s Included</h4>'
+                    . '<ul style="color:#c8d0e0;padding-left:20px;">'
+                    . '<li>Global threat statistics (anonymized aggregate data)</li>'
+                    . '<li>Topology hotspot visualization</li>'
+                    . '<li><strong>30 API requests/minute</strong> &bull; <strong>5,000 requests/day</strong></li>'
+                    . '<li>RESTful JSON API with rate limit headers</li>'
+                    . '<li>API key with usage dashboard in client area</li>'
+                    . '</ul>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">Endpoints Available</h4>'
+                    . '<ul style="color:#c8d0e0;padding-left:20px;font-family:monospace;font-size:0.9em;">'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/stats/global &mdash; Platform-wide fraud statistics</li>'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/topology/hotspots &mdash; Geographic threat hotspots</li>'
+                    . '</ul>'
+                    . '<p style="color:#6a7195;font-size:0.85em;margin-top:16px;">Full API documentation, code examples (cURL, PHP, Python, JavaScript), and integration guides available in your client area.</p>'
+                    . '</div>',
+            ],
+            [
+                'name'  => 'FPS API - Basic',
+                'tier'  => 'basic',
+                'price' => '19.00',
+                'desc'  => '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#e0e0e0;line-height:1.7;">'
+                    . '<h3 style="color:#667eea;margin:0 0 8px;">Fraud Intelligence API &mdash; Basic Tier</h3>'
+                    . '<p style="color:#b0b8d0;">Full IP and email intelligence for active fraud prevention. Ideal for hosting companies, e-commerce, and SaaS platforms.</p>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">Everything in Free, Plus</h4>'
+                    . '<ul style="color:#c8d0e0;padding-left:20px;">'
+                    . '<li>IP threat intelligence (VPN, Tor, proxy, datacenter detection)</li>'
+                    . '<li>IP geolocation (country, city, ISP, ASN)</li>'
+                    . '<li>Email validation (MX check, disposable detection, domain age)</li>'
+                    . '<li>Topology event feed (real-time fraud events)</li>'
+                    . '<li><strong>120 API requests/minute</strong> &bull; <strong>50,000 requests/day</strong></li>'
+                    . '</ul>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">Additional Endpoints</h4>'
+                    . '<ul style="color:#c8d0e0;padding-left:20px;font-family:monospace;font-size:0.9em;">'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/lookup/ip-basic &mdash; IP threat flags + geolocation</li>'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/topology/events &mdash; Real-time event feed</li>'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/lookup/email-basic &mdash; Email validation + disposable check</li>'
+                    . '</ul>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">Use Cases</h4>'
+                    . '<ul style="color:#b0b8d0;padding-left:20px;">'
+                    . '<li>Block signups from known fraud IPs</li>'
+                    . '<li>Validate customer email addresses at checkout</li>'
+                    . '<li>Monitor geographic fraud patterns in real-time</li>'
+                    . '<li>Enrich CRM data with threat intelligence</li>'
+                    . '</ul>'
+                    . '<p style="color:#6a7195;font-size:0.85em;margin-top:16px;">Support: Email (24h response time)</p>'
+                    . '</div>',
+            ],
+            [
+                'name'  => 'FPS API - Premium',
+                'tier'  => 'premium',
+                'price' => '99.00',
+                'desc'  => '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#e0e0e0;line-height:1.7;">'
+                    . '<h3 style="color:#ffd700;margin:0 0 8px;">Fraud Intelligence API &mdash; Premium Tier</h3>'
+                    . '<p style="color:#b0b8d0;">Complete fraud intelligence suite with bulk operations, deep analysis, and priority support. Built for enterprises and MSPs.</p>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">Everything in Basic, Plus</h4>'
+                    . '<ul style="color:#c8d0e0;padding-left:20px;">'
+                    . '<li>Full IP intelligence (abuse history, risk scoring, behavioral analysis)</li>'
+                    . '<li>Full email intelligence (breach history, social presence, SMTP verification)</li>'
+                    . '<li>Bulk lookup (up to 100 IPs or emails per request)</li>'
+                    . '<li>Country-level fraud reports and analytics</li>'
+                    . '<li><strong>600 API requests/minute</strong> &bull; <strong>500,000 requests/day</strong></li>'
+                    . '<li>Webhook notifications for high-risk events</li>'
+                    . '<li>Custom rate limit overrides available</li>'
+                    . '</ul>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">Additional Endpoints</h4>'
+                    . '<ul style="color:#c8d0e0;padding-left:20px;font-family:monospace;font-size:0.9em;">'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/lookup/ip-full &mdash; Complete IP dossier with risk score</li>'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/lookup/email-full &mdash; Deep email analysis + breach data</li>'
+                    . '<li><span style="color:#f5c842;">POST</span> /v1/lookup/bulk &mdash; Batch check up to 100 items</li>'
+                    . '<li><span style="color:#38ef7d;">GET</span> /v1/reports/country/{CC} &mdash; Country fraud analytics</li>'
+                    . '</ul>'
+                    . '<h4 style="color:#667eea;margin:16px 0 8px;">Enterprise Features</h4>'
+                    . '<ul style="color:#c8d0e0;padding-left:20px;">'
+                    . '<li>IP whitelist per API key for security</li>'
+                    . '<li>Per-key custom rate limits</li>'
+                    . '<li>SLA: 99.9% uptime guarantee</li>'
+                    . '<li>Priority email + ticket support (4h response)</li>'
+                    . '</ul>'
+                    . '<p style="color:#6a7195;font-size:0.85em;margin-top:16px;">Dedicated account manager available for annual plans.</p>'
+                    . '</div>',
+            ],
+        ];
+
+        foreach ($products as $p) {
+            // Skip if already exists
+            if (Capsule::table('tblproducts')->where('name', $p['name'])->exists()) {
+                continue;
+            }
+
+            $pid = Capsule::table('tblproducts')->insertGetId([
+                'type'           => 'other',
+                'gid'            => $groupId,
+                'name'           => $p['name'],
+                'description'    => $p['desc'],
+                'hidden'         => 0,
+                'showdomainoptions' => 0,
+                'paytype'        => 'recurring',
+                'autosetup'      => 'order',
+                'servertype'     => 'fps_api',
+                'configoption1'  => $p['tier'],
+                'order'          => 0,
+                'retired'        => 0,
+                'is_featured'    => 0,
+                'stockcontrol'   => 0,
+            ]);
+
+            if ($pid > 0) {
+                // Set pricing (monthly only, other cycles disabled)
+                Capsule::table('tblpricing')->insertOrIgnore([
+                    'type'           => 'product',
+                    'currency'       => 1,
+                    'relid'          => $pid,
+                    'msetupfee'      => '0.00',
+                    'qsetupfee'      => '0.00',
+                    'ssetupfee'      => '0.00',
+                    'asetupfee'      => '0.00',
+                    'bsetupfee'      => '0.00',
+                    'tsetupfee'      => '0.00',
+                    'monthly'        => $p['price'],
+                    'quarterly'      => '-1.00',
+                    'semiannually'   => '-1.00',
+                    'annually'       => '-1.00',
+                    'biennially'     => '-1.00',
+                    'triennially'    => '-1.00',
+                ]);
+                $created++;
+            }
+        }
+
+        return ['created' => $created];
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'CreateProducts', '', $e->getMessage());
+        return ['created' => $created, 'error' => $e->getMessage()];
     }
 }
 
@@ -729,6 +938,9 @@ function fraud_prevention_suite_upgrade($vars): void
                 );
             }
         } catch (\Throwable $e) {}
+
+        // v4.2: Auto-create API products if they don't exist yet
+        fps_createDefaultProducts();
     } catch (\Throwable $e) {
         logModuleCall('fraud_prevention_suite', 'Upgrade', json_encode($vars), $e->getMessage());
     }
@@ -1180,6 +1392,14 @@ function fps_handleAjax(string $modulelink): void
 
             case 'get_setup_status':
                 echo json_encode(fps_ajaxGetSetupStatus());
+                break;
+
+            case 'dismiss_wizard':
+                Capsule::table('mod_fps_settings')->updateOrInsert(
+                    ['setting_key' => 'wizard_dismissed'],
+                    ['setting_value' => '1']
+                );
+                echo json_encode(['success' => true]);
                 break;
 
             // v4.0: Bot Cleanup
