@@ -1,4 +1,5 @@
-{literal}<style>
+{literal}
+<style>
 .fps-store{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e6f0;--fps-p:#667eea;--fps-s:#764ba2;--fps-g:#38ef7d;--fps-w:#f5c842;--fps-d:#f5576c;--fps-bg:#0f1225;}
 
 /* Hero */
@@ -64,7 +65,8 @@
 .fps-bottom{padding:60px 20px;text-align:center;background:linear-gradient(135deg,rgba(102,126,234,0.08),rgba(118,75,162,0.06));}
 .fps-bottom h2{font-size:1.8rem;font-weight:800;color:#fff;margin:0 0 12px;}
 .fps-bottom p{color:#6a7195;margin:0 0 24px;font-size:1rem;}
-</style>{/literal}
+</style>
+{/literal}
 
 <div class="fps-store">
 
