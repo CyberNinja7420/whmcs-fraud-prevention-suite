@@ -2510,11 +2510,56 @@ function fraud_prevention_suite_clientarea(array $vars): array
                 $totalBlocks = $stats['threats_blocked'] ?? 0;
             }
             $blockRate = $totalChecks > 0 ? round(($totalBlocks / $totalChecks) * 100) : 0;
+
+            // Fetch events server-side (no rate limit, no extra HTTP calls)
+            $events = [];
+            try {
+                $eventRows = Capsule::table('mod_fps_geo_events')
+                    ->orderBy('created_at', 'desc')
+                    ->limit(50)
+                    ->get();
+                foreach ($eventRows as $e) {
+                    $events[] = [
+                        'event_type' => $e->event_type,
+                        'country_code' => $e->country_code,
+                        'latitude' => $e->latitude,
+                        'longitude' => $e->longitude,
+                        'risk_level' => $e->risk_level,
+                        'risk_score' => $e->risk_score,
+                        'created_at' => $e->created_at,
+                    ];
+                }
+            } catch (\Throwable $e) {}
+
+            // Fetch hotspots (country aggregation) server-side
+            $hotspots = [];
+            try {
+                $hotspotRows = Capsule::table('mod_fps_geo_events')
+                    ->select(Capsule::raw('country_code, COUNT(*) as event_count, AVG(risk_score) as avg_risk, AVG(latitude) as lat, AVG(longitude) as lng'))
+                    ->whereNotNull('country_code')
+                    ->where('country_code', '!=', '')
+                    ->groupBy('country_code')
+                    ->orderByDesc(Capsule::raw('COUNT(*)'))
+                    ->limit(20)
+                    ->get();
+                foreach ($hotspotRows as $h) {
+                    $hotspots[] = [
+                        'country_code' => $h->country_code,
+                        'event_count' => (int)$h->event_count,
+                        'avg_risk' => round((float)$h->avg_risk, 1),
+                        'lat' => (float)$h->lat,
+                        'lng' => (float)$h->lng,
+                    ];
+                }
+            } catch (\Throwable $e) {}
+
             $initialData = json_encode([
                 'total_checks' => $totalChecks,
                 'active_countries' => $activeCountries,
                 'total_blocks' => $totalBlocks,
                 'block_rate' => $blockRate,
+                'events' => $events,
+                'hotspots' => $hotspots,
             ]);
             $apiBase = 'index.php?m=fraud_prevention_suite&api=1';
             $html = file_get_contents($tplPath);
