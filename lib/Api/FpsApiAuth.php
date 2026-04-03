@@ -23,6 +23,7 @@ class FpsApiAuth
         'anonymous' => [
             '/v1/stats/global',
             '/v1/topology/hotspots',
+            '/v1/topology/events',
         ],
         'free' => [
             '/v1/stats/global',
