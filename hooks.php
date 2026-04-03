@@ -920,9 +920,16 @@ add_hook('ClientAreaFooterOutput', 3, function ($vars) {
             }
 
             if ($startingPrice) {
-                $cardsHtml .= '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                $cardsHtml .= '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">'
                     . '<span style="font-size:0.82rem;color:#64748b;">Starting at</span>'
                     . '<span style="font-size:1.1rem;font-weight:800;color:#16a34a;">' . $startingPrice . '</span></div>';
+            }
+
+            // Add "Learn More" link for FPS product (links to module overview page)
+            if (stripos($group->name, 'fraud') !== false || stripos($group->name, 'intelligence') !== false) {
+                $cardsHtml .= '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;text-align:center;">'
+                    . '<span onclick="event.preventDefault();event.stopPropagation();window.location.href=\'index.php?m=fraud_prevention_suite\';" style="font-size:0.82rem;font-weight:700;color:#2563eb;cursor:pointer;">'
+                    . '<i class="fas fa-chart-line" style="margin-right:4px;"></i>Live Stats & Detection Engines</span></div>';
             }
 
             $cardsHtml .= '</a>';
