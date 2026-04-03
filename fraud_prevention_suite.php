@@ -653,6 +653,26 @@ function fraud_prevention_suite_activate(): array
             logModuleCall('fraud_prevention_suite', 'SeedSettings', '', $e->getMessage());
         }
 
+        // Auto-install fps_api server module if not present
+        try {
+            $whmcsRoot = dirname(dirname(__DIR__)); // modules/addons/fps -> WHMCS root
+            $serverModDir = $whmcsRoot . '/modules/servers/fps_api';
+            $serverModFile = $serverModDir . '/fps_api.php';
+            $sourceFile = __DIR__ . '/install/fps_api.php';
+
+            if (!file_exists($serverModFile) && file_exists($sourceFile)) {
+                if (!is_dir($serverModDir)) {
+                    mkdir($serverModDir, 0755, true);
+                }
+                copy($sourceFile, $serverModFile);
+                chmod($serverModFile, 0644);
+                logActivity('Fraud Prevention Suite: Auto-installed fps_api server module');
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal: admin can install server module manually
+            logModuleCall('fraud_prevention_suite', 'InstallServerModule', '', $e->getMessage());
+        }
+
         // Auto-enable core features on activation
         try {
             $autoEnable = [
@@ -2407,6 +2427,32 @@ function fraud_prevention_suite_clientarea(array $vars): array
         exit;
     }
 
+    // Custom store landing page with 1000X pricing cards
+    if ($page === 'store') {
+        $liveStats = fps_getPublicStats();
+        // Get product IDs for order links
+        $freeProduct = Capsule::table('tblproducts')->where('name', 'FPS API - Free Tier')->first(['id']);
+        $basicProduct = Capsule::table('tblproducts')->where('name', 'FPS API - Basic')->first(['id']);
+        $premProduct = Capsule::table('tblproducts')->where('name', 'FPS API - Premium')->first(['id']);
+
+        return [
+            'pagetitle'    => 'Fraud Prevention Suite - API Plans',
+            'breadcrumb'   => [
+                'index.php?m=fraud_prevention_suite' => 'Fraud Prevention Suite',
+                'index.php?m=fraud_prevention_suite&page=store' => 'API Plans',
+            ],
+            'templatefile' => 'store/landing',
+            'vars'         => [
+                'stats'    => $liveStats,
+                'products' => [
+                    'free'    => ['pid' => $freeProduct->id ?? 0],
+                    'basic'   => ['pid' => $basicProduct->id ?? 0],
+                    'premium' => ['pid' => $premProduct->id ?? 0],
+                ],
+            ],
+        ];
+    }
+
     // Topology is a full-screen standalone page -- serve directly with injected stats
     if ($page === 'topology') {
         $tplPath = __DIR__ . '/templates/topology.tpl';
@@ -2454,6 +2500,7 @@ function fraud_prevention_suite_clientarea(array $vars): array
         'api_docs_url'   => 'index.php?m=fraud_prevention_suite&page=api-docs',
         'gdpr_url'       => $gdprUrl,
         'overview_url'   => 'index.php?m=fraud_prevention_suite',
+        'store_url'      => 'index.php?m=fraud_prevention_suite&page=store',
     ];
 
     // Route to the right template
