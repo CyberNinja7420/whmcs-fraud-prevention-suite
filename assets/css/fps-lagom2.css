@@ -8,10 +8,16 @@
    DARK THEME CLARITY - brighter text, cleaner backgrounds
    ============================================================ */
 
-/* Override Lagom2 dark body for FPS pages - slightly lighter for readability */
-body .main-content .fps-pub-section,
-body .main-content [class*="fps-pub"] {
-  color: #d0d8f0 !important;
+/* Text readability on FPS pages - works on both light and dark backgrounds */
+.main-body,
+.main-content {
+  color: #2c3e50 !important;
+}
+.main-content h1, .main-content h2, .main-content h3, .main-content h4 {
+  color: #1a1a2e !important;
+}
+.main-content a:not(.btn):not(.tier-btn) {
+  color: #4a6cf7 !important;
 }
 
 /* All text in FPS areas should be bright enough to read easily */
@@ -35,13 +41,13 @@ body .main-content a:not(.btn):not(.tier-btn):hover {
   color: #9bb0ff !important;
 }
 
-/* Card backgrounds - LIGHTER than body (#2C374C) for elevation effect */
+/* Card backgrounds - white cards on light background */
 body .main-content .fps-pub-stat,
 body .main-content .fps-pub-tier,
 body .main-content .fps-pub-feature-card {
-  background: rgba(55, 70, 100, 0.7) !important;
-  backdrop-filter: blur(4px) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  background: #fff !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
+  color: #2c3e50 !important;
 }
 
 /* Clean visible borders */
@@ -49,7 +55,18 @@ body .main-content .fps-pub-stat,
 body .main-content .fps-pub-tier,
 body .main-content .fps-pub-feature-card,
 body .main-content .fps-pub-endpoint {
-  border: 1px solid rgba(160, 180, 230, 0.15) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Card text on white backgrounds */
+body .main-content .fps-pub-stat-label {
+  color: #6b7c93 !important;
+}
+body .main-content .fps-pub-feature-card h3 {
+  color: #1a2040 !important;
+}
+body .main-content .fps-pub-feature-card p {
+  color: #5a6b80 !important;
 }
 
 /* ============================================================
@@ -65,7 +82,7 @@ body .main-content .fps-pub-endpoint {
 
 /* Stat cards - elevated on lighter background */
 .fps-pub-stat {
-  background: rgba(60, 78, 110, 0.7) !important;
+  background: rgba(70, 88, 120, 0.8) !important;
   border: 1px solid rgba(160, 180, 230, 0.15) !important;
   border-radius: 12px !important;
   padding: 20px 16px !important;
@@ -91,7 +108,7 @@ body .main-content .fps-pub-endpoint {
 
 /* Detection engine cards - lighter than body */
 .fps-pub-feature-card {
-  background: rgba(55, 70, 100, 0.7) !important;
+  background: rgba(65, 82, 115, 0.8) !important;
   border: 1px solid rgba(160, 180, 230, 0.15) !important;
   border-radius: 12px !important;
   padding: 24px 20px !important;
@@ -128,7 +145,7 @@ body .main-content .fps-pub-endpoint {
 
 /* API tier cards - elevated */
 .fps-pub-tier {
-  background: rgba(55, 70, 100, 0.7) !important;
+  background: rgba(65, 82, 115, 0.8) !important;
   border: 1px solid rgba(160, 180, 230, 0.15) !important;
   border-radius: 14px !important;
   padding: 28px 24px !important;
@@ -233,6 +250,42 @@ body .main-content .fps-pub-endpoint {
   font-size: 1.6rem !important;
   font-weight: 800 !important;
   color: #fff !important;
+}
+
+/* ============================================================
+   HEADER/BANNER - Compact page header on FPS pages
+   ============================================================ */
+
+/* Shrink the Lagom2 page banner on FPS module pages */
+.page-head {
+  padding: 20px 0 16px !important;
+  min-height: auto !important;
+}
+.page-head h1 {
+  font-size: 1.3rem !important;
+  margin: 0 !important;
+}
+.page-head .breadcrumbs,
+.page-head .breadcrumb {
+  font-size: 0.75rem !important;
+  margin-top: 4px !important;
+  opacity: 0.6 !important;
+}
+
+/* Make the entire page header banner thinner */
+.site-banner,
+.banner {
+  padding: 24px 0 20px !important;
+  min-height: auto !important;
+}
+.site-banner h1,
+.banner-title {
+  font-size: 1.4rem !important;
+}
+.site-banner p,
+.banner-desc p {
+  font-size: 0.85rem !important;
+  margin: 4px 0 0 !important;
 }
 
 /* ============================================================
