@@ -2172,13 +2172,26 @@ function fraud_prevention_suite_clientarea(array $vars): array
     if ($page === 'topology') {
         $tplPath = __DIR__ . '/templates/topology.tpl';
         if (file_exists($tplPath)) {
-            $stats = fps_getPublicStats();
-            $totalChecks = $stats['total_checks'] ?? 0;
-            $totalBlocks = $stats['threats_blocked'] ?? 0;
+            // Use geo_events for topology stats (same source as API /v1/stats/global)
+            $totalChecks = 0; $activeCountries = 0; $totalBlocks = 0;
+            try {
+                $totalChecks = Capsule::table('mod_fps_geo_events')->count();
+                $activeCountries = Capsule::table('mod_fps_geo_events')
+                    ->whereNotNull('country_code')->where('country_code', '!=', '')
+                    ->distinct()->count('country_code');
+                $totalBlocks = Capsule::table('mod_fps_geo_events')
+                    ->whereIn('risk_level', ['high', 'critical'])->count();
+            } catch (\Throwable $e) {
+                // Fallback to mod_fps_checks if geo_events fails
+                $stats = fps_getPublicStats();
+                $totalChecks = $stats['total_checks'] ?? 0;
+                $activeCountries = $stats['countries_monitored'] ?? 0;
+                $totalBlocks = $stats['threats_blocked'] ?? 0;
+            }
             $blockRate = $totalChecks > 0 ? round(($totalBlocks / $totalChecks) * 100) : 0;
             $initialData = json_encode([
                 'total_checks' => $totalChecks,
-                'active_countries' => $stats['countries_monitored'] ?? 0,
+                'active_countries' => $activeCountries,
                 'total_blocks' => $totalBlocks,
                 'block_rate' => $blockRate,
             ]);
