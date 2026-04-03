@@ -105,6 +105,27 @@
 .fps-pub-nav a i{font-size:0.9rem;}
 
 @media(max-width:768px){.fps-pub-hero h1{font-size:1.6rem;}.fps-pub-hero p{font-size:1rem;}.fps-pub-stat-value{font-size:1.5rem;}.fps-pub-nav{gap:6px;}.fps-pub-nav a{padding:6px 12px;font-size:0.8rem;}}
+
+/* Colorblind mode: swap ALL green to blue within FPS overview */
+body.cb-mode .fps-pub-stat-value.success{color:#2563eb!important}
+body.cb-mode .fps-pub-section h2 i{color:#2563eb!important}
+body.cb-mode .fps-pub-feature:hover{border-color:#2563eb!important;box-shadow:0 6px 20px rgba(37,99,235,0.08)!important}
+body.cb-mode .fps-pub-feature h3 i{color:#2563eb!important}
+body.cb-mode .fps-pub-tier.featured{border-color:#2563eb!important;border-top-color:#2563eb!important;box-shadow:0 4px 16px rgba(37,99,235,0.1)!important}
+body.cb-mode .fps-pub-tier .price,body.cb-mode .fps-pub-tier .price.free{color:#2563eb!important}
+body.cb-mode .fps-pub-tier ul li i.check{color:#2563eb!important}
+body.cb-mode .fps-pub-tier .tier-btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 4px 14px rgba(37,99,235,0.3)!important}
+body.cb-mode .fps-pub-tier .tier-btn.outline:hover{border-color:#2563eb!important;color:#2563eb!important}
+body.cb-mode .fps-pub-provider-badge{background:#eff6ff!important;border-color:#bfdbfe!important;color:#2563eb!important}
+body.cb-mode .fps-pub-endpoint .method{background:#2563eb!important}
+body.cb-mode .fps-pub-endpoint .tier-badge{background:#eff6ff!important;color:#2563eb!important;border-color:#bfdbfe!important}
+body.cb-mode .fps-pub-endpoint:hover{background:#eff6ff!important}
+body.cb-mode .fps-pub-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 150%)!important}
+body.cb-mode .fps-pub-cta{background:linear-gradient(135deg,#0f172a,#1e3a5f)!important}
+body.cb-mode .fps-pub-cta a{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 4px 14px rgba(37,99,235,0.3)!important}
+body.cb-mode .fps-pub-nav a.active{background:#2563eb!important;border-color:#2563eb!important}
+body.cb-mode .fps-pub-nav a:hover{border-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}
+body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!important;border-color:rgba(37,99,235,0.3)!important}
 </style>
 {/literal}
 

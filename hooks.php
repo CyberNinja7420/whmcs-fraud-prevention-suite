@@ -765,50 +765,121 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
     }
 
     // ---------------------------------------------------------------------------
-    // Accessibility: Colorblind-friendly mode toggle
-    // Swaps green primary to blue, increases contrast, adds pattern indicators
-    // ---------------------------------------------------------------------------
+    // =========================================================================
+    // Accessibility: Comprehensive colorblind-friendly mode
+    // Transforms ALL green (#16a34a family) to blue (#2563eb family) site-wide
+    // Also: higher contrast text, underlined links, thicker focus rings
+    // =========================================================================
     $output .= '<style>'
-        // Colorblind mode overrides (activated when body has .cb-mode)
-        . 'body.cb-mode{--primary:#2563eb!important;--svg-icon-color-1:#2563eb!important;--svg-icon-color-2:#1d4ed8!important}'
-        // Primary buttons: green -> blue
-        . 'body.cb-mode .btn-primary,body.cb-mode .btn-success{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 2px 8px rgba(37,99,235,0.25)!important}'
+        // === CSS VARIABLE OVERRIDES ===
+        . 'body.cb-mode{'
+        . '--primary:#2563eb!important;'
+        . '--svg-icon-color-1:#2563eb!important;'
+        . '--svg-icon-color-2:#1d4ed8!important;'
+        . '}'
+        // === HEADER / BANNER / PAGE-HEAD (green gradients -> blue) ===
+        . 'body.cb-mode .main-banner,body.cb-mode .banner,body.cb-mode .site-banner,body.cb-mode .banner-home{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%)!important}'
+        . 'body.cb-mode .main-header,body.cb-mode header,body.cb-mode .header-bg{background:linear-gradient(90deg,#1e40af,#2563eb)!important}'
+        . 'body.cb-mode .page-head{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 150%)!important}'
+        . 'body.cb-mode .search-box-primary,body.cb-mode .domain-search-section{background:linear-gradient(135deg,#1e40af,#2563eb)!important}'
+        // === BUTTONS ===
+        . 'body.cb-mode .btn-primary,body.cb-mode .btn-success{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;border-color:#2563eb!important;box-shadow:0 2px 8px rgba(37,99,235,0.25)!important}'
         . 'body.cb-mode .btn-primary:hover,body.cb-mode .btn-success:hover{background:linear-gradient(135deg,#1d4ed8,#1e40af)!important;box-shadow:0 4px 12px rgba(37,99,235,0.35)!important}'
-        // Prices and accent text: green -> blue
-        . 'body.cb-mode .package-price{color:#2563eb!important}'
+        // === NAV / MENU (all hover + active states) ===
+        . 'body.cb-mode .main-menu a:hover,body.cb-mode .nav-link:hover,body.cb-mode .main-menu a:hover .item-text,body.cb-mode .menu-primary a:hover,body.cb-mode .menu a:hover,body.cb-mode .dropdown-toggle:hover,body.cb-mode .dropdown-toggle:hover .item-text{color:#2563eb!important}'
+        . 'body.cb-mode .main-menu .active .item-text,body.cb-mode .nav-link.active{color:#2563eb!important}'
+        . 'body.cb-mode .header-top a:hover,body.cb-mode .utility-nav a:hover{color:#2563eb!important}'
+        // === CART BADGE ===
+        . 'body.cb-mode .badge-primary-faded,.cb-mode .nav-badge{color:#2563eb!important;background:rgba(37,99,235,0.1)!important;border-color:#2563eb!important}'
+        // === SIDEBAR / LIST-GROUP (active + hover) ===
         . 'body.cb-mode .list-group-item.active,body.cb-mode .list-group-item.active a{border-left-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}'
         . 'body.cb-mode .list-group-item:hover,body.cb-mode .list-group-item:hover a{background:#eff6ff!important;color:#2563eb!important}'
         . 'body.cb-mode .sidebar .list-group-item.active{border-left-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}'
-        // Tile hover: green border -> blue border
+        . 'body.cb-mode .sidebar .list-group-item:hover{background:#eff6ff!important;color:#2563eb!important}'
+        // === TILES (How can we help) ===
         . 'body.cb-mode .tile:hover,body.cb-mode .tile-home:hover{border-color:#2563eb!important;box-shadow:0 6px 20px rgba(37,99,235,0.1)!important}'
         . 'body.cb-mode .tile .lm,body.cb-mode .tile i,body.cb-mode .tile svg{color:#2563eb!important}'
-        // Nav hover: green -> blue
-        . 'body.cb-mode .main-menu a:hover,body.cb-mode .nav-link:hover,body.cb-mode .main-menu a:hover .item-text,body.cb-mode .menu-primary a:hover,body.cb-mode .menu a:hover{color:#2563eb!important}'
-        . 'body.cb-mode .main-menu .active .item-text,body.cb-mode .nav-link.active{color:#2563eb!important}'
-        // Dates and accents: green -> blue
+        // === PRICES ===
+        . 'body.cb-mode .package-price{color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-tier .price,body.cb-mode .fps-pub-tier .price.free{color:#2563eb!important}'
+        . 'body.cb-mode .fps-card .cp{color:#2563eb!important}'
+        // === DATES / TIMESTAMPS ===
         . 'body.cb-mode .timeline-date,body.cb-mode .date-badge,body.cb-mode .ann-date,body.cb-mode .list-group-item .date{color:#2563eb!important}'
-        // Dropdown hover: green -> blue
+        // === DROPDOWNS ===
         . 'body.cb-mode .dropdown-menu a:hover,body.cb-mode .dropdown-item:hover{background:#eff6ff!important;color:#2563eb!important}'
-        // Table hover: green -> blue
+        // === TABLES ===
         . 'body.cb-mode .table-hover tbody tr:hover{background:#eff6ff!important}'
-        // Badges: ensure distinct colors for all states
-        . 'body.cb-mode .badge-success,.cb-mode .label-success{background:#2563eb!important}'
-        . 'body.cb-mode .badge-warning,.cb-mode .label-warning{background:#f59e0b!important;color:#000!important}'
-        . 'body.cb-mode .badge-danger,.cb-mode .label-danger{background:#dc2626!important}'
-        // Higher contrast body text
+        // === BADGES (all states) ===
+        . 'body.cb-mode .badge-success,body.cb-mode .label-success{background:#2563eb!important}'
+        . 'body.cb-mode .badge-warning,body.cb-mode .label-warning{background:#f59e0b!important;color:#000!important}'
+        . 'body.cb-mode .badge-danger,body.cb-mode .label-danger{background:#dc2626!important}'
+        . 'body.cb-mode .badge-info,body.cb-mode .label-info{background:#6366f1!important}'
+        // === TEXT CONTRAST (higher than normal mode) ===
         . 'body.cb-mode,body.cb-mode .main-content,body.cb-mode .main-content p,body.cb-mode .main-content div{color:#1e293b!important}'
         . 'body.cb-mode h1,body.cb-mode h2,body.cb-mode h3,body.cb-mode h4,body.cb-mode h5,body.cb-mode h6{color:#0a0f1e!important}'
-        // Focus indicators: thicker, blue
+        // === FORMS (focus rings) ===
         . 'body.cb-mode .form-control:focus{border-color:#2563eb!important;box-shadow:0 0 0 4px rgba(37,99,235,0.2)!important}'
         . 'body.cb-mode a:focus-visible{outline:3px solid #2563eb!important;outline-offset:2px!important}'
-        // Underline links for better distinction
+        // === LINKS (underlined for non-color indicator) ===
         . 'body.cb-mode .main-content a:not(.btn):not([class*="btn"]){text-decoration:underline!important;text-underline-offset:2px!important}'
-        // Hue-rotate green elements to blue (catches inline-styled green backgrounds)
-        . 'body.cb-mode [style*="background:linear-gradient(135deg,#16a34a"],body.cb-mode [style*="background:linear-gradient(135deg, #16a34a"]{filter:hue-rotate(210deg) saturate(1.2)!important}'
-        // FPS page nav active state
+        // === FPS MODULE PAGES ===
         . 'body.cb-mode .fps-pub-nav a.active{background:#2563eb!important;border-color:#2563eb!important}'
         . 'body.cb-mode .fps-pub-nav a:hover{border-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}'
-        // Toggle button styling
+        . 'body.cb-mode .fps-pub-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 150%)!important}'
+        . 'body.cb-mode .fps-pub-cta{background:linear-gradient(135deg,#0f172a,#1e3a5f)!important}'
+        . 'body.cb-mode .fps-pub-stat-value.success{color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-feature:hover{border-color:#2563eb!important;box-shadow:0 6px 20px rgba(37,99,235,0.08)!important}'
+        . 'body.cb-mode .fps-pub-feature h3 i,body.cb-mode .fps-pub-section h2 i{color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-tier.featured{border-color:#2563eb!important;box-shadow:0 4px 16px rgba(37,99,235,0.1)!important}'
+        . 'body.cb-mode .fps-pub-tier .tier-btn.primary{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 4px 14px rgba(37,99,235,0.3)!important}'
+        . 'body.cb-mode .fps-pub-tier .tier-btn.outline:hover{border-color:#2563eb!important;color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-provider-badge{background:#eff6ff!important;border-color:#bfdbfe!important;color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-endpoint .method{background:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-endpoint .tier-badge{background:#eff6ff!important;color:#2563eb!important;border-color:#bfdbfe!important}'
+        . 'body.cb-mode .fps-pub-endpoint:hover{background:#eff6ff!important}'
+        . 'body.cb-mode .fps-pub-cta a{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 4px 14px rgba(37,99,235,0.3)!important}'
+        // === FPS STORE/LANDING PAGE ===
+        . 'body.cb-mode .fps-card.pop{border-color:#2563eb!important;box-shadow:0 0 30px rgba(37,99,235,0.1)!important}'
+        . 'body.cb-mode .fps-free .cf a{color:#2563eb!important;border-color:#2563eb!important;background:#eff6ff!important}'
+        . 'body.cb-mode .fps-basic .cf a{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 4px 16px rgba(37,99,235,0.3)!important}'
+        . 'body.cb-mode .fps-hero .cta-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8)!important;box-shadow:0 4px 20px rgba(37,99,235,0.3)!important}'
+        . 'body.cb-mode .fps-stat-bar .sv{background:linear-gradient(135deg,#2563eb,#60a5fa)!important;-webkit-background-clip:text!important}'
+        . 'body.cb-mode .fps-fi:hover{border-color:#2563eb!important}'
+        . 'body.cb-mode .fps-bottom{background:linear-gradient(135deg,#0f172a,#1e3a5f)!important}'
+        . 'body.cb-mode .fps-card .cb ul li::before{color:#2563eb!important}'
+        // === TOPOLOGY PAGE (neon green -> blue) ===
+        . 'body.cb-mode .topo-live-dot{background:#2563eb!important;box-shadow:0 0 8px rgba(37,99,235,0.6)!important}'
+        . 'body.cb-mode .topo-stat-bar-value--green{color:#2563eb!important}'
+        . 'body.cb-mode .topo-event-icon--approved{color:#2563eb!important}'
+        . 'body.cb-mode .topo-event-tag--low{color:#2563eb!important;border-color:#2563eb!important}'
+        . 'body.cb-mode .topo-event-tag--medium{color:#f59e0b!important;border-color:#f59e0b!important}'
+        . 'body.cb-mode .topo-event-tag--high,body.cb-mode .topo-event-tag--critical{color:#dc2626!important;border-color:#dc2626!important}'
+        . 'body.cb-mode .topo-stat-bar-value--amber{color:#f59e0b!important}'
+        . 'body.cb-mode .topo-stat-bar-value--red{color:#dc2626!important}'
+        . 'body.cb-mode [class*="topo"] .fa-circle-check{color:#2563eb!important}'
+        // Catch-all: any inline green gradient
+        . 'body.cb-mode [style*="linear-gradient"][style*="#16a34a"],body.cb-mode [style*="linear-gradient"][style*="#15803d"],body.cb-mode [style*="linear-gradient"][style*="#25a75b"]{filter:hue-rotate(210deg) saturate(1.2)!important}'
+        // === HOMEPAGE "Free" PRICE + PRODUCT CARD ICONS ===
+        . 'body.cb-mode [style*="color:#16a34a"],body.cb-mode [style*="color: #16a34a"]{color:#2563eb!important}'
+        . 'body.cb-mode [style*="color:#15803d"],body.cb-mode [style*="color: #15803d"]{color:#1d4ed8!important}'
+        // === FPS OVERVIEW: green check icons -> blue ===
+        . 'body.cb-mode .fps-pub i.check,body.cb-mode .fps-pub .fa-check,body.cb-mode .fps-pub i.fa-check{color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-tier ul li i.check{color:#2563eb!important}'
+        . 'body.cb-mode .fps-pub-stat-label{color:#64748b!important}'
+        // === CHECKOUT: validate code btn, radio, password strength ===
+        . 'body.cb-mode .btn-primary-faded{color:#2563eb!important;border-color:#2563eb!important;background:rgba(37,99,235,0.08)!important}'
+        . 'body.cb-mode .btn-primary-faded:hover{background:rgba(37,99,235,0.15)!important}'
+        . 'body.cb-mode .radio-styled.checked,body.cb-mode .radio-styled:checked{border-color:#2563eb!important;box-shadow:0 0 0 3px rgba(37,99,235,0.15)!important}'
+        . 'body.cb-mode .radio-styled.checked::after,body.cb-mode .radio-styled:checked::after{background:#2563eb!important}'
+        . 'body.cb-mode input[type="radio"]:checked+label,body.cb-mode input[type="radio"]:checked~label{color:#2563eb!important}'
+        . 'body.cb-mode .progress-bar-success,body.cb-mode .progress-bar.bg-success{background:#2563eb!important}'
+        . 'body.cb-mode .password-strength-bar .progress-bar,body.cb-mode .pw-strength .bar{background:#2563eb!important}'
+        // Check/tick icons everywhere
+        . 'body.cb-mode .fa-check-circle,body.cb-mode .fa-circle-check{color:#2563eb!important}'
+        . 'body.cb-mode i[style*="color:#16a34a"],body.cb-mode i[style*="color: #16a34a"],body.cb-mode i[style*="color:#25a75b"],body.cb-mode i[style*="color: rgb(37, 167, 91)"]{color:#2563eb!important}'
+        // === FOOTER ===
+        . 'body.cb-mode footer a:hover,body.cb-mode .site-footer a:hover{color:#2563eb!important}'
+        // === TOGGLE BUTTON STYLING ===
         . '.fps-cb-toggle{position:fixed;bottom:20px;left:20px;z-index:9999;width:48px;height:48px;border-radius:50%;border:2px solid #cbd5e1;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.1);transition:all 0.3s;font-size:1.2rem;}'
         . '.fps-cb-toggle:hover{box-shadow:0 6px 20px rgba(0,0,0,0.15);transform:scale(1.05);}'
         . '.fps-cb-toggle[aria-pressed="true"]{background:#2563eb;border-color:#2563eb;color:#fff;}'
@@ -816,7 +887,7 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         . '.fps-cb-toggle:hover .fps-cb-tooltip{display:block;}'
         . '</style>';
 
-    // Accessibility toggle button + JS
+    // Accessibility toggle button + JS (applies to cb-mode class on body)
     $output .= '<button class="fps-cb-toggle" id="fps-cb-btn" aria-pressed="false" aria-label="Toggle colorblind-friendly mode" title="Colorblind-friendly mode">'
         . '<span style="font-size:1.1rem;">&#128065;</span>'
         . '<span class="fps-cb-tooltip">Colorblind-Friendly Mode</span>'
