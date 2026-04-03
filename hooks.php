@@ -607,7 +607,62 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         $output = '';
     }
 
-    // Always inject Lagom2 compatibility CSS on FPS pages
+    // Inject site-wide CSS fixes for light background with Futuristic style text colors
+    $output .= '<style>'
+        // Body and main text
+        . 'body{color:#2c3e50!important}'
+        . '.main-content,.main-body,.main-content p,.main-content li,.main-content td,.main-content span,.main-content div{color:#2c3e50!important}'
+        . 'h1,h2,h3,h4,h5,h6,.main-content h1,.main-content h2,.main-content h3,.main-content h4,.main-content h5{color:#1a2040!important}'
+        // Links
+        . '.main-content a:not(.btn):not([class*="btn"]){color:#4a6cf7!important}'
+        // Muted text
+        . '.text-muted,small,.main-content .text-muted,.main-content small{color:#6b7c93!important}'
+        // Cards and panels
+        . '.package,.card,.panel,.well,.alert{color:#2c3e50!important}'
+        // News section
+        . '.news-title,.news-title a,.timeline-title,.timeline-title a{color:#1a2040!important}'
+        . '.timeline-body,.timeline-body p{color:#3a4a60!important}'
+        // Footer
+        . '.footer,.footer-content,.footer a{color:#5a6b80!important}'
+        // Nav - dark text on white header
+        . '.main-menu a,.nav-link,.navbar-nav a,.item-text,.main-menu .item-text{color:#2c3e50!important}'
+        . '.main-menu a:hover,.nav-link:hover,.main-menu a:hover .item-text{color:#25a75b!important}'
+        // Top utility bar (View Cart, USD)
+        . '.header-top .item-text,.header-top a,.utility-nav a,.utility-nav .item-text{color:#5a6b80!important}'
+        // Page header banner (keep dark with white text)
+        . '.page-head{background:linear-gradient(135deg,#2c3e6b,#3a5088)!important}'
+        . '.page-head h1,.page-head .breadcrumbs,.page-head .breadcrumbs a,.page-head .breadcrumb li,.page-head .breadcrumb a{color:#fff!important}'
+        // Sidebar
+        . '.sidebar a,.sidebar .list-group-item,.sidebar-content,.sidebar-categories a,.sidebar-category a{color:#2c3e50!important}'
+        . '.sidebar .list-group-item{background:#fff!important;border-color:#e2e8f0!important}'
+        . '.sidebar .list-group-item.active,.sidebar .list-group-item:hover{background:#f0f4f8!important}'
+        // Section titles (white text on light bg = invisible)
+        . '.section-title,.section-heading,.widget-title,.panel-heading,.panel-title{color:#1a2040!important}'
+        // Timeline / news / announcements
+        . '.timeline-title,.timeline-title a,.timeline-heading h4,.timeline-heading h5,.ann-title,.ann-title a{color:#1a2040!important}'
+        . '.timeline-body,.timeline-body p,.ann-body,.ann-body p,.ann-desc{color:#3a4a60!important}'
+        . '.timeline-date,.date-badge,.ann-date{color:#6b7c93!important}'
+        . '.timeline-panel,.ann-card,.news-item{background:#fff!important;border:1px solid #e2e8f0!important}'
+        // Card/package text
+        . '.package-name,.package-price,.package-desc{color:#2c3e50!important}'
+        . '.package .list-group-item{color:#3a4a60!important;background:#fff!important}'
+        // Modal headers (keep dark text)
+        . '.modal-title{color:#1a2040!important}'
+        . '.modal-body,.modal-body p{color:#2c3e50!important}'
+        // Form labels
+        . 'label,.control-label,.form-label{color:#2c3e50!important}'
+        . '.form-control{color:#2c3e50!important;background:#fff!important;border-color:#d2d6dc!important}'
+        // Dropdown menus
+        . '.dropdown-menu{background:#fff!important;border:1px solid rgba(0,0,0,0.1)!important}'
+        . '.dropdown-menu a,.dropdown-item{color:#2c3e50!important}'
+        . '.dropdown-menu a:hover,.dropdown-item:hover{background:#f0f2f5!important}'
+        // Alert boxes
+        . '.alert{color:#2c3e50!important}'
+        // Table text
+        . 'table td,table th,.table td,.table th{color:#2c3e50!important}'
+        . '</style>';
+
+    // Inject FPS-specific CSS on FPS module pages
     if (isset($_GET['m']) && $_GET['m'] === 'fraud_prevention_suite') {
         $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-lagom2.css?v=' . time() . '">';
     }
