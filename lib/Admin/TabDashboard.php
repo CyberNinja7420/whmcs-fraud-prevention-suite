@@ -21,9 +21,109 @@ class TabDashboard
 {
     public function render(array $vars, string $modulelink): void
     {
+        $this->fpsRenderSetupWizard($modulelink);
         $this->fpsRenderStatsRow($modulelink);
         $this->fpsRenderManualCheckForm($modulelink);
         $this->fpsRenderRecentChecks($modulelink);
+    }
+
+    /**
+     * Setup wizard banner -- shows when module needs configuration.
+     * Disappears when all steps are complete or admin dismisses it.
+     */
+    private function fpsRenderSetupWizard(string $modulelink): void
+    {
+        // Check if dismissed
+        try {
+            $dismissed = Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'wizard_dismissed')->value('setting_value');
+            if ($dismissed === '1') return;
+        } catch (\Throwable $e) {}
+
+        // Check completion status
+        $steps = [];
+
+        // Step 1: API providers configured
+        $providers = 0;
+        try {
+            $keys = ['turnstile_site_key', 'abuseipdb_api_key', 'ipqs_api_key'];
+            foreach ($keys as $k) {
+                $v = Capsule::table('mod_fps_settings')->where('setting_key', $k)->value('setting_value');
+                if (!empty($v)) $providers++;
+            }
+        } catch (\Throwable $e) {}
+        $steps[] = ['done' => $providers >= 1, 'label' => 'Configure Detection Providers',
+            'desc' => $providers . '/3 API keys configured (Turnstile, AbuseIPDB, IPQS)',
+            'action' => $modulelink . '&tab=settings', 'btn' => 'Open Settings', 'icon' => 'fa-key'];
+
+        // Step 2: Products exist
+        $productCount = 0;
+        try { $productCount = Capsule::table('tblproducts')->where('servertype', 'fps_api')->count(); } catch (\Throwable $e) {}
+        $steps[] = ['done' => $productCount >= 3, 'label' => 'API Products Created',
+            'desc' => $productCount . '/3 products using fps_api server module',
+            'action' => 'configproducts.php', 'btn' => 'View Products', 'icon' => 'fa-box'];
+
+        // Step 3: Pre-checkout blocking
+        $preCheckout = false;
+        try {
+            $v = Capsule::table('tbladdonmodules')
+                ->where('module', 'fraud_prevention_suite')
+                ->where('setting', 'pre_checkout_blocking')->value('value');
+            $preCheckout = ($v === 'on' || $v === 'yes');
+        } catch (\Throwable $e) {}
+        $steps[] = ['done' => $preCheckout, 'label' => 'Pre-Checkout Blocking Enabled',
+            'desc' => $preCheckout ? 'Fraud checks run before every checkout' : 'Enable to block fraudulent orders at checkout',
+            'action' => $modulelink . '&tab=settings', 'btn' => 'Enable', 'icon' => 'fa-shield-halved'];
+
+        // Step 4: Run first scan
+        $hasChecks = false;
+        try { $hasChecks = Capsule::table('mod_fps_checks')->exists(); } catch (\Throwable $e) {}
+        $steps[] = ['done' => $hasChecks, 'label' => 'Run First Fraud Scan',
+            'desc' => $hasChecks ? 'Fraud checks are running' : 'Run a mass scan or manual check to start collecting data',
+            'action' => $modulelink . '&tab=mass_scan', 'btn' => 'Run Mass Scan', 'icon' => 'fa-radar'];
+
+        $doneCount = count(array_filter($steps, fn($s) => $s['done']));
+        $totalSteps = count($steps);
+
+        // All done? Don't show wizard
+        if ($doneCount >= $totalSteps) return;
+
+        $pct = round(($doneCount / $totalSteps) * 100);
+        $safeLink = htmlspecialchars($modulelink, ENT_QUOTES, 'UTF-8');
+
+        echo '<div style="margin-bottom:1.5rem;border-radius:12px;overflow:hidden;border:1px solid rgba(102,126,234,0.2);background:linear-gradient(135deg,rgba(102,126,234,0.05),rgba(118,75,162,0.05));">';
+
+        // Header
+        echo '<div style="padding:16px 20px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:space-between;">';
+        echo '<div style="display:flex;align-items:center;gap:10px;">';
+        echo '<i class="fas fa-wand-magic-sparkles" style="font-size:1.2rem;"></i>';
+        echo '<span style="font-size:1rem;font-weight:700;color:#fff;">Getting Started</span>';
+        echo '<span style="background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:12px;font-size:0.75rem;color:#fff;">' . $doneCount . '/' . $totalSteps . ' complete</span>';
+        echo '</div>';
+        echo '<button onclick="fetch(\'' . $safeLink . '&ajax=1&a=dismiss_wizard\').then(()=>this.closest(\'div[style]\').remove())" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:0.78rem;">Dismiss</button>';
+        echo '</div>';
+
+        // Progress bar
+        echo '<div style="height:4px;background:rgba(102,126,234,0.1);"><div style="height:100%;width:' . $pct . '%;background:linear-gradient(90deg,#38ef7d,#667eea);transition:width 0.5s;border-radius:0 2px 2px 0;"></div></div>';
+
+        // Steps
+        echo '<div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+        foreach ($steps as $i => $step) {
+            $borderColor = $step['done'] ? 'rgba(56,239,125,0.3)' : 'rgba(102,126,234,0.15)';
+            $iconColor = $step['done'] ? '#38ef7d' : '#667eea';
+            $checkIcon = $step['done'] ? '<i class="fas fa-circle-check" style="color:#38ef7d;"></i>' : '<i class="far fa-circle" style="color:#4a5080;"></i>';
+
+            echo '<div style="display:flex;gap:12px;padding:12px;border-radius:8px;border:1px solid ' . $borderColor . ';background:rgba(255,255,255,0.02);">';
+            echo '<div style="flex-shrink:0;width:36px;height:36px;border-radius:8px;background:rgba(102,126,234,0.1);display:flex;align-items:center;justify-content:center;color:' . $iconColor . ';font-size:1rem;"><i class="fas ' . $step['icon'] . '"></i></div>';
+            echo '<div style="flex:1;min-width:0;">';
+            echo '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">' . $checkIcon . ' <span style="font-weight:600;font-size:0.88rem;color:#e0e6f0;">' . htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') . '</span></div>';
+            echo '<div style="font-size:0.78rem;color:#6a7195;margin-bottom:6px;">' . htmlspecialchars($step['desc'], ENT_QUOTES, 'UTF-8') . '</div>';
+            if (!$step['done']) {
+                echo '<a href="' . htmlspecialchars($step['action'], ENT_QUOTES, 'UTF-8') . '" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:5px;background:rgba(102,126,234,0.15);color:#667eea;font-size:0.75rem;font-weight:600;text-decoration:none;border:1px solid rgba(102,126,234,0.25);"><i class="fas fa-arrow-right"></i> ' . htmlspecialchars($step['btn'], ENT_QUOTES, 'UTF-8') . '</a>';
+            }
+            echo '</div></div>';
+        }
+        echo '</div></div>';
     }
 
     /**
