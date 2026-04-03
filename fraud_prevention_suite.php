@@ -730,7 +730,7 @@ function fps_createDefaultProducts(): array
         $groupId = $group->id ?? 0;
 
         if ($groupId === 0) {
-            $groupId = Capsule::table('tblproductgroups')->insertGetId([
+            $insertData = [
                 'name'           => 'Fraud Intelligence API',
                 'headline'       => 'Real-time fraud detection and threat intelligence API',
                 'tagline'        => 'Protect your business with enterprise-grade fraud prevention',
@@ -738,8 +738,23 @@ function fps_createDefaultProducts(): array
                 'disabledgateways' => '',
                 'hidden'         => 0,
                 'order'          => 0,
-            ]);
+            ];
+            // Set slug if column exists (WHMCS 8.x+)
+            if (Capsule::schema()->hasColumn('tblproductgroups', 'slug')) {
+                $insertData['slug'] = 'fraud-intelligence-api';
+            }
+            $groupId = Capsule::table('tblproductgroups')->insertGetId($insertData);
         }
+
+        // Ensure group slug is set (may be missing on existing groups)
+        try {
+            if (Capsule::schema()->hasColumn('tblproductgroups', 'slug')) {
+                $currentSlug = Capsule::table('tblproductgroups')->where('id', $groupId)->value('slug');
+                if (empty($currentSlug)) {
+                    Capsule::table('tblproductgroups')->where('id', $groupId)->update(['slug' => 'fraud-intelligence-api']);
+                }
+            }
+        } catch (\Throwable $e) {}
 
         if ($groupId <= 0) return ['created' => 0, 'error' => 'Failed to create product group'];
 
@@ -896,6 +911,27 @@ function fps_createDefaultProducts(): array
                     'biennially'     => '-1.00',
                     'triennially'    => '-1.00',
                 ]);
+
+                // Set product slug for SEO-friendly URLs
+                $slug = 'fps-api-' . $p['tier'];
+                try {
+                    if (Capsule::schema()->hasColumn('tblproducts', 'slug')) {
+                        Capsule::table('tblproducts')->where('id', $pid)->update(['slug' => $slug]);
+                    }
+                    // Also set in tblproducts_slugs if table exists (WHMCS 8.x with Lagom2)
+                    if (Capsule::schema()->hasTable('tblproducts_slugs')) {
+                        Capsule::table('tblproducts_slugs')->insertOrIgnore([
+                            'product_id'  => $pid,
+                            'slug'        => $slug,
+                            'group_slug'  => 'fraud-intelligence-api',
+                            'group_id'    => $groupId,
+                            'active'      => 1,
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    // Slug setting is non-fatal
+                }
+
                 $created++;
             }
         }

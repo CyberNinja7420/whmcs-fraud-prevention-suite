@@ -102,11 +102,11 @@
         <h1><i class="fas fa-shield-halved"></i> Fraud Prevention Suite</h1>
         <p>Enterprise-grade fraud detection platform with {$stats.provider_count}+ detection engines, real-time bot blocking, device fingerprinting, and shared global threat intelligence.</p>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1;">
+            <a href="{$store_url}" style="padding:12px 28px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(102,126,234,0.3);">
+                <i class="fas fa-rocket"></i> Get API Access
+            </a>
             <a href="{$topology_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
                 <i class="fas fa-globe"></i> Live Threat Map
-            </a>
-            <a href="{$global_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
-                <i class="fas fa-earth-americas"></i> Global Intelligence
             </a>
             <a href="{$api_docs_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
                 <i class="fas fa-code"></i> API Documentation
@@ -210,24 +210,24 @@
                 <li><i class="fas fa-times cross"></i> Full lookups</li>
                 <li><i class="fas fa-times cross"></i> Bulk queries</li>
             </ul>
-            <a href="submitticket.php?step=2&deptid=2&subject=FPS+API+Key+Request" class="tier-btn outline">Get API Key</a>
+            <a href="{$store_url}" class="tier-btn outline">Get Started</a>
         </div>
         <div class="fps-pub-tier featured">
             <h3>Basic</h3>
-            <div class="price">$0.005 <span>per query</span></div>
+            <div class="price">$19 <span>/month</span></div>
             <ul>
                 <li><i class="fas fa-check check"></i> Everything in Free</li>
                 <li><i class="fas fa-check check"></i> Full IP intelligence</li>
-                <li><i class="fas fa-check check"></i> Basic email validation</li>
+                <li><i class="fas fa-check check"></i> Email validation</li>
                 <li><i class="fas fa-check check"></i> 120 requests/minute</li>
                 <li><i class="fas fa-check check"></i> 50,000 requests/day</li>
                 <li><i class="fas fa-times cross"></i> Bulk queries</li>
             </ul>
-            <a href="submitticket.php?step=2&deptid=2&subject=FPS+API+Key+Request+-+Basic+Tier" class="tier-btn primary">Get API Key</a>
+            <a href="{$store_url}" class="tier-btn primary">Get API Key</a>
         </div>
         <div class="fps-pub-tier">
             <h3>Premium</h3>
-            <div class="price">Custom</div>
+            <div class="price">$99 <span>/month</span></div>
             <ul>
                 <li><i class="fas fa-check check"></i> Everything in Basic</li>
                 <li><i class="fas fa-check check"></i> Full email intelligence</li>
@@ -236,7 +236,7 @@
                 <li><i class="fas fa-check check"></i> 600 requests/minute</li>
                 <li><i class="fas fa-check check"></i> 500,000 requests/day</li>
             </ul>
-            <a href="submitticket.php" class="tier-btn outline">Contact Sales</a>
+            <a href="{$store_url}" class="tier-btn outline">Go Premium</a>
         </div>
     </div>
 
