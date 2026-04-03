@@ -22,7 +22,7 @@ class FpsApiRateLimiter
 {
     /** Hardcoded fallback defaults (used only if DB settings are missing). */
     private const DEFAULTS = [
-        'anonymous' => ['per_minute' => 5, 'per_day' => 100],
+        'anonymous' => ['per_minute' => 30, 'per_day' => 1000],
         'free'      => ['per_minute' => 30, 'per_day' => 5000],
         'basic'     => ['per_minute' => 120, 'per_day' => 50000],
         'premium'   => ['per_minute' => 600, 'per_day' => 500000],

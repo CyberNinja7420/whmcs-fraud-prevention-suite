@@ -171,47 +171,45 @@
                 return;
             }
 
-            // Public API mode
-            const endpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
+            // Use server-injected data first (no API calls, no rate limits)
+            var initial = window.FPS_INITIAL_STATS || {};
+            if (initial.events && initial.events.length > 0) {
+                this.updateEventFeed(initial.events);
+            }
+            if (initial.hotspots && initial.hotspots.length > 0) {
+                this.updateGlobe(initial.hotspots);
+                this.updateTopCountries(initial.hotspots);
+            }
+            if (initial.total_checks !== undefined) {
+                this.updateGlobalStats(initial);
+            }
+
+            // Also fetch fresh data from API (refreshes in background)
+            var self = this;
+            var endpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
                 'endpoint=/v1/topology/hotspots&hours=' + this.currentHours;
 
             fetch(endpoint)
-                .then(r => r.json())
-                .then(response => {
+                .then(function(r) { return r.json(); })
+                .then(function(response) {
                     if (response.success && response.data) {
-                        this.updateGlobe(response.data.hotspots || []);
-                        this.updateStats(response.data);
+                        self.updateGlobe(response.data.hotspots || []);
+                        self.updateStats(response.data);
                     }
                 })
-                .catch(err => console.warn('FPS Topology: Data load failed', err));
+                .catch(function(err) { console.warn('FPS Topology: Hotspots refresh skipped', err); });
 
-            // Load recent events for sidebar
-            const eventsEndpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
+            var eventsEndpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
                 'endpoint=/v1/topology/events&limit=50';
 
             fetch(eventsEndpoint)
-                .then(r => r.json())
-                .then(response => {
+                .then(function(r) { return r.json(); })
+                .then(function(response) {
                     if (response.success && response.data) {
-                        this.updateEventFeed(response.data.events || []);
+                        self.updateEventFeed(response.data.events || []);
                     }
                 })
-                .catch(() => {});
-
-            // Load global stats (skip if server-injected stats are available)
-            if (!window.FPS_INITIAL_STATS) {
-                const statsEndpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
-                    'endpoint=/v1/stats/global';
-
-                fetch(statsEndpoint)
-                    .then(r => r.json())
-                    .then(response => {
-                        if (response.success && response.data) {
-                            this.updateGlobalStats(response.data);
-                        }
-                    })
-                    .catch(() => {});
-            }
+                .catch(function() {});
         },
 
         updateGlobe: function(hotspots) {
