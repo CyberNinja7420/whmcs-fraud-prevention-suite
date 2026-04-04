@@ -636,7 +636,7 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
 
     // Inject site-wide CSS from static file (cached by browser)
     // Contains: EVPS 1000X light palette, colorblind mode, accessibility overrides
-    $cssVer = '4.2.0';
+    $cssVer = '4.2.1';
     $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-site-theme.css?v=' . $cssVer . '">';
 
     /* === LEGACY INLINE CSS MOVED TO fps-site-theme.css ===
