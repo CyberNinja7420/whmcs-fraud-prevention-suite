@@ -46,7 +46,7 @@
 .fps-g-badge.medium{background:rgba(245,200,66,0.12);color:#d4a017;}
 .fps-g-badge.low{background:rgba(56,239,125,0.12);color:#11998e;}
 </style>
-/* Dark mode removed - using EVPS light theme */
+<!-- Dark mode removed - using EVPS light theme -->
 {/literal}
 
 <div class="fps-global">
