@@ -12,6 +12,24 @@ if (file_exists($autoloaderPath)) {
 }
 
 // ---------------------------------------------------------------------------
+// 0. Load AI Assistant hooks (if module is installed but WHMCS isn't loading them)
+// ---------------------------------------------------------------------------
+try {
+    $aiAssistantHooks = dirname(__DIR__) . '/ai_assistant/hooks.php';
+    if (file_exists($aiAssistantHooks)) {
+        $aiModuleActive = Capsule::table('tbladdonmodules')
+            ->where('module', 'ai_assistant')
+            ->where('setting', 'version')
+            ->exists();
+        if ($aiModuleActive) {
+            require_once $aiAssistantHooks;
+        }
+    }
+} catch (\Throwable $e) {
+    // Silently fail - AI assistant is optional
+}
+
+// ---------------------------------------------------------------------------
 // 1. AdminAreaPage -- Dashboard widget + threat counter
 // ---------------------------------------------------------------------------
 add_hook('AdminAreaPage', 1, function ($vars) {
