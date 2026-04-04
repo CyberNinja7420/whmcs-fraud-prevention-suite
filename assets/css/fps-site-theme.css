@@ -20,11 +20,21 @@
 .fps-code,.fps-code *,pre[style*="code-bg"],pre[style*="#0f172a"]{color:#e2e8f0!important}
 
 /* === FPS MODULE PAGE COLOR PRESERVATION === */
-/* Code blocks: keep syntax highlighting colors on dark backgrounds */
+/* Code blocks on dark backgrounds: must beat .main-content span/div specificity */
+.main-content .fps-code,.main-content .fps-code *,.main-content .fps-code span,.main-content .fps-code div,.main-content .fps-code p{color:#e2e8f0!important}
 .fps-code,.fps-code *,.fps-pub pre,.fps-pub code,.fps-api pre,.fps-api code{color:#e2e8f0!important}
-.fps-code .key,.fps-api .key{color:#f5a623!important}
-.fps-code .str,.fps-api .str{color:#38ef7d!important}
-.fps-code .num,.fps-api .num{color:#60a5fa!important}
+.main-content .fps-code .key,.fps-api .key{color:#f5a623!important}
+.main-content .fps-code .str,.fps-api .str{color:#38ef7d!important}
+.main-content .fps-code .num,.fps-api .num{color:#60a5fa!important}
+/* Inline <code> elements in text/tables: dark text on light bg (NOT code-text color) */
+.fps-api-section code,.fps-ep-params code,.fps-api p code,.fps-api td code,.fps-api li code{color:#0f172a!important;background:#f1f5f9!important}
+.main-content .fps-api-section code,.main-content .fps-ep code,.main-content .fps-ep-params code{color:#0f172a!important;background:#f1f5f9!important}
+/* Error code table inline codes */
+.fps-api table code{color:#0f172a!important;background:#f1f5f9!important}
+/* API docs tier prices */
+.main-content .fps-api-tier .price{color:#2563eb!important}
+.main-content .fps-api-tier .price.free{color:#16a34a!important}
+.main-content .fps-api-tier .limits{color:#64748b!important}
 /* Method badges: white text on colored backgrounds */
 .fps-ep-method,.fps-pub-endpoint .method{color:#fff!important}
 .fps-ep-method.get,.fps-pub-endpoint .method:not(.post):not(.delete){background:#16a34a!important;color:#fff!important}
@@ -148,7 +158,14 @@ body.cb-mode .fps-api-hero h1,body.cb-mode .fps-api-hero h2,body.cb-mode .fps-gd
 body.cb-mode .fps-api-hero p,body.cb-mode .fps-gdpr-hero p,body.cb-mode .fps-global-hero p{color:#e2e8f0!important}
 body.cb-mode .fps-pub-hero a,body.cb-mode .fps-hero a,body.cb-mode .fps-hero .cta{color:#fff!important}
 body.cb-mode .fps-pub-hero a:not(.btn):not([class*="btn"]),body.cb-mode .fps-hero a:not(.btn):not([class*="btn"]){color:#fff!important}
-body.cb-mode .fps-code,body.cb-mode .fps-code *{color:#e2e8f0!important}
+body.cb-mode .fps-code,body.cb-mode .fps-code *,body.cb-mode .main-content .fps-code,body.cb-mode .main-content .fps-code *,body.cb-mode .main-content .fps-code div,body.cb-mode .main-content .fps-code span,body.cb-mode .main-content .fps-code p{color:#e2e8f0!important}
+body.cb-mode .main-content .fps-code .key{color:#f5a623!important}
+body.cb-mode .main-content .fps-code .str{color:#38ef7d!important}
+body.cb-mode .main-content .fps-code .num{color:#60a5fa!important}
+body.cb-mode .main-content .fps-api-section code,body.cb-mode .fps-api-section code{color:#0f172a!important;background:#f1f5f9!important}
+body.cb-mode .main-content .fps-api-tier .price{color:#2563eb!important}
+body.cb-mode .main-content .fps-api-tier .price.free{color:#2563eb!important}
+body.cb-mode .main-content .fps-api-tier .limits{color:#64748b!important}
 body.cb-mode .topo-live-dot{background:#2563eb!important;box-shadow:0 0 8px rgba(37,99,235,0.6)!important}
 body.cb-mode .topo-stat-bar-value--green{color:#2563eb!important}
 body.cb-mode .topo-event-icon--approved{color:#2563eb!important}
