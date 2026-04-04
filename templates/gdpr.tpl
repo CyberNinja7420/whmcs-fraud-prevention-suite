@@ -20,7 +20,7 @@
 .fps-gdpr *{box-sizing:border-box;}
 .fps-gdpr-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 150%);color:#fff;padding:40px 30px;text-align:center;border-radius:20px;margin-bottom:32px;box-shadow:0 12px 40px rgba(15,23,42,0.12);}
 .fps-gdpr-hero h1{font-size:2rem;font-weight:800;margin:0 0 12px;}
-.fps-gdpr-hero p{font-size:1.05rem;color:#b0b8d1;margin:0 auto;max-width:600px;}
+.fps-gdpr-hero p{font-size:1.05rem;color:#e2e8f0;margin:0 auto;max-width:600px;}
 .fps-gdpr-nav{display:flex;gap:10px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;}
 .fps-gdpr-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid var(--fps-pub-card-border);color:#2563eb;background:var(--fps-pub-card-bg);transition:all 0.2s;}
 .fps-gdpr-nav a:hover,.fps-gdpr-nav a.active{background:#2563eb;color:#fff;border-color:#2563eb;}

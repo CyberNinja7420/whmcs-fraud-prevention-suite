@@ -97,16 +97,71 @@ class FpsApiController
             ->where('created_at', '>=', $since)
             ->whereIn('risk_level', ['high', 'critical'])->count();
 
-        $blockRate = $totalEvents > 0 ? round(($totalBlocks / $totalEvents) * 100) : 0;
+        // Include global intel data for broader timelines (30D+) and ALL
+        $globalIntelCount = 0;
+        $globalCountries = 0;
+        $globalBlocks = 0;
+        if ($hours === 0 || $hours >= 720) {
+            try {
+                // Country centroids for mapping global intel records to globe coordinates
+                $centroids = [
+                    'US'=>[39.8,-98.5],'GB'=>[54.0,-2.0],'DE'=>[51.2,10.4],'FR'=>[46.6,2.2],
+                    'CA'=>[56.1,-106.3],'AU'=>[-25.3,133.8],'NL'=>[52.1,5.3],'BR'=>[-14.2,-51.9],
+                    'IN'=>[20.6,78.9],'JP'=>[36.2,138.3],'RU'=>[61.5,105.3],'CN'=>[35.9,104.2],
+                    'KR'=>[35.9,127.8],'IT'=>[41.9,12.6],'ES'=>[40.5,-3.7],'SE'=>[60.1,18.6],
+                    'PL'=>[51.9,19.1],'UA'=>[48.4,31.2],'RO'=>[45.9,24.9],'ZA'=>[-30.6,22.9],
+                    'MX'=>[23.6,-102.5],'AR'=>[-38.4,-63.6],'CO'=>[4.6,-74.3],'TR'=>[38.9,35.2],
+                    'SG'=>[1.35,103.8],'HK'=>[22.3,114.2],'ID'=>[-0.8,113.9],'TH'=>[15.9,100.9],
+                    'PH'=>[12.9,121.8],'VN'=>[14.1,108.3],'NG'=>[9.1,8.7],'EG'=>[26.8,30.8],
+                    'KE'=>[-0.02,37.9],'CL'=>[-35.7,-71.5],'PE'=>[-9.2,-75.0],
+                ];
+
+                $globalByCountry = Capsule::table('mod_fps_global_intel')
+                    ->whereNotNull('country')->where('country', '!=', '')
+                    ->selectRaw('country, COUNT(*) as cnt, AVG(risk_score) as avg_risk, MAX(risk_level) as max_level')
+                    ->groupBy('country')
+                    ->get();
+
+                foreach ($globalByCountry as $row) {
+                    $cc = strtoupper($row->country);
+                    if (isset($centroids[$cc])) {
+                        $hotspots[] = (object)[
+                            'lat' => $centroids[$cc][0],
+                            'lng' => $centroids[$cc][1],
+                            'country_code' => $cc,
+                            'intensity' => (int)$row->cnt,
+                            'avg_risk' => round((float)$row->avg_risk, 1),
+                            'max_level' => $row->max_level ?: 'low',
+                        ];
+                    }
+                }
+
+                $globalIntelCount = Capsule::table('mod_fps_global_intel')->count();
+                $globalCountries = Capsule::table('mod_fps_global_intel')
+                    ->whereNotNull('country')->where('country', '!=', '')
+                    ->distinct()->count('country');
+                $globalBlocks = Capsule::table('mod_fps_global_intel')
+                    ->whereIn('risk_level', ['high', 'critical'])->count();
+            } catch (\Throwable $e) {
+                // Global intel optional - fail silently
+            }
+        }
+
+        $combinedEvents = $totalEvents + $globalIntelCount;
+        $combinedCountries = max($activeCountries, $activeCountries + $globalCountries);
+        $combinedBlocks = $totalBlocks + $globalBlocks;
+        $blockRate = $combinedEvents > 0 ? round(($combinedBlocks / $combinedEvents) * 100) : 0;
 
         return [
             'data' => [
                 'period_hours' => $hours,
                 'hotspots' => $hotspots,
-                'total_events' => $totalEvents,
-                'active_countries' => $activeCountries,
-                'total_blocks' => $totalBlocks,
+                'total_events' => $combinedEvents,
+                'active_countries' => $combinedCountries,
+                'total_blocks' => $combinedBlocks,
                 'block_rate' => $blockRate,
+                'local_events' => $totalEvents,
+                'global_intel_count' => $globalIntelCount,
             ],
         ];
     }
@@ -117,10 +172,12 @@ class FpsApiController
      */
     public function topologyEvents(): array
     {
-        // Support both 'hours' and 'since' parameters
-        $hours = (int)($_GET['hours'] ?? 0);
+        // Support: hours (int), since (datetime). hours=0 means all time.
+        $hours = (int)($_GET['hours'] ?? -1);
         if ($hours > 0) {
             $since = date('Y-m-d H:i:s', time() - ($hours * 3600));
+        } elseif ($hours === 0) {
+            $since = '2000-01-01 00:00:00'; // all time
         } else {
             $since = $_GET['since'] ?? date('Y-m-d H:i:s', time() - 86400);
         }
