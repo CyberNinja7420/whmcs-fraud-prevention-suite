@@ -186,8 +186,9 @@
 
             // Also fetch fresh data from API (refreshes in background)
             var self = this;
+            var hoursParam = this.currentHours;
             var endpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
-                'endpoint=/v1/topology/hotspots&hours=' + this.currentHours;
+                'endpoint=/v1/topology/hotspots&hours=' + hoursParam;
 
             fetch(endpoint)
                 .then(function(r) { return r.json(); })
@@ -195,12 +196,16 @@
                     if (response.success && response.data) {
                         self.updateGlobe(response.data.hotspots || []);
                         self.updateStats(response.data);
+                        self.updateTopCountries(response.data.hotspots || []);
+                        // Update ALL stat counters from API response
+                        self.updateAllCounters(response.data);
                     }
                 })
                 .catch(function(err) { console.warn('FPS Topology: Hotspots refresh skipped', err); });
 
+            // Pass hours to events endpoint so it matches the selected timeline
             var eventsEndpoint = this.apiBase + (this.apiBase.includes('?') ? '&' : '?') +
-                'endpoint=/v1/topology/events&limit=50';
+                'endpoint=/v1/topology/events&limit=50&hours=' + hoursParam;
 
             fetch(eventsEndpoint)
                 .then(function(r) { return r.json(); })
@@ -250,11 +255,28 @@
         },
 
         updateStats: function(data) {
-            const totalEvents = data.total_events || 0;
-            if (totalEvents > 0) {
-                this.animateCounter('fps-stat-events', totalEvents);
-                this.animateCounter('fps-topo-events', totalEvents);
-            }
+            var totalEvents = data.total_events !== undefined ? data.total_events : 0;
+            // Always update, even if 0 (fixes stale counter on 1H with no events)
+            this.animateCounter('fps-stat-events', totalEvents);
+            this.animateCounter('fps-topo-events', totalEvents);
+        },
+
+        // Update ALL counters from API response (countries, threats, block rate)
+        updateAllCounters: function(data) {
+            var events = data.total_events !== undefined ? data.total_events : 0;
+            var countries = data.active_countries || 0;
+            var threats = data.total_blocks || 0;
+            var blockRate = data.block_rate !== undefined ? data.block_rate : (events > 0 ? Math.round((threats / events) * 100) : 0);
+
+            this.animateCounter('fps-stat-events', events);
+            this.animateCounter('fps-topo-events', events);
+            this.animateCounter('fps-stat-countries', countries);
+            this.animateCounter('fps-topo-countries', countries);
+            this.animateCounter('fps-stat-threats', threats);
+            this.animateCounter('fps-topo-threats', threats);
+
+            var rateEl = document.getElementById('fps-stat-blockrate') || document.getElementById('fps-topo-blockrate');
+            if (rateEl) rateEl.textContent = blockRate + '%';
         },
 
         updateGlobalStats: function(data) {

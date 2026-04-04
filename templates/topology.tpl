@@ -54,6 +54,8 @@
                 <button class="topo-time-btn topo-active" data-hours="24">24H</button>
                 <button class="topo-time-btn" data-hours="168">7D</button>
                 <button class="topo-time-btn" data-hours="720">30D</button>
+                <button class="topo-time-btn" data-hours="2160">90D</button>
+                <button class="topo-time-btn" data-hours="0">ALL</button>
             </div>
             <button class="topo-control-btn" id="fps-fullscreen" title="Fullscreen" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:6px;color:var(--topo-cyan);width:32px;height:32px;cursor:pointer;">
                 <i class="fas fa-expand"></i>

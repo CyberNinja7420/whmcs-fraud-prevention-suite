@@ -63,13 +63,21 @@ class FpsApiController
      */
     public function topologyHotspots(): array
     {
-        $hours = min((int)($_GET['hours'] ?? 24), 168);
-        $since = date('Y-m-d H:i:s', time() - ($hours * 3600));
+        // Allow up to 8760 hours (1 year). 0 = all time.
+        $hours = (int)($_GET['hours'] ?? 24);
+        if ($hours > 0) {
+            $hours = min($hours, 8760);
+            $since = date('Y-m-d H:i:s', time() - ($hours * 3600));
+        } else {
+            $since = '2000-01-01 00:00:00'; // all time
+        }
 
-        $hotspots = Capsule::table('mod_fps_geo_events')
+        $query = Capsule::table('mod_fps_geo_events')
             ->where('created_at', '>=', $since)
             ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
+            ->whereNotNull('longitude');
+
+        $hotspots = (clone $query)
             ->selectRaw('ROUND(latitude, 1) as lat, ROUND(longitude, 1) as lng, country_code, COUNT(*) as intensity, AVG(risk_score) as avg_risk, CASE MAX(CASE risk_level WHEN \'critical\' THEN 4 WHEN \'high\' THEN 3 WHEN \'medium\' THEN 2 ELSE 1 END) WHEN 4 THEN \'critical\' WHEN 3 THEN \'high\' WHEN 2 THEN \'medium\' ELSE \'low\' END as max_level')
             ->groupBy(Capsule::raw('ROUND(latitude, 1)'), Capsule::raw('ROUND(longitude, 1)'), 'country_code')
             ->orderByDesc('intensity')
@@ -77,23 +85,45 @@ class FpsApiController
             ->get()
             ->toArray();
 
+        $totalEvents = Capsule::table('mod_fps_geo_events')
+            ->where('created_at', '>=', $since)->count();
+
+        $activeCountries = Capsule::table('mod_fps_geo_events')
+            ->where('created_at', '>=', $since)
+            ->whereNotNull('country_code')->where('country_code', '!=', '')
+            ->distinct()->count('country_code');
+
+        $totalBlocks = Capsule::table('mod_fps_geo_events')
+            ->where('created_at', '>=', $since)
+            ->whereIn('risk_level', ['high', 'critical'])->count();
+
+        $blockRate = $totalEvents > 0 ? round(($totalBlocks / $totalEvents) * 100) : 0;
+
         return [
             'data' => [
                 'period_hours' => $hours,
                 'hotspots' => $hotspots,
-                'total_events' => Capsule::table('mod_fps_geo_events')
-                    ->where('created_at', '>=', $since)
-                    ->count(),
+                'total_events' => $totalEvents,
+                'active_countries' => $activeCountries,
+                'total_blocks' => $totalBlocks,
+                'block_rate' => $blockRate,
             ],
         ];
     }
 
     /**
      * GET /v1/topology/events -- Anonymized event feed
+     * Accepts: hours (int), since (datetime), limit (int)
      */
     public function topologyEvents(): array
     {
-        $since = $_GET['since'] ?? date('Y-m-d H:i:s', time() - 86400);
+        // Support both 'hours' and 'since' parameters
+        $hours = (int)($_GET['hours'] ?? 0);
+        if ($hours > 0) {
+            $since = date('Y-m-d H:i:s', time() - ($hours * 3600));
+        } else {
+            $since = $_GET['since'] ?? date('Y-m-d H:i:s', time() - 86400);
+        }
         $limit = min((int)($_GET['limit'] ?? 100), 500);
 
         $events = Capsule::table('mod_fps_geo_events')
