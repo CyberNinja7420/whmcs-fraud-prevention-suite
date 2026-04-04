@@ -1016,6 +1016,21 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         . '})();'
         . '</script>';
 
+    // Hide Invoice Extensions + redirect Chat Now via CSS + early JS (no flash)
+    $output .= '<style>'
+        . 'a[href*="invoiceextension"]{display:none!important}'
+        . 'li:has(>a[href*="invoiceextension"]){display:none!important}'
+        . '.nav-item-addon-invoiceextension{display:none!important}'
+        . '</style>';
+    $output .= '<script>'
+        . 'document.addEventListener("DOMContentLoaded",function(){'
+        . 'document.querySelectorAll("a").forEach(function(a){'
+        . 'if((a.textContent||"").trim()==="Invoice Extensions"){'
+        . 'var p=a.closest("li")||a.parentElement;if(p)p.style.display="none";}'
+        . 'if((a.textContent||"").trim()==="Chat Now"){a.href="/submitticket.php";a.removeAttribute("onclick");}'
+        . '});});'
+        . '</script>';
+
     return $output;
 });
 
