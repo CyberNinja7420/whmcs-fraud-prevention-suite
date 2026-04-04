@@ -634,11 +634,26 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         // Turnstile load failed silently - CSS still loads below
     }
 
-    // Inject site-wide CSS for vibrant light theme (EVPS 1000X palette)
-    // Palette: Navy #0f172a headings, Slate #334155 body, Brand Green #16a34a,
-    //   Accent Blue #2563eb links, Clean White #ffffff surfaces, Warm Gray #f8fafc bg
+    // Inject site-wide CSS from static file (cached by browser)
+    // Contains: EVPS 1000X light palette, colorblind mode, accessibility overrides
+    $cssVer = '4.2.0';
+    $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-site-theme.css?v=' . $cssVer . '">';
+
+    /* === LEGACY INLINE CSS MOVED TO fps-site-theme.css ===
+     * The following 280+ CSS rules were moved to a static file for:
+     * - Browser caching (saves ~11KB per page load after first visit)
+     * - Easier maintenance (proper CSS syntax highlighting/linting)
+     * - Better performance (HTTP/2 multiplexing + gzip compression)
+     *
+     * To regenerate the static file from this hook, uncomment the block below
+     * and visit any page, then copy the <style> output to fps-site-theme.css
+     */
+
+    // NOTE: The following inline CSS blocks are now served from fps-site-theme.css
+    // They are kept here commented as the source of truth for regeneration.
+    // To regenerate: uncomment, load any page, copy rendered <style> to the CSS file.
+    if (false) { // START OF COMMENTED-OUT INLINE CSS
     $output .= '<style>'
-        // === ROOT CSS VARIABLE OVERRIDES (fixes everything at source) ===
         . ':root{'
         . '--body-bg:#f8fafc!important;'
         . '--body-color:#334155!important;'
@@ -825,13 +840,14 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         // === READ MORE BUTTON in news ===
         . '.btn-read-more,.list-group-item .btn{color:#2563eb!important;border-color:#2563eb!important}'
         . '</style>';
+    } // END first CSS block
 
     // Inject FPS-specific CSS on FPS module pages
     if (isset($_GET['m']) && $_GET['m'] === 'fraud_prevention_suite') {
         $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-lagom2.css?v=' . time() . '">';
     }
 
-    // ---------------------------------------------------------------------------
+    if (false) { // START colorblind CSS block (now in fps-site-theme.css)
     // =========================================================================
     // Accessibility: Comprehensive colorblind-friendly mode
     // Transforms ALL green (#16a34a family) to blue (#2563eb family) site-wide
@@ -960,6 +976,7 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         . '.fps-cb-toggle .fps-cb-tooltip{display:none;position:absolute;bottom:56px;left:0;background:#0f172a;color:#fff;padding:6px 12px;border-radius:8px;font-size:0.75rem;white-space:nowrap;pointer-events:none;}'
         . '.fps-cb-toggle:hover .fps-cb-tooltip{display:block;}'
         . '</style>';
+    } // END OF COMMENTED-OUT INLINE CSS
 
     // Accessibility toggle button + JS (applies to cb-mode class on body)
     $output .= '<button class="fps-cb-toggle" id="fps-cb-btn" aria-pressed="false" aria-label="Toggle colorblind-friendly mode" title="Colorblind-friendly mode">'

@@ -1,59 +1,21 @@
-Proprietary Software License
+MIT License
 
-Copyright (c) 2026 EnterpriseVPS Solutions LLC. All rights reserved.
+Copyright (c) 2026 Enterprise VPS Solutions
 
-NOTICE: This software and its source code are proprietary and confidential.
-Unauthorized copying, modification, distribution, or use of this software,
-via any medium, is strictly prohibited.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-This software is licensed, not sold. EnterpriseVPS Solutions LLC retains
-all ownership rights to this software.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-GRANT OF LICENSE:
-Subject to the terms of this license, EnterpriseVPS Solutions LLC grants you
-a non-exclusive, non-transferable, revocable license to:
-
-  1. Install and use one copy of this software on a single WHMCS installation
-     for which you hold a valid WHMCS license.
-  2. Make backup copies of the software for archival purposes only.
-
-RESTRICTIONS:
-You may NOT:
-
-  1. Redistribute, sublicense, sell, lease, or rent this software.
-  2. Reverse engineer, decompile, or disassemble the software.
-  3. Remove or alter any proprietary notices, labels, or marks.
-  4. Use the software on more than one WHMCS installation per license.
-  5. Create derivative works based on this software.
-  6. Share, publish, or make available the source code to any third party.
-
-GLOBAL THREAT INTELLIGENCE HUB:
-The optional Global Threat Intelligence sharing feature transmits only
-anonymized, hashed data (SHA-256 email hashes, IP addresses, boolean flags).
-No personally identifiable information (names, raw emails, phone numbers,
-billing addresses) is ever transmitted. Participation is opt-in only and
-can be revoked at any time with full data erasure per GDPR Article 17.
-
-DATA PROCESSING:
-This software processes personal data as defined by GDPR and CCPA.
-The data controller is the WHMCS installation operator. EnterpriseVPS
-Solutions LLC acts as a data processor only for the Global Threat
-Intelligence Hub service. See the module's Privacy Controls tab for
-data management options.
-
-WARRANTY DISCLAIMER:
-THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
-ENTERPRISEVPS SOLUTIONS LLC BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
-LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
-
-TERMINATION:
-This license is effective until terminated. It will terminate automatically
-if you fail to comply with any term. Upon termination, you must destroy all
-copies of the software.
-
-GOVERNING LAW:
-This license shall be governed by the laws of the United States of America.
-
-For licensing inquiries: licensing@enterprisevps.com
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
