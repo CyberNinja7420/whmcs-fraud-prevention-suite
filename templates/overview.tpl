@@ -25,8 +25,8 @@
 .fps-pub-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 40%,rgba(22,163,74,0.1),transparent 60%),radial-gradient(ellipse at 70% 60%,rgba(37,99,235,0.08),transparent 50%);pointer-events:none;}
 .fps-pub-hero h1{font-size:2.4rem;font-weight:900;margin:0 0 12px;letter-spacing:-0.5px;position:relative;z-index:1;color:#fff;}
 .fps-pub-hero h1 i{color:#4ade80;margin-right:10px;}
-.fps-pub-hero p{font-size:1.15rem;color:rgba(255,255,255,0.75);margin:0 auto 28px;max-width:700px;position:relative;z-index:1;}
-.fps-pub-hero .fps-pub-version{background:rgba(22,163,74,0.2);border:1px solid rgba(22,163,74,0.3);border-radius:20px;padding:4px 16px;font-size:0.85rem;color:#86efac;display:inline-block;margin-bottom:16px;position:relative;z-index:1;}
+.fps-pub-hero p{font-size:1.15rem;color:#e2e8f0;margin:0 auto 28px;max-width:700px;position:relative;z-index:1;}
+.fps-pub-hero .fps-pub-version{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:4px 16px;font-size:0.85rem;color:#fff;display:inline-block;margin-bottom:16px;position:relative;z-index:1;}
 
 /* Stat cards - white with green accent hover */
 .fps-pub-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;margin-bottom:40px;}
@@ -88,9 +88,9 @@
 .fps-pub-endpoint .tier-badge.premium{background:#fef2f2;color:#ef4444;border-color:#fecaca;}
 
 /* Bottom CTA */
-.fps-pub-cta{background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;text-align:center;padding:52px 36px;border-radius:20px;margin-top:40px;box-shadow:0 8px 32px rgba(15,23,42,0.2);}
+.fps-pub-cta{background:linear-gradient(135deg,#16a34a,#0f172a 70%);color:#fff;text-align:center;padding:52px 36px;border-radius:20px;margin-top:40px;box-shadow:0 8px 32px rgba(15,23,42,0.2);}
 .fps-pub-cta h2{font-size:1.8rem;font-weight:900;margin:0 0 12px;color:#fff;}
-.fps-pub-cta p{font-size:1.05rem;color:rgba(255,255,255,0.7);margin:0 auto 24px;max-width:600px;}
+.fps-pub-cta p{font-size:1.05rem;color:#e2e8f0;margin:0 auto 24px;max-width:600px;}
 .fps-pub-cta a{display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:10px;font-weight:700;text-decoration:none;transition:all 0.2s;box-shadow:0 4px 14px rgba(22,163,74,0.3);}
 .fps-pub-cta a:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(22,163,74,0.4);}
 
