@@ -36,8 +36,8 @@
 .fps-ep-tier.free{color:#2563eb!important}
 .fps-ep-tier.basic{color:#d97706!important}
 .fps-ep-tier.premium{color:#ef4444!important}
-/* Nav active tab: white text on colored bg */
-.fps-pub-nav a.active,.fps-api-nav a.active,.fps-gdpr-nav a.active,.fps-global-nav a.active{color:#fff!important;background:#2563eb!important}
+/* Nav active tab: white text on colored bg (high specificity to beat .main-content a:not(.btn):not([class*="btn"])) */
+.main-content .fps-pub-nav a.active,.main-content .fps-api-nav a.active,.main-content .fps-gdpr-nav a.active,.main-content .fps-global-nav a.active,.fps-pub-nav a.active,.fps-api-nav a.active,.fps-gdpr-nav a.active,.fps-global-nav a.active{color:#fff!important;background:#16a34a!important;border-color:#16a34a!important}
 /* Tier button primary: white text on green/blue bg */
 .fps-pub-tier .tier-btn.primary,.fps-pub-cta a{color:#fff!important}
 /* Store page card CTA buttons: white text on colored bg */
@@ -100,7 +100,7 @@ body.cb-mode [class*="faded"]:not(.btn-primary-faded){color:#334155!important}
 body.cb-mode .form-control:focus{border-color:#2563eb!important;box-shadow:0 0 0 4px rgba(37,99,235,0.2)!important}
 body.cb-mode a:focus-visible{outline:3px solid #2563eb!important;outline-offset:2px!important}
 body.cb-mode .main-content a:not(.btn):not([class*="btn"]){text-decoration:underline!important;text-underline-offset:2px!important}
-body.cb-mode .fps-pub-nav a.active{background:#2563eb!important;border-color:#2563eb!important}
+body.cb-mode .main-content .fps-pub-nav a.active,body.cb-mode .fps-pub-nav a.active{color:#fff!important;background:#2563eb!important;border-color:#2563eb!important}
 body.cb-mode .fps-pub-nav a:hover{border-color:#2563eb!important;color:#2563eb!important;background:#eff6ff!important}
 body.cb-mode .fps-pub-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 150%)!important}
 body.cb-mode .fps-pub-cta{background:linear-gradient(135deg,#0f172a,#1e3a5f)!important}
