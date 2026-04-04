@@ -95,3 +95,15 @@ body.cb-mode footer a:hover,body.cb-mode .site-footer a:hover{color:#2563eb!impo
 .fps-cb-toggle[aria-pressed="true"]{background:#2563eb;border-color:#2563eb;color:#fff;}
 .fps-cb-toggle .fps-cb-tooltip{display:none;position:absolute;bottom:56px;left:0;background:#0f172a;color:#fff;padding:6px 12px;border-radius:8px;font-size:0.75rem;white-space:nowrap;pointer-events:none;}
 .fps-cb-toggle:hover .fps-cb-tooltip{display:block;}
+
+/* Hide Invoice Extensions nav item */
+[class*="nav-item"] a[href*="invoiceextension"],
+.menu a[href*="invoiceextension"],
+li:has(> a[href*="invoiceextension"]){display:none!important}
+
+/* Chat Now button - style as support link with icon */
+[class*="nav-item"] a[href="#"][class*="Live-Help"],
+.menu a[href="#"]:has(.item-text:empty){display:none!important}
+
+/* Footer: hide invoice extension link */
+footer a[href*="invoiceextension"]{display:none!important}
