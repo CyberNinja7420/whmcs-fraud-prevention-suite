@@ -1,43 +1,29 @@
 {literal}
 <style>
+/* EVPS 1000X Light Palette for GDPR Page */
 :root {
-  --fps-pub-bg: #ffffff;
-  --fps-pub-text: #1a1a2e;
-  --fps-pub-text-secondary: #555;
-  --fps-pub-text-muted: #888;
+  --fps-pub-bg: #f8fafc;
+  --fps-pub-text: #334155;
+  --fps-pub-text-secondary: #475569;
+  --fps-pub-text-muted: #64748b;
   --fps-pub-card-bg: #ffffff;
-  --fps-pub-card-border: #e8ecf4;
-  --fps-pub-card-shadow: rgba(0,0,0,0.08);
+  --fps-pub-card-border: #e2e8f0;
+  --fps-pub-card-shadow: rgba(15,23,42,0.06);
   --fps-pub-input-bg: #ffffff;
-  --fps-pub-input-border: #ddd;
-  --fps-pub-table-header: #f8f9fc;
-  --fps-pub-table-border: #f0f0f5;
-  --fps-pub-code-bg: #1a1a2e;
-  --fps-pub-code-text: #b0b8d1;
-}
-.fps-dark-mode {
-  --fps-pub-bg: #1a1a3e;
-  --fps-pub-text: #f0f0ff;
-  --fps-pub-text-secondary: #dde4ff;
-  --fps-pub-text-muted: #b8c0e0;
-  --fps-pub-card-bg: #232350;
-  --fps-pub-card-border: #3a3a6e;
-  --fps-pub-card-shadow: rgba(0,0,0,0.4);
-  --fps-pub-input-bg: #232350;
-  --fps-pub-input-border: #4a4a7e;
-  --fps-pub-table-header: #2a2a5e;
-  --fps-pub-table-border: #3a3a6e;
-  --fps-pub-code-bg: #0a0820;
-  --fps-pub-code-text: #c8d0e8;
+  --fps-pub-input-border: #cbd5e1;
+  --fps-pub-table-header: #f8fafc;
+  --fps-pub-table-border: #f1f5f9;
+  --fps-pub-code-bg: #0f172a;
+  --fps-pub-code-text: #e2e8f0;
 }
 .fps-gdpr{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:inherit;line-height:1.7;max-width:800px;margin:0 auto;}
 .fps-gdpr *{box-sizing:border-box;}
-.fps-gdpr-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:40px 30px;text-align:center;border-radius:16px;margin-bottom:32px;}
+.fps-gdpr-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 150%);color:#fff;padding:40px 30px;text-align:center;border-radius:20px;margin-bottom:32px;box-shadow:0 12px 40px rgba(15,23,42,0.12);}
 .fps-gdpr-hero h1{font-size:2rem;font-weight:800;margin:0 0 12px;}
 .fps-gdpr-hero p{font-size:1.05rem;color:#b0b8d1;margin:0 auto;max-width:600px;}
 .fps-gdpr-nav{display:flex;gap:10px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;}
-.fps-gdpr-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid var(--fps-pub-card-border);color:#667eea;background:var(--fps-pub-card-bg);transition:all 0.2s;}
-.fps-gdpr-nav a:hover,.fps-gdpr-nav a.active{background:#667eea;color:#fff;border-color:#667eea;}
+.fps-gdpr-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid var(--fps-pub-card-border);color:#2563eb;background:var(--fps-pub-card-bg);transition:all 0.2s;}
+.fps-gdpr-nav a:hover,.fps-gdpr-nav a.active{background:#2563eb;color:#fff;border-color:#2563eb;}
 .fps-gdpr-form{background:var(--fps-pub-card-bg);border-radius:12px;padding:32px;box-shadow:0 4px 16px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);margin-bottom:24px;}
 .fps-gdpr-form h2{font-size:1.3rem;font-weight:700;margin:0 0 8px;}
 .fps-gdpr-form p{font-size:0.95rem;color:var(--fps-pub-text-secondary);margin:0 0 20px;}
@@ -47,7 +33,7 @@
 .fps-gdpr-field textarea{resize:vertical;min-height:80px;}
 .fps-gdpr-field small{display:block;margin-top:4px;font-size:0.82rem;color:var(--fps-pub-text-muted);}
 .fps-gdpr-btn{padding:12px 28px;border:none;border-radius:8px;font-size:0.95rem;font-weight:700;cursor:pointer;transition:all 0.2s;}
-.fps-gdpr-btn-primary{background:#667eea;color:#fff;}
+.fps-gdpr-btn-primary{background:#2563eb;color:#fff;}
 .fps-gdpr-btn-primary:hover{background:#5a6fd6;}
 .fps-gdpr-btn:disabled{opacity:0.5;cursor:not-allowed;}
 .fps-gdpr-msg{padding:16px;border-radius:8px;margin-top:16px;font-size:0.95rem;}
@@ -58,7 +44,7 @@
 .fps-gdpr-info p{font-size:0.9rem;color:var(--fps-pub-text-secondary);margin:0 0 8px;}
 .fps-gdpr-info ul{margin:8px 0;padding-left:20px;font-size:0.9rem;color:var(--fps-pub-text-secondary);}
 </style>
-<script>(function(){document.body.classList.add('fps-dark-mode');})();</script>
+/* Dark mode removed - using EVPS light theme */
 {/literal}
 
 <div class="fps-gdpr">
@@ -122,7 +108,7 @@
         <h3><i class="fas fa-shield-halved"></i> What Data We Store</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div>
-                <h4 style="color:#667eea;margin:0 0 8px;font-size:0.95rem;">Stored (anonymized)</h4>
+                <h4 style="color:#2563eb;margin:0 0 8px;font-size:0.95rem;">Stored (anonymized)</h4>
                 <ul>
                     <li>SHA-256 hash of your email (irreversible)</li>
                     <li>IP address (if sharing enabled)</li>

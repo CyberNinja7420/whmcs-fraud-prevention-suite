@@ -1,57 +1,43 @@
 {literal}
 <style>
+/* EVPS 1000X Light Palette for API Docs */
 :root {
-  --fps-pub-bg: #ffffff;
-  --fps-pub-text: #1a1a2e;
-  --fps-pub-text-secondary: #555;
-  --fps-pub-text-muted: #888;
+  --fps-pub-bg: #f8fafc;
+  --fps-pub-text: #334155;
+  --fps-pub-text-secondary: #475569;
+  --fps-pub-text-muted: #64748b;
   --fps-pub-card-bg: #ffffff;
-  --fps-pub-card-border: #e8ecf4;
-  --fps-pub-card-shadow: rgba(0,0,0,0.08);
+  --fps-pub-card-border: #e2e8f0;
+  --fps-pub-card-shadow: rgba(15,23,42,0.06);
   --fps-pub-input-bg: #ffffff;
-  --fps-pub-input-border: #ddd;
-  --fps-pub-table-header: #f8f9fc;
-  --fps-pub-table-border: #f0f0f5;
-  --fps-pub-code-bg: #1a1a2e;
-  --fps-pub-code-text: #b0b8d1;
-}
-.fps-dark-mode {
-  --fps-pub-bg: #1a1a3e;
-  --fps-pub-text: #f0f0ff;
-  --fps-pub-text-secondary: #dde4ff;
-  --fps-pub-text-muted: #b8c0e0;
-  --fps-pub-card-bg: #232350;
-  --fps-pub-card-border: #3a3a6e;
-  --fps-pub-card-shadow: rgba(0,0,0,0.4);
-  --fps-pub-input-bg: #232350;
-  --fps-pub-input-border: #4a4a7e;
-  --fps-pub-table-header: #2a2a5e;
-  --fps-pub-table-border: #3a3a6e;
-  --fps-pub-code-bg: #0a0820;
-  --fps-pub-code-text: #c8d0e8;
+  --fps-pub-input-border: #cbd5e1;
+  --fps-pub-table-header: #f8fafc;
+  --fps-pub-table-border: #f1f5f9;
+  --fps-pub-code-bg: #0f172a;
+  --fps-pub-code-text: #e2e8f0;
 }
 .fps-api{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:inherit;line-height:1.7;max-width:1200px;margin:0 auto;}
 .fps-api *{box-sizing:border-box;}
-.fps-api-hero{background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 50%,#302b63 100%);color:#fff;padding:50px 30px;text-align:center;border-radius:16px;margin-bottom:32px;}
+.fps-api-hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#2563eb 150%);color:#fff;padding:50px 30px;text-align:center;border-radius:20px;margin-bottom:32px;box-shadow:0 12px 40px rgba(15,23,42,0.12);}
 .fps-api-hero h1{font-size:2.2rem;font-weight:800;margin:0 0 12px;}
 .fps-api-hero p{font-size:1.1rem;color:#b0b8d1;margin:0 auto 16px;max-width:700px;}
 .fps-api-nav{display:flex;gap:10px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;}
-.fps-api-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid var(--fps-pub-card-border);color:#667eea;background:var(--fps-pub-card-bg);transition:all 0.2s;}
-.fps-api-nav a:hover,.fps-api-nav a.active{background:#667eea;color:#fff;border-color:#667eea;}
+.fps-api-nav a{padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.9rem;border:1px solid var(--fps-pub-card-border);color:#2563eb;background:var(--fps-pub-card-bg);transition:all 0.2s;}
+.fps-api-nav a:hover,.fps-api-nav a.active{background:#2563eb;color:#fff;border-color:#2563eb;}
 .fps-api-section{background:var(--fps-pub-card-bg);border-radius:12px;padding:28px;box-shadow:0 2px 8px var(--fps-pub-card-shadow);border:1px solid var(--fps-pub-card-border);margin-bottom:24px;}
 .fps-api-section h2{font-size:1.4rem;font-weight:700;margin:0 0 16px;display:flex;align-items:center;gap:10px;}
-.fps-api-section h2 i{color:#667eea;}
+.fps-api-section h2 i{color:#2563eb;}
 .fps-api-section h3{font-size:1.1rem;font-weight:700;margin:24px 0 12px;padding-top:16px;border-top:1px solid var(--fps-pub-table-border);}
 .fps-ep{background:var(--fps-pub-table-header);border:1px solid var(--fps-pub-card-border);border-radius:10px;padding:20px;margin-bottom:16px;}
 .fps-ep-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
 .fps-ep-method{padding:4px 12px;border-radius:4px;font-size:0.78rem;font-weight:700;font-family:monospace;color:#fff;}
 .fps-ep-method.get{background:#11998e;}
-.fps-ep-method.post{background:#667eea;}
+.fps-ep-method.post{background:#2563eb;}
 .fps-ep-method.delete{background:#eb3349;}
 .fps-ep-path{font-family:'Fira Code',monospace;font-size:0.95rem;font-weight:600;color:var(--fps-pub-text);}
 .fps-ep-tier{padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:700;margin-left:auto;}
 .fps-ep-tier.anon{background:#11998e22;color:#11998e;}
-.fps-ep-tier.free{background:#667eea22;color:#667eea;}
+.fps-ep-tier.free{background:#2563eb22;color:#2563eb;}
 .fps-ep-tier.basic{background:#f5a62322;color:#d4a017;}
 .fps-ep-tier.premium{background:#eb334922;color:#eb3349;}
 .fps-ep-desc{font-size:0.92rem;color:var(--fps-pub-text-secondary);margin-bottom:12px;}
@@ -63,19 +49,19 @@
 .fps-code{background:var(--fps-pub-code-bg);color:var(--fps-pub-code-text);padding:16px;border-radius:8px;font-size:0.85rem;overflow-x:auto;font-family:'Fira Code',monospace;line-height:1.5;}
 .fps-code .key{color:#f5a623;}
 .fps-code .str{color:#38ef7d;}
-.fps-code .num{color:#667eea;}
+.fps-code .num{color:#2563eb;}
 .fps-api-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;margin-bottom:24px;}
 .fps-api-tier{background:var(--fps-pub-card-bg);border-radius:12px;padding:24px;border:2px solid var(--fps-pub-card-border);text-align:center;}
-.fps-api-tier.featured{border-color:#667eea;}
+.fps-api-tier.featured{border-color:#2563eb;}
 .fps-api-tier h3{font-size:1.1rem;margin:0 0 4px;}
-.fps-api-tier .price{font-size:1.6rem;font-weight:800;color:#667eea;margin:8px 0;}
+.fps-api-tier .price{font-size:1.6rem;font-weight:800;color:#2563eb;margin:8px 0;}
 .fps-api-tier .price.free{color:#11998e;}
 .fps-api-tier .limits{font-size:0.85rem;color:var(--fps-pub-text-muted);margin-bottom:12px;}
 .fps-api-tier ul{list-style:none;padding:0;margin:0;text-align:left;font-size:0.88rem;}
 .fps-api-tier ul li{padding:4px 0;display:flex;align-items:center;gap:6px;}
 .fps-api-tier ul li i.y{color:#11998e;}.fps-api-tier ul li i.n{color:#ccc;}
 </style>
-<script>(function(){document.body.classList.add('fps-dark-mode');})();</script>
+/* Dark mode removed - using EVPS light theme */
 {/literal}
 
 <div class="fps-api">
