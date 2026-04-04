@@ -61,7 +61,7 @@
 .fps-api-tier ul li{padding:4px 0;display:flex;align-items:center;gap:6px;}
 .fps-api-tier ul li i.y{color:#11998e;}.fps-api-tier ul li i.n{color:#ccc;}
 </style>
-/* Dark mode removed - using EVPS light theme */
+<!-- Dark mode removed - using EVPS light theme -->
 {/literal}
 
 <div class="fps-api">

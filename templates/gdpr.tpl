@@ -44,7 +44,7 @@
 .fps-gdpr-info p{font-size:0.9rem;color:var(--fps-pub-text-secondary);margin:0 0 8px;}
 .fps-gdpr-info ul{margin:8px 0;padding-left:20px;font-size:0.9rem;color:var(--fps-pub-text-secondary);}
 </style>
-/* Dark mode removed - using EVPS light theme */
+<!-- Dark mode removed - using EVPS light theme -->
 {/literal}
 
 <div class="fps-gdpr">
