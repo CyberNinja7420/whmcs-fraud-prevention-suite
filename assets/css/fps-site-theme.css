@@ -8,6 +8,12 @@
 .fps-pub-hero h1 i{color:#4ade80!important}
 .fps-pub-cta p{color:#e2e8f0!important}
 .fps-pub-cta a{color:#fff!important}
+/* Hero action buttons: white text must beat .main-content a:not(.btn) specificity */
+.main-content .fps-pub-hero a:not(.x):not(.x):not(.x):not(.x){color:#fff!important;text-decoration:none!important}
+.main-content .fps-pub-hero a:not(.x):not(.x):not(.x):not(.x):hover{color:#fff!important;background:rgba(255,255,255,0.3)!important}
+.main-content .fps-pub-cta a:not(.x):not(.x):not(.x):not(.x){color:#fff!important;text-decoration:none!important}
+.main-content .fps-api-hero a:not(.x):not(.x):not(.x):not(.x){color:#fff!important;text-decoration:none!important}
+.main-content .fps-hero a:not(.x):not(.x):not(.x):not(.x){color:#fff!important;text-decoration:none!important}
 .fps-hero,.fps-hero *,.fps-bottom,.fps-bottom *{color:#fff!important}
 .fps-hero .sub,.fps-hero p{color:#e2e8f0!important}
 .fps-hero .badges span{color:#cbd5e1!important}

@@ -140,13 +140,13 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
             <a href="{$store_url}" style="padding:12px 28px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;border-radius:10px;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(22,163,74,0.3);">
                 <i class="fas fa-rocket"></i> Get API Access
             </a>
-            <a href="{$topology_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
+            <a href="{$topology_url}" style="padding:12px 24px;background:rgba(255,255,255,0.2);color:#fff !important;border:1px solid rgba(255,255,255,0.4);border-radius:10px;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">
                 <i class="fas fa-globe"></i> Live Threat Map
             </a>
-            <a href="{$api_docs_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
+            <a href="{$api_docs_url}" style="padding:12px 24px;background:rgba(255,255,255,0.2);color:#fff !important;border:1px solid rgba(255,255,255,0.4);border-radius:10px;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">
                 <i class="fas fa-code"></i> API Documentation
             </a>
-            <a href="{$gdpr_url}" style="padding:12px 24px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:10px;font-weight:600;text-decoration:none;">
+            <a href="{$gdpr_url}" style="padding:12px 24px;background:rgba(255,255,255,0.2);color:#fff !important;border:1px solid rgba(255,255,255,0.4);border-radius:10px;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">
                 <i class="fas fa-user-shield"></i> Data Removal
             </a>
         </div>
