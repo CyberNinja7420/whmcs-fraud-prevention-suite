@@ -121,7 +121,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.31.0/dist/globe.gl.min.js"></script>
-    <script src="/modules/addons/fraud_prevention_suite/assets/js/fps-topology.js"></script>
+    <script src="/modules/addons/fraud_prevention_suite/assets/js/fps-topology.js?v=4.2.10"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof FpsTopology !== 'undefined') {
