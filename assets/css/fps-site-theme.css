@@ -13,7 +13,12 @@
 .fps-hero .badges span{color:#cbd5e1!important}
 .fps-bottom p{color:#e2e8f0!important}
 .fps-api-hero,.fps-api-hero *,.fps-gdpr-hero,.fps-gdpr-hero *,.fps-global-hero,.fps-global-hero *{color:#fff!important}
-.fps-api-hero p,.fps-gdpr-hero p,.fps-global-hero p{color:#e2e8f0!important}
+.main-content .fps-api-hero,.main-content .fps-api-hero *,.main-content .fps-api-hero div,.main-content .fps-api-hero span,.main-content .fps-api-hero p,.main-content .fps-api-hero code{color:#fff!important}
+.main-content .fps-api .fps-api-hero div:not(.x):not(.x):not(.x):not(.x){color:#fff!important}
+.main-content .fps-gdpr-hero,.main-content .fps-gdpr-hero *,.main-content .fps-gdpr-hero div,.main-content .fps-gdpr-hero p{color:#fff!important}
+.main-content .fps-global-hero,.main-content .fps-global-hero *,.main-content .fps-global-hero div,.main-content .fps-global-hero p{color:#fff!important}
+.fps-api-hero p,.fps-gdpr-hero p,.fps-global-hero p,.main-content .fps-api-hero p{color:#e2e8f0!important}
+.fps-api-hero code,.main-content .fps-api-hero code{color:#fff!important;background:rgba(255,255,255,0.15)!important}
 /* Hero link buttons: keep white on transparent bg */
 .fps-pub-hero a,.fps-hero a,.fps-hero .cta{color:#fff!important}
 /* Code blocks inside dark sections */
@@ -27,10 +32,13 @@
 .main-content .fps-code .str,.fps-api .str{color:#38ef7d!important}
 .main-content .fps-code .num,.fps-api .num{color:#60a5fa!important}
 /* Inline <code> elements in text/tables: dark text on light bg (NOT code-text color) */
+/* Exclude hero code which should stay white */
 .fps-api-section code,.fps-ep-params code,.fps-api p code,.fps-api td code,.fps-api li code{color:#0f172a!important;background:#f1f5f9!important}
 .main-content .fps-api-section code,.main-content .fps-ep code,.main-content .fps-ep-params code{color:#0f172a!important;background:#f1f5f9!important}
 /* Error code table inline codes */
 .fps-api table code{color:#0f172a!important;background:#f1f5f9!important}
+/* BUT hero code stays white on translucent */
+.fps-api-hero code,.main-content .fps-api-hero code{color:#fff!important;background:rgba(255,255,255,0.15)!important}
 /* API docs tier prices */
 .main-content .fps-api-tier .price{color:#2563eb!important}
 .main-content .fps-api-tier .price.free{color:#16a34a!important}
@@ -137,9 +145,14 @@ body.cb-mode .fps-bottom{background:linear-gradient(135deg,#0f172a,#1e3a5f)!impo
 body.cb-mode .fps-card .cb ul li::before{color:#2563eb!important}
 /* === CB-MODE: preserve light text on dark hero/CTA/bottom sections === */
 body.cb-mode .fps-pub-hero,body.cb-mode .fps-pub-hero *,body.cb-mode .fps-pub-cta,body.cb-mode .fps-pub-cta *{color:#fff!important}
-body.cb-mode .fps-pub-hero h1{color:#fff!important}
-body.cb-mode .fps-pub-hero p{color:#e2e8f0!important}
-body.cb-mode .fps-pub-hero .fps-pub-version{color:#fff!important}
+body.cb-mode .main-content .fps-pub-hero,body.cb-mode .main-content .fps-pub-hero *,body.cb-mode .main-content .fps-pub-hero div,body.cb-mode .main-content .fps-pub-hero span,body.cb-mode .main-content .fps-pub-hero p{color:#fff!important}
+body.cb-mode .main-content .fps-pub .fps-pub-hero div:not(.x):not(.x):not(.x):not(.x){color:#fff!important}
+body.cb-mode .main-content .fps-pub-cta,body.cb-mode .main-content .fps-pub-cta *,body.cb-mode .main-content .fps-pub-cta div,body.cb-mode .main-content .fps-pub-cta span,body.cb-mode .main-content .fps-pub-cta p{color:#fff!important}
+body.cb-mode .main-content .fps-pub .fps-pub-cta div:not(.x):not(.x):not(.x):not(.x){color:#fff!important}
+body.cb-mode .main-content .fps-pub .fps-pub-cta p:not(.x):not(.x):not(.x){color:#e2e8f0!important}
+body.cb-mode .fps-pub-hero h1,body.cb-mode .main-content .fps-pub-hero h1{color:#fff!important}
+body.cb-mode .fps-pub-hero p,body.cb-mode .main-content .fps-pub-hero p{color:#e2e8f0!important}
+body.cb-mode .fps-pub-hero .fps-pub-version,body.cb-mode .main-content .fps-pub-hero .fps-pub-version{color:#fff!important}
 body.cb-mode .fps-pub-hero h1 i{color:#93c5fd!important}
 body.cb-mode .fps-pub-cta h2{color:#fff!important}
 body.cb-mode .fps-pub-cta p{color:#e2e8f0!important}
@@ -154,8 +167,16 @@ body.cb-mode .fps-bottom p{color:#e2e8f0!important}
 body.cb-mode .fps-bottom a:not(.btn):not([class*="btn"]){color:#fff!important}
 body.cb-mode .fps-pub-cta a:not(.btn):not([class*="btn"]){color:#fff!important}
 body.cb-mode .fps-api-hero,body.cb-mode .fps-api-hero *,body.cb-mode .fps-gdpr-hero,body.cb-mode .fps-gdpr-hero *,body.cb-mode .fps-global-hero,body.cb-mode .fps-global-hero *{color:#fff!important}
+body.cb-mode .main-content .fps-api-hero,body.cb-mode .main-content .fps-api-hero *,body.cb-mode .main-content .fps-api .fps-api-hero div,body.cb-mode .main-content .fps-api .fps-api-hero span,body.cb-mode .main-content .fps-api .fps-api-hero p,body.cb-mode .main-content .fps-api .fps-api-hero code{color:#fff!important}
+body.cb-mode .main-content .fps-api .fps-api-hero div:not(.x):not(.x):not(.x):not(.x){color:#fff!important}
+body.cb-mode .main-content .fps-gdpr-hero,body.cb-mode .main-content .fps-gdpr-hero *,body.cb-mode .main-content .fps-gdpr-hero div,body.cb-mode .main-content .fps-gdpr-hero span,body.cb-mode .main-content .fps-gdpr-hero p{color:#fff!important}
+body.cb-mode .main-content .fps-global-hero,body.cb-mode .main-content .fps-global-hero *,body.cb-mode .main-content .fps-global-hero div,body.cb-mode .main-content .fps-global-hero span,body.cb-mode .main-content .fps-global-hero p{color:#fff!important}
 body.cb-mode .fps-api-hero h1,body.cb-mode .fps-api-hero h2,body.cb-mode .fps-gdpr-hero h1,body.cb-mode .fps-gdpr-hero h2,body.cb-mode .fps-global-hero h1,body.cb-mode .fps-global-hero h2{color:#fff!important}
+body.cb-mode .main-content .fps-api-hero h1,body.cb-mode .main-content .fps-api-hero h2{color:#fff!important}
 body.cb-mode .fps-api-hero p,body.cb-mode .fps-gdpr-hero p,body.cb-mode .fps-global-hero p{color:#e2e8f0!important}
+body.cb-mode .main-content .fps-api-hero p{color:#e2e8f0!important}
+/* Hero inline code: keep white bg with dark text in hero context */
+body.cb-mode .main-content .fps-api-hero code{color:#fff!important;background:rgba(255,255,255,0.15)!important}
 body.cb-mode .fps-pub-hero a,body.cb-mode .fps-hero a,body.cb-mode .fps-hero .cta{color:#fff!important}
 body.cb-mode .fps-pub-hero a:not(.btn):not([class*="btn"]),body.cb-mode .fps-hero a:not(.btn):not([class*="btn"]){color:#fff!important}
 body.cb-mode .fps-code,body.cb-mode .fps-code *,body.cb-mode .main-content .fps-code,body.cb-mode .main-content .fps-code *,body.cb-mode .main-content .fps-code div,body.cb-mode .main-content .fps-code span,body.cb-mode .main-content .fps-code p{color:#e2e8f0!important}
