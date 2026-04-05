@@ -1,0 +1,39 @@
+{
+  "schema": "1.0",
+  "type": "whmcs-addons",
+  "name": "fraud-prevention-suite",
+  "license": "MIT",
+  "category": "addon",
+  "description": {
+    "name": "Fraud Prevention Suite",
+    "tagline": "Enterprise-grade fraud detection with 16+ engines, real-time bot blocking, and global threat intelligence.",
+    "long": "Comprehensive fraud detection addon for WHMCS with Cloudflare Turnstile, device fingerprinting, IP/email intelligence, behavioral biometrics, velocity engine, Tor detection, OFAC screening, and cross-instance threat data sharing. Includes REST API with 4 tiers, 3D threat visualization globe, and colorblind accessibility mode.",
+    "features": [
+      "16+ fraud detection engines",
+      "Cloudflare Turnstile invisible CAPTCHA",
+      "REST API with 4 access tiers",
+      "Real-time 3D threat topology globe",
+      "Pre-checkout fraud blocking",
+      "Global threat intelligence sharing",
+      "Device fingerprinting",
+      "Colorblind accessibility mode",
+      "GDPR compliant with data removal"
+    ]
+  },
+  "logo": {
+    "filename": "logo.png"
+  },
+  "support": {
+    "homepage": "https://enterprisevpssolutions.com/",
+    "learn_more": "https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite",
+    "email": "support@enterprisevpssolutions.com",
+    "support_url": "https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/issues",
+    "docs_url": "https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki"
+  },
+  "authors": [
+    {
+      "name": "Enterprise VPS Solutions (EVDPS)",
+      "homepage": "https://enterprisevpssolutions.com/"
+    }
+  ]
+}
