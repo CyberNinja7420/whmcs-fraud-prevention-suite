@@ -134,7 +134,7 @@ HTML;
     <div class="fps-form-row" style="gap:1.5rem;">
       <div class="fps-form-group">
         <label for="fps-global-hub-url"><i class="fas fa-link"></i> Hub URL</label>
-        <input type="url" id="fps-global-hub-url" class="fps-input" value="{$hubUrl}" placeholder="http://130.12.69.6:8400">
+        <input type="url" id="fps-global-hub-url" class="fps-input" value="{$hubUrl}" placeholder="https://hub.example.com">
       </div>
       <div class="fps-form-group">
         <label for="fps-global-retention"><i class="fas fa-clock"></i> Retention (days)</label>

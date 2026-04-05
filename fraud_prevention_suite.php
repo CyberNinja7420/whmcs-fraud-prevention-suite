@@ -538,7 +538,7 @@ function fraud_prevention_suite_activate(): array
             // Seed default global config
             $globalDefaults = [
                 'global_sharing_enabled' => '0',
-                'hub_url' => 'http://130.12.69.6:8400',
+                'hub_url' => 'https://hub.example.com',
                 'instance_id' => bin2hex(random_bytes(16)),
                 'instance_api_key' => '',
                 'instance_domain' => '',
@@ -694,7 +694,7 @@ function fraud_prevention_suite_activate(): array
                 $hubUrl = Capsule::table('mod_fps_global_config')->where('setting_key', 'hub_url')->value('setting_value');
                 if (empty($hubUrl)) {
                     Capsule::table('mod_fps_global_config')->updateOrInsert(
-                        ['setting_key' => 'hub_url'], ['setting_value' => 'http://130.12.69.6:8400']
+                        ['setting_key' => 'hub_url'], ['setting_value' => 'https://hub.example.com']
                     );
                 }
             }
@@ -1009,7 +1009,7 @@ function fraud_prevention_suite_upgrade($vars): void
             if (empty($hubUrl)) {
                 Capsule::table('mod_fps_global_config')->updateOrInsert(
                     ['setting_key' => 'hub_url'],
-                    ['setting_value' => 'http://130.12.69.6:8400']
+                    ['setting_value' => 'https://hub.example.com']
                 );
             }
         } catch (\Throwable $e) {}
