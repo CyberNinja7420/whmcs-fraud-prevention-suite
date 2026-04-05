@@ -28,23 +28,33 @@
         },
 
         init: function() {
-            // Use injected API base or detect from URL
-            this.apiBase = window.FPS_API_BASE || (window.location.pathname.includes('/admin/')
-                ? '../modules/addons/fraud_prevention_suite/public/api.php'
-                : 'index.php?m=fraud_prevention_suite&api=1');
+            // Always use the public API endpoint (not the WHMCS module handler)
+            this.apiBase = window.FPS_API_BASE || '/modules/addons/fraud_prevention_suite/public/api.php';
+            // Fix: ensure apiBase points to the standalone API, not the WHMCS handler
+            if (this.apiBase.includes('index.php?m=fraud_prevention_suite&api=1')) {
+                this.apiBase = '/modules/addons/fraud_prevention_suite/public/api.php';
+            }
 
             this.isAdmin = window.location.pathname.includes('/admin/');
 
-            // Apply server-injected initial stats immediately (avoids API rate limit on first load)
+            // Apply server-injected initial stats immediately
             this._hasInitialStats = false;
             if (window.FPS_INITIAL_STATS) {
                 this.updateGlobalStats(window.FPS_INITIAL_STATS);
+                // Also populate feed from initial data
+                if (window.FPS_INITIAL_STATS.events && window.FPS_INITIAL_STATS.events.length > 0) {
+                    this.updateEventFeed(window.FPS_INITIAL_STATS.events);
+                }
+                if (window.FPS_INITIAL_STATS.hotspots && window.FPS_INITIAL_STATS.hotspots.length > 0) {
+                    this.updateTopCountries(window.FPS_INITIAL_STATS.hotspots);
+                }
             }
 
             this.initGlobe();
             this.initControls();
-            this.loadData();
-            this.startAutoRefresh(60000);
+            // Don't call loadData on init - initial stats are already set from server
+            // loadData will be called when user clicks a time button or on auto-refresh
+            this.startAutoRefresh(69000);
         },
 
         initGlobe: function() {
@@ -135,7 +145,8 @@
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('.topo-time-btn').forEach(b => b.classList.remove('topo-active'));
                     btn.classList.add('topo-active');
-                    this.currentHours = parseInt(btn.dataset.hours) || 24;
+                    var h = parseInt(btn.dataset.hours);
+                    this.currentHours = isNaN(h) ? 24 : h;
                     this.loadData();
                 });
             });
