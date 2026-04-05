@@ -239,7 +239,7 @@ done
 
 ## Deployment Workflow
 
-### To Test Instance (freeit.us)
+### To Test Instance (your-whmcs-server.com)
 ```bash
 # Package
 tar czf /tmp/fps-deploy.tar.gz fraud_prevention_suite/
