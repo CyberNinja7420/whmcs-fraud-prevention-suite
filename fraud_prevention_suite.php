@@ -20,7 +20,7 @@ function fraud_prevention_suite_config(): array
     return [
         'name'        => 'Fraud Prevention Suite',
         'description' => 'Enterprise-grade fraud intelligence platform with 15+ detection engines, adaptive ML scoring, Tor/datacenter detection, velocity analysis, behavioral fingerprinting, webhook alerts, and 1000X admin dashboard.',
-        'version'     => '4.2.0',
+        'version'     => '4.2.1',
         'author'      => 'EnterpriseVPS',
         'language'    => 'english',
         'fields'      => [
@@ -705,7 +705,7 @@ function fraud_prevention_suite_activate(): array
         // Auto-create API products
         $productResult = fps_createDefaultProducts();
 
-        $desc = 'Fraud Prevention Suite v4.2.0 activated successfully. All tables ready.';
+        $desc = 'Fraud Prevention Suite v4.2.1 activated successfully. All tables ready.';
         if (!empty($productResult['created'])) {
             $desc .= ' Created ' . $productResult['created'] . ' API products.';
         }
@@ -1181,7 +1181,7 @@ function fraud_prevention_suite_output(array $vars): void
     echo '<div class="fps-module-wrapper"' . $zoomStyle . '>';
     echo '<div class="fps-header">';
     echo '  <div class="fps-header-content">';
-    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.2.0</span></h2>';
+    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.2.1</span></h2>';
     echo '    <div class="fps-header-actions">';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAdmin.toggleTheme()" title="Toggle Dark/Light Mode"><i class="fas fa-moon"></i></button>';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsAdmin.refreshDashboard()"><i class="fas fa-sync-alt"></i> Refresh</button>';
@@ -2588,7 +2588,7 @@ function fraud_prevention_suite_clientarea(array $vars): array
     $gdprUrl = 'index.php?m=fraud_prevention_suite&page=gdpr-request';
     $commonVars = [
         'stats'          => $liveStats,
-        'module_version' => '4.2.0',
+        'module_version' => '4.2.1',
         'topology_url'   => 'index.php?m=fraud_prevention_suite&page=topology',
         'global_url'     => 'index.php?m=fraud_prevention_suite&page=global',
         'api_docs_url'   => 'index.php?m=fraud_prevention_suite&page=api-docs',

@@ -5,7 +5,7 @@
 [![WHMCS 8.x | 9.x](https://img.shields.io/badge/WHMCS-8.x%20%7C%209.x-0052CC?style=for-the-badge)](https://whmcs.com)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-![Version](https://img.shields.io/badge/Version-4.2.0-2563eb?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-4.2.1-2563eb?style=for-the-badge)
 
 [Live Demo](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite) | [API Plans](https://enterprisevpssolutions.com/store/fraud-intelligence-api) | [Threat Map](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite&page=topology) | [Documentation](../../wikis/Home)
 
