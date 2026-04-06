@@ -414,6 +414,12 @@ class FpsWebhookNotifier
     {
         $result = ['success' => false, 'http_code' => 0, 'response' => ''];
 
+        // SSRF protection: validate URL before sending
+        if (!self::fps_isValidWebhookUrl($url)) {
+            $result['response'] = 'Invalid webhook URL: must be https with a public hostname';
+            return $result;
+        }
+
         $ch = curl_init();
         if ($ch === false) {
             $result['response'] = 'curl_init() failed';
@@ -438,8 +444,7 @@ class FpsWebhookNotifier
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => self::CURL_TIMEOUT,
             CURLOPT_CONNECTTIMEOUT => self::CURL_TIMEOUT,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS      => 3,
+            CURLOPT_FOLLOWLOCATION => false, // Disabled: prevent SSRF via redirect
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
         ]);
@@ -603,5 +608,47 @@ class FpsWebhookNotifier
         }
 
         return 'addonmodules.php?module=fraud_prevention_suite';
+    }
+
+    /**
+     * Validate a webhook URL to prevent SSRF attacks.
+     *
+     * Only allows https:// URLs pointing to public (non-internal) IP addresses.
+     * Blocks RFC 1918 ranges, loopback, link-local, and cloud metadata IPs.
+     */
+    public static function fps_isValidWebhookUrl(string $url): bool
+    {
+        $parsed = parse_url($url);
+        if ($parsed === false || empty($parsed['scheme']) || empty($parsed['host'])) {
+            return false;
+        }
+
+        // Enforce HTTPS only
+        if (strtolower($parsed['scheme']) !== 'https') {
+            return false;
+        }
+
+        // Resolve hostname to IP and check for internal addresses
+        $ips = gethostbynamel($parsed['host']);
+        if ($ips === false || empty($ips)) {
+            return false; // Cannot resolve = not safe
+        }
+
+        foreach ($ips as $ip) {
+            // Block loopback (127.0.0.0/8)
+            if (str_starts_with($ip, '127.')) return false;
+            // Block RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+            if (str_starts_with($ip, '10.')) return false;
+            if (str_starts_with($ip, '192.168.')) return false;
+            if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $ip)) return false;
+            // Block link-local (169.254.0.0/16) -- includes cloud metadata
+            if (str_starts_with($ip, '169.254.')) return false;
+            // Block IPv6-mapped IPv4
+            if (str_starts_with($ip, '::ffff:')) return false;
+            // Block 0.0.0.0
+            if ($ip === '0.0.0.0') return false;
+        }
+
+        return true;
     }
 }

@@ -7,6 +7,21 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.2] - 2026-04-06
+
+### Security
+- **Webhook SSRF hardened** -- `fps_sendWebhook()` now validates URLs before dispatch: enforces HTTPS-only scheme, resolves hostname and blocks RFC 1918/loopback/link-local/cloud-metadata IPs, disabled `CURLOPT_FOLLOWLOCATION` to prevent redirect-based SSRF
+- **API key query string deprecated** -- `$_GET['api_key']` fallback now logs a deprecation warning via `logModuleCall()`; prefer `X-FPS-API-Key` header
+- **CORS tightened** -- `Access-Control-Allow-Origin` now checks against known origin patterns instead of blanket `*` for authenticated endpoints
+- **GDPR endpoint non-enumerable** -- submit function returns identical generic message regardless of whether email exists, is already pending, or is new; prevents email hash enumeration; internal request IDs no longer leaked
+
+### Fixed
+- **Topology country double-count** -- `combinedCountries` was `max(a, a+b)` (always summed, never deduped); now unions distinct country codes from both local and global sources
+- **Trust list N+1 queries** -- filtered trust list loaded client data one-by-one per row; now batch-loads all clients in a single `whereIn()` query
+- **README broken links** -- 14 relative links using GitLab-style `../../wikis/...` replaced with full GitHub URLs; issues and releases links also fixed
+
+---
+
 ## [4.2.1] - 2026-04-06
 
 ### Added

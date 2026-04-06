@@ -132,7 +132,12 @@ class FpsApiAuth
             return trim($serverKey);
         }
 
-        // Query parameter fallback
-        return trim($_GET['api_key'] ?? '');
+        // Query parameter fallback (deprecated -- keys in URLs leak to logs/referrers)
+        $queryKey = trim($_GET['api_key'] ?? '');
+        if ($queryKey !== '') {
+            logModuleCall('fraud_prevention_suite', 'API_KEY_IN_QUERY_STRING',
+                ['ip' => $_SERVER['REMOTE_ADDR'] ?? ''], 'Use X-FPS-API-Key header instead');
+        }
+        return $queryKey;
     }
 }
