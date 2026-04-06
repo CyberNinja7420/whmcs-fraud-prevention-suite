@@ -7,6 +7,68 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.1] - 2026-04-06
+
+### Added
+- **Colorblind-friendly accessibility toggle** -- floating eye icon button (bottom-left) swaps all green accents to blue across all pages; persists via localStorage; includes underlined links, higher contrast text, and thicker focus rings (WCAG 2.1 compliance)
+- **Featured products on homepage** -- "Our Products & Services" section injected via hook showing all visible product groups with icons, plan counts, taglines, and starting prices pulled live from the database
+- **Page navigation bar on FPS overview** -- links to Overview, API Plans, API Docs, Threat Map, Global Intel, and Data Removal pages
+- **AI Assistant chat widget integration** -- loads ai_assistant hooks via FPS bridge; floating chat bubble with Ollama-powered AI support
+- **90D and ALL time buttons on topology** -- previously only 1H/24H/7D/30D; ALL now includes global intel data (661+ records with country centroids)
+- **Global intel data in topology** -- ALL timeline merges local geo_events with mod_fps_global_intel records, mapping country codes to globe coordinates via centroids table
+- **whmcs.json marketplace metadata** -- WHMCS Apps & Integrations page metadata with features, support links, and author info
+- **DNS hostnames for API and Hub** -- `api.enterprisevpssolutions.com` (Ollama via Traefik) and `hub.enterprisevpssolutions.com` (Global Intel Hub via Caddy), both behind Cloudflare proxy with SSL
+
+### Fixed
+- **CSRF token generation for WHMCS 8.x** -- WHMCS 8.x uses `generate_token('plain')` instead of `$_SESSION['token']`; all admin AJAX calls (mass scan, manual check, settings save, rule management, API key creation) were silently failing due to empty CSRF tokens
+- **Mass scan UI not showing progress** -- progress card, batch loop, results table, and cancel button were all non-functional; complete JS rewrite with real-time progress bar, scanned/flagged/blocked counters, and clickable results table
+- **Scan Now buttons on Client Profile page** -- `runManualCheck()` only accepted one argument but Client Profile passed two; second argument (clientId) was silently ignored; now accepts optional clientId parameter
+- **Topology showing 0 events on load** -- three bugs: wrong API base URL (WHMCS handler vs public API), `loadData()` overwriting server-injected stats with empty 24H data, and `parseInt("0") || 24` treating ALL button as 24H
+- **Turnstile widget injection missing** -- `getInjectionScript()` method existed but was never called from any hook; added ClientAreaFooterOutput hook to inject widgets on login, registration, checkout, contact, and ticket forms
+- **Turnstile hook architecture** -- CSS injection was inside the Turnstile-enabled check; if Turnstile was disabled, site-wide CSS stopped loading; restructured so CSS always injects regardless of Turnstile state
+- **Device fingerprint JS only loaded on cart pages** -- removed page filter; now loads on ALL client-area pages for passive fingerprint collection from every visitor
+- **Duplicate detection false positives** -- IP matching included `client_id=0` (pre-checkout bot blocks), creating phantom duplicates; added `client_id > 0` filter
+- **Hero/CTA text unreadable on dark gradients** -- blanket `.main-content` dark-text rules overrode white text in hero banners, CTA sections, and code blocks; added 20+ high-specificity override rules using `:not(.x)` specificity hack
+- **API docs code blocks invisible** -- JSON syntax highlighting (`.key`, `.str`, `.num`) and curl commands were dark-on-dark due to CSS specificity cascade with colorblind mode
+- **Base URL text invisible in API docs hero** -- required `:not(.x)^4` specificity (0,6,1) to beat blanket rule (0,5,1)
+- **Active nav tabs invisible** -- `.fps-pub-nav a.active` lost to `.main-content a:not(.btn):not([class*="btn"])` specificity; fixed with `.main-content` prefix
+- **Store page buttons invisible** -- "Get Started", "Get Free Key", "Go Premium" buttons had white/transparent text in colorblind mode
+- **Invoice Extensions nav item hidden** -- removed via CSS `display:none` + JS fallback
+- **Chat Now redirected to support tickets** -- removed Chatstack livehelp hook (404 errors), redirected Chat Now link to submitticket.php
+- **Chatstack livehelp 404 errors removed** -- disabled `/includes/hooks/livehelp.php` that was injecting a missing script on every page
+- **Footer language selector invisible** -- `--main-footer-link-color` was near-white HSLA; overridden to `#475569`
+- **50+ RSThemes CSS variables overridden** -- `--text-heading-color`, `--label-color`, `--input-color`, `--price-color`, and 46 more variables changed from white/HSLA (Futuristic dark theme) to dark colors for light theme
+- **Order Summary prices invisible** -- `.price`, `.price-total`, `.list-item.faded` all had white/transparent text on white cards
+- **Form labels on ticket page invisible** -- `--label-color: #fff` overridden to `#1e293b`
+- **Select/option dropdown text invisible** -- inherited white text from RSThemes variables
+- **Dark mode forced on FPS templates** -- removed `document.body.classList.add('fps-dark-mode')` from overview.tpl, apidocs.tpl, gdpr.tpl, global.tpl, and landing.tpl; updated CSS variables to EVPS light palette
+- **CSS comment leaking as visible text** -- `/* Dark mode removed */` outside `<style>` tag rendered as HTML text; changed to `<!-- -->` HTML comment
+- **Trust list blocking mass scan** -- 17 clients marked as "trusted" from bulk assignment were correctly skipped by mass scan; reset to "normal" so all clients get scanned
+
+### Changed
+- **Site-wide CSS moved to static file** -- 11KB inline `<style>` injection replaced with cacheable `fps-site-theme.css`; browser caches after first page load
+- **Anonymous API rate limit raised** -- from 5/min (caused topology page to 429 itself) to 30/min, 1000/day
+- **Topology events endpoint accepts hours=0** -- returns all-time data instead of defaulting to 24H
+- **Hotspots API returns full stats** -- `active_countries`, `total_blocks`, `block_rate` now included per-timeline
+- **Purple accents (#667eea) replaced with blue (#2563eb)** -- across API docs, GDPR, Global Intel, and store templates
+- **Hero subtitle text brightened** -- from `rgba(255,255,255,0.75)` to `#e2e8f0` across all hero sections
+- **Hub URL uses DNS hostname** -- `hub.enterprisevpssolutions.com` instead of internal IP `130.12.69.6:8400`
+
+### Security
+- **Internal IPs sanitized** -- all references to `130.12.69.x`, `47.207.89.153`, `192.168.1.210` removed from PHP, JS, and template files before public release
+- **Internal development plans removed** -- `docs/plans/` directory deleted
+- **CONTRIBUTING.md sanitized** -- internal hostnames replaced with placeholders
+
+### Infrastructure
+- **Public GitHub repo** -- `CyberNinja7420/whmcs-fraud-prevention-suite` with 107 files, v4.2.0 tagged release, 14 wiki pages
+- **GitLab CI pipeline** -- 4 stages: php-lint, hooks-audit, conflict-check, secret-scan
+- **Traefik route** on GPU host for `api.enterprisevpssolutions.com` -> Ollama :11435
+- **Caddy route** on CI/CD server for `hub.enterprisevpssolutions.com` -> Hub :8400
+- **Advanced AI chatbot archived** -- GitLab project 246 archived; replaced by ai_assistant v3.1.0
+- **96 orphaned database tables dropped** -- 94 churn prediction + 2 domain namespinner tables cleaned from dev server
+
+---
+
 ## [4.2.0] - 2026-04-02
 
 ### Added
