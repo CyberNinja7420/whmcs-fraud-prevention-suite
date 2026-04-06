@@ -149,6 +149,9 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
             <a href="{$gdpr_url}" style="padding:12px 24px;background:rgba(255,255,255,0.2);color:#fff !important;border:1px solid rgba(255,255,255,0.4);border-radius:10px;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">
                 <i class="fas fa-user-shield"></i> Data Removal
             </a>
+            <a href="https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite" target="_blank" rel="noopener" style="padding:12px 24px;background:rgba(255,255,255,0.2);color:#fff !important;border:1px solid rgba(255,255,255,0.4);border-radius:10px;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">
+                <i class="fab fa-github"></i> GitHub
+            </a>
         </div>
     </div>
 
@@ -160,6 +163,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
         <a href="{$topology_url}"><i class="fas fa-globe"></i> Live Threat Map</a>
         <a href="index.php?m=fraud_prevention_suite&page=global"><i class="fas fa-network-wired"></i> Global Intel</a>
         <a href="{$gdpr_url}"><i class="fas fa-user-shield"></i> Data Removal</a>
+        <a href="https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite" target="_blank" rel="noopener"><i class="fab fa-github"></i> GitHub</a>
     </div>
 
     {* === LIVE STATS === *}
@@ -395,6 +399,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
         <h2>Protect Your Business Today</h2>
         <p>Join hosting providers using Fraud Prevention Suite to block bots, detect fraud, and protect revenue with shared global intelligence.</p>
         <a href="{$topology_url}"><i class="fas fa-globe"></i> Explore Live Threat Map</a>
+        <a href="https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite" target="_blank" rel="noopener" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);margin-left:12px;"><i class="fab fa-github"></i> View on GitHub</a>
     </div>
 
 </div>
