@@ -1154,6 +1154,10 @@ function fraud_prevention_suite_output(array $vars): void
     echo '<script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>';
     echo '<script src="' . $assetsUrl . '/js/fps-admin.js' . $cacheBust . '"></script>';
     echo '<script src="' . $assetsUrl . '/js/fps-charts.js' . $cacheBust . '"></script>';
+    // WHMCS CSRF token (available globally for all AJAX calls)
+    $csrfToken = htmlspecialchars($_SESSION['token'] ?? '', ENT_QUOTES, 'UTF-8');
+    echo '<input type="hidden" name="token" id="fps-csrf-token" value="' . $csrfToken . '">';
+
     echo '<script>var fpsModuleLink = ' . json_encode($modulelink) . ';';
     echo 'document.addEventListener("DOMContentLoaded",function(){';
     echo '  if(typeof FpsAdmin!=="undefined"&&FpsAdmin.init){FpsAdmin.init({modulelink:fpsModuleLink});}';
@@ -1266,10 +1270,17 @@ function fps_handleAjax(string $modulelink): void
     }
 
     // CSRF protection: verify WHMCS token on state-changing POST requests
+    // Note: Token comes from hidden input#fps-csrf-token or input[name=token]
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $token = $_POST['token'] ?? '';
-        if (isset($_SESSION['token']) && $token !== $_SESSION['token']) {
-            echo json_encode(['error' => 'Invalid CSRF token']);
+        $sessionToken = $_SESSION['token'] ?? '';
+        if ($sessionToken !== '' && $token !== $sessionToken) {
+            logModuleCall('fraud_prevention_suite', 'CSRF_FAIL', [
+                'post_token' => substr($token, 0, 10) . '...',
+                'session_has_token' => !empty($sessionToken),
+                'action' => $_GET['a'] ?? $_POST['action'] ?? 'unknown',
+            ], 'Token mismatch');
+            echo json_encode(['success' => false, 'error' => 'Invalid CSRF token. Please refresh the page and try again.']);
             return;
         }
     }

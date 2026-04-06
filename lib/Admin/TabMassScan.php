@@ -40,7 +40,11 @@ class TabMassScan
             // Non-fatal
         }
 
+        // WHMCS CSRF token for AJAX requests
+        $token = $_SESSION['token'] ?? '';
+
         $content = <<<HTML
+<input type="hidden" name="token" value="{$token}">
 <div id="fps-scan-filters" class="fps-form-row">
   <div class="fps-form-group">
     <label for="fps-scan-status"><i class="fas fa-filter"></i> Client Status</label>
