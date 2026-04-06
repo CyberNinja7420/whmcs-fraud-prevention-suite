@@ -40,8 +40,8 @@ class TabMassScan
             // Non-fatal
         }
 
-        // WHMCS CSRF token for AJAX requests
-        $token = $_SESSION['token'] ?? '';
+        // WHMCS 8.x uses generate_token() for CSRF -- $_SESSION['token'] is empty
+        $token = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
 
         $content = <<<HTML
 <input type="hidden" name="token" value="{$token}">
