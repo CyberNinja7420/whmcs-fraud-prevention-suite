@@ -44,7 +44,7 @@
             </div>
             <div>
                 <div class="topo-brand-name">Global Fraud Threat Topology</div>
-                <div class="topo-brand-sub">Real-time fraud intelligence powered by FPS v4.2.0</div>
+                <div class="topo-brand-sub">Real-time fraud intelligence powered by FPS v4.2.1</div>
             </div>
         </div>
         <div class="topo-header-right">
@@ -112,7 +112,7 @@
     </div>
 
     <div class="topo-footer">
-        <span>Fraud Prevention Suite v4.2.0 by EnterpriseVPS</span>
+        <span>Fraud Prevention Suite v4.2.1 by EnterpriseVPS</span>
         <span>Data updated every 60 seconds</span>
         <a href="?m=fraud_prevention_suite" style="color:var(--topo-cyan);text-decoration:none;">
             <i class="fas fa-arrow-left"></i> Back to Overview
