@@ -1434,24 +1434,146 @@
 
     // Mass Scan tab
     startMassScan: function(ajaxUrl) {
+      var self = this;
       var filters = {};
       var form = document.getElementById('fps-scan-filters');
       if (form) form.querySelectorAll('input, select').forEach(function(el) { if (el.name) filters[el.name] = el.value; });
-      var cancelBtn = document.querySelector('[onclick*="cancelMassScan"]');
+
+      // Reset state
+      window._fpsScanCancelled = false;
+      window._fpsScanResults = [];
+      window._fpsScanOffset = 0;
+      window._fpsScanFlagged = 0;
+      window._fpsScanBlocked = 0;
+
+      // Show progress card, hide results card
+      var progressCard = document.getElementById('fps-scan-progress-card');
+      var resultsCard = document.getElementById('fps-scan-results-card');
+      var startBtn = document.getElementById('fps-scan-start-btn');
+      var cancelBtn = document.getElementById('fps-scan-cancel-btn');
+      if (progressCard) progressCard.style.display = '';
+      if (resultsCard) resultsCard.style.display = 'none';
+      if (startBtn) startBtn.disabled = true;
       if (cancelBtn) cancelBtn.style.display = '';
-      showProgress(0, 100, 'Starting scan...');
-      ajax('start_mass_scan', filters, function(err, r) {
-        if (err || !r) return;
-        toast('Mass scan started: ' + (r.total_clients || r.processed || 0) + ' clients', 'info');
-        if (r.batch_id) window._fpsScanBatchId = r.batch_id;
-        showProgress(r.processed || 0, r.total_clients || 100, 'Scan in progress');
-      });
+
+      // Update status text
+      var statusEl = document.getElementById('fps-scan-status-text');
+      if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting scan...';
+
+      toast('Scanning clients...', 'info');
+
+      // Run batch loop
+      function runBatch(offset) {
+        if (window._fpsScanCancelled) {
+          finishScan('Scan cancelled');
+          return;
+        }
+
+        filters.offset = offset;
+        filters.batch_size = 25;
+
+        ajax('start_mass_scan', filters, function(err, r) {
+          if (err || !r || !r.success) {
+            finishScan('Scan error: ' + (r ? r.error || 'Unknown' : 'Connection failed'));
+            return;
+          }
+
+          var total = r.total_clients || 0;
+          var processed = r.processed || 0;
+          var allProcessed = offset + processed;
+
+          // Accumulate results
+          if (r.results) {
+            r.results.forEach(function(res) {
+              window._fpsScanResults.push(res);
+              if (res.success && res.data) {
+                var score = res.data.risk_score || res.data.score || 0;
+                if (score >= 70) window._fpsScanBlocked++;
+                else if (score >= 40) window._fpsScanFlagged++;
+              }
+            });
+          }
+
+          // Update progress bar
+          var pct = total > 0 ? Math.round((allProcessed / total) * 100) : 100;
+          var bar = document.getElementById('fps-scan-progress-bar');
+          var pctEl = document.getElementById('fps-scan-progress-pct');
+          if (bar) bar.style.width = pct + '%';
+          if (pctEl) pctEl.textContent = pct + '%';
+          if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanned ' + allProcessed + ' of ' + total + ' clients...';
+
+          // Update mini stats
+          var scannedEl = document.getElementById('fps-scan-scanned');
+          var flaggedEl = document.getElementById('fps-scan-flagged');
+          var blockedEl = document.getElementById('fps-scan-blocked');
+          if (scannedEl) scannedEl.textContent = allProcessed;
+          if (flaggedEl) flaggedEl.textContent = window._fpsScanFlagged;
+          if (blockedEl) blockedEl.textContent = window._fpsScanBlocked;
+
+          // More batches needed?
+          if (processed > 0 && allProcessed < total) {
+            setTimeout(function() { runBatch(allProcessed); }, 200);
+          } else {
+            finishScan('Scan complete: ' + allProcessed + ' clients processed');
+          }
+        });
+      }
+
+      function finishScan(message) {
+        if (statusEl) statusEl.innerHTML = '<i class="fas fa-check-circle"></i> ' + message;
+        if (startBtn) startBtn.disabled = false;
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        toast(message, 'success');
+
+        // Update result summary
+        var totalEl = document.getElementById('fps-scan-total-result');
+        var flaggedResEl = document.getElementById('fps-scan-flagged-result');
+        var blockedResEl = document.getElementById('fps-scan-blocked-result');
+        if (totalEl) totalEl.textContent = window._fpsScanResults.length;
+        if (flaggedResEl) flaggedResEl.textContent = window._fpsScanFlagged;
+        if (blockedResEl) blockedResEl.textContent = window._fpsScanBlocked;
+
+        // Populate results table
+        var tableEl = document.getElementById('fps-scan-results-table');
+        if (tableEl && window._fpsScanResults.length > 0) {
+          var html = '<table class="fps-table fps-table-hover"><thead><tr>'
+            + '<th><input type="checkbox" onclick="FpsAdmin.toggleSelectAll(\'fps-scan-row-check\')"></th>'
+            + '<th>Client ID</th><th>Risk Score</th><th>Risk Level</th><th>Providers</th><th>Status</th></tr></thead><tbody>';
+          window._fpsScanResults.forEach(function(res) {
+            var score = 0, level = 'low', providers = 0;
+            if (res.success && res.data) {
+              score = Math.round(res.data.risk_score || res.data.score || 0);
+              level = res.data.risk_level || (score >= 70 ? 'critical' : score >= 40 ? 'medium' : 'low');
+              providers = res.data.providers_checked || res.data.provider_count || 0;
+            }
+            var levelClass = level === 'critical' || level === 'high' ? 'fps-text-danger'
+              : level === 'medium' ? 'fps-text-warning' : 'fps-text-success';
+            html += '<tr>'
+              + '<td><input type="checkbox" class="fps-scan-row-check" value="' + res.client_id + '"></td>'
+              + '<td><a href="clientssummary.php?userid=' + res.client_id + '">#' + res.client_id + '</a></td>'
+              + '<td><strong>' + score + '</strong></td>'
+              + '<td><span class="' + levelClass + '">' + level.toUpperCase() + '</span></td>'
+              + '<td>' + providers + '</td>'
+              + '<td>' + (res.success ? '<span class="fps-text-success">OK</span>' : '<span class="fps-text-danger">' + (res.error || 'Error') + '</span>') + '</td>'
+              + '</tr>';
+          });
+          html += '</tbody></table>';
+          tableEl.innerHTML = html;
+        }
+
+        // Show results card
+        var resultsCard = document.getElementById('fps-scan-results-card');
+        if (resultsCard) resultsCard.style.display = '';
+      }
+
+      // Start first batch
+      runBatch(0);
     },
     cancelMassScan: function() {
       window._fpsScanCancelled = true;
-      var cancelBtn = document.querySelector('[onclick*="cancelMassScan"]');
+      var cancelBtn = document.getElementById('fps-scan-cancel-btn');
       if (cancelBtn) cancelBtn.style.display = 'none';
-      toast('Scan cancelled', 'warning');
+      toast('Scan cancelled by user', 'warning');
     },
     scanBulkAction: function(action, ajaxUrl) {
       var ids = getSelected('fps-scan-row-check');
