@@ -150,9 +150,11 @@
       });
     }
 
-    // Include WHMCS token if present
-    const tokenEl = document.querySelector('input[name="token"]');
-    if (tokenEl) body.append('token', tokenEl.value);
+    // Include WHMCS CSRF token if present (try multiple sources)
+    const tokenEl = document.getElementById('fps-csrf-token')
+      || document.querySelector('input[name="token"]')
+      || document.querySelector('#frmFraudPreventionSuite input[name="token"]');
+    if (tokenEl && tokenEl.value) body.append('token', tokenEl.value);
 
     return fetch(url, {
       method: 'POST',
