@@ -1035,16 +1035,12 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
 });
 
 // ---------------------------------------------------------------------------
-// 7. ClientAreaFooterOutput -- Inject fingerprint JS tag
+// 7. ClientAreaFooterOutput -- Inject fingerprint JS on ALL pages
 // ---------------------------------------------------------------------------
 add_hook('ClientAreaFooterOutput', 1, function ($vars) {
     try {
-        // Only inject on cart/checkout pages
-        $filename = $vars['filename'] ?? '';
-        if (!in_array($filename, ['cart', 'clientarea'])) {
-            return '';
-        }
-
+        // Load fingerprint collector on ALL client-area pages (not just cart)
+        // This enables passive fingerprint collection from every visitor
         $enabled = Capsule::table('mod_fps_settings')
             ->where('setting_key', 'fingerprint_enabled')
             ->value('setting_value');

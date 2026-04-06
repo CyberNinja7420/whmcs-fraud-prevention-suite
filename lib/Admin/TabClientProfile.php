@@ -1194,6 +1194,7 @@ HTML;
                 $ipMatches = Capsule::table('mod_fps_checks')
                     ->whereIn('ip_address', $clientIps)
                     ->where('client_id', '!=', $clientId)
+                    ->where('client_id', '>', 0) // Exclude pre-checkout (client_id=0)
                     ->distinct()
                     ->pluck('client_id')
                     ->toArray();
