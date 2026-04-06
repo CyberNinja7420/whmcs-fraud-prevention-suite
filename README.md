@@ -5,9 +5,9 @@
 [![WHMCS 8.x | 9.x](https://img.shields.io/badge/WHMCS-8.x%20%7C%209.x-0052CC?style=for-the-badge)](https://whmcs.com)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-![Version](https://img.shields.io/badge/Version-4.2.1-2563eb?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-4.2.2-2563eb?style=for-the-badge)
 
-[Live Demo](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite) | [API Plans](https://enterprisevpssolutions.com/store/fraud-intelligence-api) | [Threat Map](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite&page=topology) | [Documentation](../../wikis/Home)
+[Live Demo](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite) | [API Plans](https://enterprisevpssolutions.com/store/fraud-intelligence-api) | [Threat Map](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite&page=topology) | [Documentation](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Home)
 
 ---
 
@@ -60,7 +60,7 @@ Fraud Prevention Suite (FPS) is a comprehensive fraud detection addon module for
 
 ### 1. Upload
 
-Download the latest release from the [Releases](../../releases) page, then extract to your WHMCS installation:
+Download the latest release from the [Releases](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/releases) page, then extract to your WHMCS installation:
 
 ```bash
 unzip fraud_prevention_suite.zip -d /path/to/whmcs/modules/addons/
@@ -146,17 +146,17 @@ fraud_prevention_suite/
 
 ## Documentation
 
-Full documentation is available in the [Wiki](../../wikis/Home):
+Full documentation is available in the [Wiki](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Home):
 
-- [Installation Guide](../../wikis/Installation-Guide) -- Step-by-step setup
-- [Provider Configuration](../../wikis/Provider-Configuration) -- API keys and free tiers
-- [API Documentation](../../wikis/API-Documentation) -- REST endpoints and examples
-- [Architecture Overview](../../wikis/Architecture-Overview) -- Module structure and data flow
-- [Database Schema](../../wikis/Database-Schema) -- All 29 tables
-- [Hook Reference](../../wikis/Hook-Reference) -- 13 WHMCS hooks
-- [AJAX Reference](../../wikis/AJAX-Reference) -- 62 admin AJAX actions
-- [Adding Providers](../../wikis/Adding-Providers) -- Custom detection engine guide
-- [Troubleshooting](../../wikis/Troubleshooting) -- Common issues
+- [Installation Guide](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Installation-Guide) -- Step-by-step setup
+- [Provider Configuration](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Provider-Configuration) -- API keys and free tiers
+- [API Documentation](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/API-Documentation) -- REST endpoints and examples
+- [Architecture Overview](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Architecture-Overview) -- Module structure and data flow
+- [Database Schema](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Database-Schema) -- All 29 tables
+- [Hook Reference](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Hook-Reference) -- 13 WHMCS hooks
+- [AJAX Reference](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/AJAX-Reference) -- 62 admin AJAX actions
+- [Adding Providers](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Adding-Providers) -- Custom detection engine guide
+- [Troubleshooting](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Troubleshooting) -- Common issues
 
 ## Accessibility
 
@@ -197,7 +197,7 @@ Copyright (c) 2025-2026 [Enterprise VPS Solutions (EVDPS)](https://enterprisevps
 
 ## Support
 
-- **Documentation:** [Wiki](../../wikis/Home)
-- **Issues:** [GitHub Issues](../../issues)
+- **Documentation:** [Wiki](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Home)
+- **Issues:** [GitHub Issues](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/issues)
 - **Email:** support@enterprisevpssolutions.com
 - **Live Demo:** [enterprisevpssolutions.com](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite)

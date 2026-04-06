@@ -30,7 +30,14 @@ class FpsApiRouter
     public function handle(): void
     {
         header('Content-Type: application/json');
-        header('Access-Control-Allow-Origin: *');
+        // CORS: restrict to known origins for authenticated endpoints
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        $allowedPatterns = ['enterprisevpssolutions.com', 'localhost'];
+        $originAllowed = false;
+        foreach ($allowedPatterns as $pattern) {
+            if (str_contains($origin, $pattern)) { $originAllowed = true; break; }
+        }
+        header('Access-Control-Allow-Origin: ' . ($originAllowed ? $origin : '*'));
         header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
         header('Access-Control-Allow-Headers: X-FPS-API-Key, Content-Type');
         header('X-FPS-Version: 2.0.0');

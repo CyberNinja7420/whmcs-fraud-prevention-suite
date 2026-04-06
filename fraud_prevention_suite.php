@@ -20,7 +20,7 @@ function fraud_prevention_suite_config(): array
     return [
         'name'        => 'Fraud Prevention Suite',
         'description' => 'Enterprise-grade fraud intelligence platform with 15+ detection engines, adaptive ML scoring, Tor/datacenter detection, velocity analysis, behavioral fingerprinting, webhook alerts, and 1000X admin dashboard.',
-        'version'     => '4.2.1',
+        'version'     => '4.2.2',
         'author'      => 'EnterpriseVPS',
         'language'    => 'english',
         'fields'      => [
@@ -705,7 +705,7 @@ function fraud_prevention_suite_activate(): array
         // Auto-create API products
         $productResult = fps_createDefaultProducts();
 
-        $desc = 'Fraud Prevention Suite v4.2.1 activated successfully. All tables ready.';
+        $desc = 'Fraud Prevention Suite v4.2.2 activated successfully. All tables ready.';
         if (!empty($productResult['created'])) {
             $desc .= ' Created ' . $productResult['created'] . ' API products.';
         }
@@ -1181,7 +1181,7 @@ function fraud_prevention_suite_output(array $vars): void
     echo '<div class="fps-module-wrapper"' . $zoomStyle . '>';
     echo '<div class="fps-header">';
     echo '  <div class="fps-header-content">';
-    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.2.1</span></h2>';
+    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.2.2</span></h2>';
     echo '    <div class="fps-header-actions">';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAdmin.toggleTheme()" title="Toggle Dark/Light Mode"><i class="fas fa-moon"></i></button>';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsAdmin.refreshDashboard()"><i class="fas fa-sync-alt"></i> Refresh</button>';
@@ -2588,7 +2588,7 @@ function fraud_prevention_suite_clientarea(array $vars): array
     $gdprUrl = 'index.php?m=fraud_prevention_suite&page=gdpr-request';
     $commonVars = [
         'stats'          => $liveStats,
-        'module_version' => '4.2.1',
+        'module_version' => '4.2.2',
         'topology_url'   => 'index.php?m=fraud_prevention_suite&page=topology',
         'global_url'     => 'index.php?m=fraud_prevention_suite&page=global',
         'api_docs_url'   => 'index.php?m=fraud_prevention_suite&page=api-docs',
@@ -2666,10 +2666,16 @@ function fps_ajaxGetTrustList(): array
             $manager = new \FraudPreventionSuite\Lib\FpsClientTrustManager();
             $result = $manager->getClientsWithStatus($status, $page, $perPage);
 
+            // Batch-load all client data in one query (fixes N+1 pattern)
+            $clientIds = array_map(fn($r) => $r->client_id, $result['rows']);
+            $clients = Capsule::table('tblclients')
+                ->whereIn('id', $clientIds)
+                ->get(['id', 'firstname', 'lastname', 'email', 'companyname', 'status'])
+                ->keyBy('id');
+
             $enriched = [];
             foreach ($result['rows'] as $row) {
-                $client = Capsule::table('tblclients')->where('id', $row->client_id)
-                    ->first(['firstname', 'lastname', 'email', 'companyname', 'status']);
+                $client = $clients[$row->client_id] ?? null;
                 $enriched[] = [
                     'client_id'    => $row->client_id,
                     'status'       => $row->status,
@@ -3954,8 +3960,13 @@ function fps_ajaxGdprSubmitRequest(): array
             ->where('email_hash', $emailHash)
             ->exists();
 
+        // Generic response to prevent email enumeration (GDPR Art. 12(4))
+        // Returns the same message regardless of whether data exists or not
+        $genericMessage = 'If data associated with this email exists in our system, a verification link has been sent to your email address. Please check your inbox.';
+
         if (!$exists) {
-            return ['success' => true, 'message' => 'No data found for this email address in our system. No action needed.'];
+            // No data found -- still return the same generic message
+            return ['success' => true, 'message' => $genericMessage];
         }
 
         // Check for existing pending request
@@ -3965,7 +3976,8 @@ function fps_ajaxGdprSubmitRequest(): array
             ->first();
 
         if ($existingRequest) {
-            return ['success' => true, 'message' => 'A removal request for this email is already pending review. Reference: #' . $existingRequest->id];
+            // Already pending -- return same generic message (don't leak request ID)
+            return ['success' => true, 'message' => $genericMessage];
         }
 
         // Create verification token

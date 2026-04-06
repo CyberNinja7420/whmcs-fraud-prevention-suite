@@ -148,7 +148,20 @@ class FpsApiController
         }
 
         $combinedEvents = $totalEvents + $globalIntelCount;
-        $combinedCountries = max($activeCountries, $activeCountries + $globalCountries);
+        // Deduplicate countries: union local + global country codes
+        $localCountryCodes = Capsule::table('mod_fps_geo_events')
+            ->where('created_at', '>=', $since)
+            ->whereNotNull('country_code')->where('country_code', '!=', '')
+            ->distinct()->pluck('country_code')->toArray();
+        $globalCountryCodes = [];
+        if ($hours === 0 || $hours >= 720) {
+            try {
+                $globalCountryCodes = Capsule::table('mod_fps_global_intel')
+                    ->whereNotNull('country')->where('country', '!=', '')
+                    ->distinct()->pluck('country')->toArray();
+            } catch (\Throwable $e) {}
+        }
+        $combinedCountries = count(array_unique(array_merge($localCountryCodes, $globalCountryCodes)));
         $combinedBlocks = $totalBlocks + $globalBlocks;
         $blockRate = $combinedEvents > 0 ? round(($combinedBlocks / $combinedEvents) * 100) : 0;
 
