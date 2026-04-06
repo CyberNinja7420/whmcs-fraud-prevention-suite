@@ -3570,19 +3570,62 @@ function fps_getPublicStats(): array
         $totalChecks = (int)Capsule::table('mod_fps_checks')->count();
         $threatsBlocked = (int)Capsule::table('mod_fps_checks')->whereIn('risk_level', ['high', 'critical'])->count();
         $uniqueIps = (int)Capsule::table('mod_fps_checks')->whereNotNull('ip_address')->distinct()->count('ip_address');
-        $countriesMonitored = (int)Capsule::table('mod_fps_checks')->whereNotNull('country')->where('country', '!=', '')->distinct()->count('country');
+        // Countries: combine checks table + geo_events for broader coverage
+        $checkCountries = Capsule::table('mod_fps_checks')
+            ->whereNotNull('country')->where('country', '!=', '')
+            ->distinct()->pluck('country')->toArray();
+        $geoCountries = [];
+        try {
+            $geoCountries = Capsule::table('mod_fps_geo_events')
+                ->whereNotNull('country_code')->where('country_code', '!=', '')
+                ->distinct()->pluck('country_code')->toArray();
+        } catch (\Throwable $e) {}
+        $countriesMonitored = count(array_unique(array_merge($checkCountries, $geoCountries)));
+        // Count bots: check_type=bot_* OR bot_detection provider scored > 0
         $botsDetected = (int)Capsule::table('mod_fps_checks')
-            ->where(function($q) { $q->where('check_type', 'bot_detection')->orWhere('check_type', 'bot_signup_block'); })->count();
+            ->where(function($q) {
+                $q->where('check_type', 'bot_detection')
+                  ->orWhere('check_type', 'bot_signup_block')
+                  ->orWhere('details', 'LIKE', '%"bot_detection":1%')
+                  ->orWhere('details', 'LIKE', '%"bot_pattern"%');
+            })->count();
 
-        // IP intel breakdowns
+        // IP intel breakdowns -- count from BOTH cache table AND check details JSON
         $vpnDetected = 0; $torDetected = 0; $proxyDetected = 0; $dcDetected = 0;
         $disposableEmails = 0; $geoMismatches = 0;
         try {
+            // Primary: count from ip_intel cache table
             if (Capsule::schema()->hasTable('mod_fps_ip_intel')) {
                 $vpnDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_vpn', 1)->count();
                 $torDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_tor', 1)->count();
                 $proxyDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_proxy', 1)->count();
                 $dcDetected = (int)Capsule::table('mod_fps_ip_intel')->where('is_datacenter', 1)->count();
+            }
+            // Fallback: also count from check details JSON (catches pre-checkout blocks
+            // where the cache entry may have been overwritten or expired)
+            if ($proxyDetected === 0) {
+                $proxyDetected = (int)Capsule::table('mod_fps_checks')
+                    ->where('details', 'LIKE', '%"is_proxy":true%')
+                    ->orWhere('details', 'LIKE', '%"is_proxy": true%')
+                    ->count();
+            }
+            if ($dcDetected === 0) {
+                $dcDetected = (int)Capsule::table('mod_fps_checks')
+                    ->where('details', 'LIKE', '%"is_datacenter":true%')
+                    ->orWhere('details', 'LIKE', '%"is_datacenter": true%')
+                    ->count();
+            }
+            if ($vpnDetected === 0) {
+                $vpnDetected = (int)Capsule::table('mod_fps_checks')
+                    ->where('details', 'LIKE', '%"is_vpn":true%')
+                    ->orWhere('details', 'LIKE', '%"is_vpn": true%')
+                    ->count();
+            }
+            if ($torDetected === 0) {
+                $torDetected = (int)Capsule::table('mod_fps_checks')
+                    ->where('details', 'LIKE', '%"is_tor":true%')
+                    ->orWhere('details', 'LIKE', '%"is_tor": true%')
+                    ->count();
             }
             if (Capsule::schema()->hasTable('mod_fps_email_intel')) {
                 $disposableEmails = (int)Capsule::table('mod_fps_email_intel')->where('is_disposable', 1)->count();
