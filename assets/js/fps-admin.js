@@ -969,36 +969,73 @@
   }
 
   /**
-   * Run a manual fraud check from the dashboard form.
+   * Run a manual fraud check.
+   * Called from Dashboard (no clientId arg, reads from input) or
+   * Client Profile (clientId passed as 2nd arg).
    */
-  function runManualCheck(ajaxUrl) {
-    var clientIdInput = document.getElementById('fps-manual-client-id');
-    var resultDiv = document.getElementById('fps-manual-check-result');
-    if (!clientIdInput || !resultDiv) return;
+  function runManualCheck(ajaxUrl, clientIdArg) {
+    var clientId;
 
-    var clientId = parseInt(clientIdInput.value, 10);
+    // If called with explicit clientId (e.g., from Client Profile Scan Now buttons)
+    if (clientIdArg && parseInt(clientIdArg, 10) > 0) {
+      clientId = parseInt(clientIdArg, 10);
+    } else {
+      // Read from dashboard input
+      var clientIdInput = document.getElementById('fps-manual-client-id');
+      if (!clientIdInput) {
+        toast('No client ID provided', 'warning');
+        return;
+      }
+      clientId = parseInt(clientIdInput.value, 10);
+    }
+
     if (!clientId || clientId < 1) {
       toast('Please enter a valid Client ID', 'warning');
       return;
     }
 
-    resultDiv.style.display = '';
-    resultDiv.innerHTML = '<div class="fps-skeleton-container"><div class="fps-skeleton-line" style="width:100%"></div><div class="fps-skeleton-line" style="width:80%"></div></div>';
+    // Show result in either the dashboard result div or a toast
+    var resultDiv = document.getElementById('fps-manual-check-result');
+    if (resultDiv) {
+      resultDiv.style.display = '';
+      resultDiv.innerHTML = '<div class="fps-skeleton-container"><div class="fps-skeleton-line" style="width:100%"></div><div class="fps-skeleton-line" style="width:80%"></div></div>';
+    } else {
+      toast('Scanning client #' + clientId + '...', 'info');
+    }
 
     ajax('run_manual_check', { client_id: clientId }, function (err, data) {
       if (err || !data || !data.success) {
-        resultDiv.innerHTML = '<div class="fps-alert fps-alert-danger">Check failed: ' + _esc((data && data.message) || 'Unknown error') + '</div>';
+        var errMsg = (data && (data.error || data.message)) || 'Unknown error';
+        if (resultDiv) {
+          resultDiv.innerHTML = '<div class="fps-alert fps-alert-danger">Check failed: ' + _esc(errMsg) + '</div>';
+        } else {
+          toast('Scan failed: ' + errMsg, 'error');
+        }
         return;
       }
 
       var r = data.data || {};
-      var lvl = r.risk_level || 'low';
-      resultDiv.innerHTML =
+      var score = r.risk ? (r.risk.score || 0) : (r.risk_score || 0);
+      var lvl = r.risk ? (r.risk.level || 'low') : (r.risk_level || 'low');
+      var providers = r.risk ? Object.keys(r.risk.providerScores || {}).length : (r.provider_count || 0);
+      var duration = r.executionMs || r.duration_ms || 0;
+      var action = r.actionTaken || r.action_taken || 'none';
+
+      var html =
         '<div class="fps-alert fps-alert-' + (lvl === 'critical' || lvl === 'high' ? 'danger' : lvl === 'medium' ? 'warning' : 'success') + '">' +
-        '<strong>Risk Score: ' + _esc(String(r.risk_score || 0)) + '/100</strong> ' +
-        '<span class="fps-badge fps-badge-' + _esc(lvl) + '">' + _esc(lvl) + '</span><br>' +
-        '<small>Action: ' + _esc(r.action_taken || 'none') + ' | Providers: ' + _esc(String(r.provider_count || 0)) + ' | Duration: ' + _esc(String(r.duration_ms || 0)) + 'ms</small>' +
+        '<strong>Risk Score: ' + _esc(String(Math.round(score * 10) / 10)) + '/100</strong> ' +
+        '<span class="fps-badge fps-badge-' + _esc(lvl) + '">' + _esc(lvl.toUpperCase()) + '</span><br>' +
+        '<small>Action: ' + _esc(action) + ' | Providers: ' + _esc(String(providers)) + ' | Duration: ' + _esc(String(Math.round(duration))) + 'ms</small>' +
         '</div>';
+
+      if (resultDiv) {
+        resultDiv.innerHTML = html;
+      } else {
+        // On client profile page, show as toast + reload to refresh data
+        toast('Client #' + clientId + ': Score ' + Math.round(score * 10) / 10 + '/100 (' + lvl.toUpperCase() + ')',
+          lvl === 'critical' || lvl === 'high' ? 'error' : lvl === 'medium' ? 'warning' : 'success');
+        setTimeout(function() { location.reload(); }, 2000);
+      }
     });
   }
 
