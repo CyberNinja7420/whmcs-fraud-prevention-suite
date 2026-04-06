@@ -222,6 +222,7 @@
   <div class="cta-row" style="display:flex;gap:12px;justify-content:center;">
     <a href="{$WEB_ROOT}/cart.php?a=add&pid={$products.free.pid}&billingcycle=monthly&skipconfig=true" class="cta cta-primary" style="padding:14px 36px;border-radius:10px;font-size:1.05rem;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;box-shadow:0 4px 20px rgba(102,126,234,0.3);display:inline-flex;align-items:center;gap:8px;"><i class="fas fa-rocket"></i> Get Started Free</a>
     <a href="{$WEB_ROOT}/index.php?m=fraud_prevention_suite&page=topology" class="cta cta-outline" style="padding:14px 36px;border-radius:10px;font-size:1.05rem;font-weight:700;text-decoration:none;background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.2);display:inline-flex;align-items:center;gap:8px;"><i class="fas fa-globe"></i> Live Threat Map</a>
+    <a href="https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite" target="_blank" rel="noopener" class="cta cta-outline" style="padding:14px 36px;border-radius:10px;font-size:1.05rem;font-weight:700;text-decoration:none;background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.2);display:inline-flex;align-items:center;gap:8px;"><i class="fab fa-github"></i> GitHub</a>
   </div>
 </div>
 
