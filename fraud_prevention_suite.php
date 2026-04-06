@@ -1155,8 +1155,9 @@ function fraud_prevention_suite_output(array $vars): void
     echo '<script src="' . $assetsUrl . '/js/fps-admin.js' . $cacheBust . '"></script>';
     echo '<script src="' . $assetsUrl . '/js/fps-charts.js' . $cacheBust . '"></script>';
     // WHMCS CSRF token (available globally for all AJAX calls)
-    $csrfToken = htmlspecialchars($_SESSION['token'] ?? '', ENT_QUOTES, 'UTF-8');
-    echo '<input type="hidden" name="token" id="fps-csrf-token" value="' . $csrfToken . '">';
+    // WHMCS 8.x uses generate_token() for CSRF -- $_SESSION['token'] is empty
+    $csrfToken = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
+    echo '<input type="hidden" name="token" id="fps-csrf-token" value="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '">';
 
     echo '<script>var fpsModuleLink = ' . json_encode($modulelink) . ';';
     echo 'document.addEventListener("DOMContentLoaded",function(){';
@@ -1270,14 +1271,15 @@ function fps_handleAjax(string $modulelink): void
     }
 
     // CSRF protection: verify WHMCS token on state-changing POST requests
-    // Note: Token comes from hidden input#fps-csrf-token or input[name=token]
+    // WHMCS 8.x stores CSRF seed in $_SESSION['tkval'], not $_SESSION['token']
+    // Use generate_token('plain') to get the expected hashed token value
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $token = $_POST['token'] ?? '';
-        $sessionToken = $_SESSION['token'] ?? '';
-        if ($sessionToken !== '' && $token !== $sessionToken) {
+        $postToken = $_POST['token'] ?? '';
+        $expectedToken = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
+        if ($expectedToken !== '' && $postToken !== $expectedToken) {
             logModuleCall('fraud_prevention_suite', 'CSRF_FAIL', [
-                'post_token' => substr($token, 0, 10) . '...',
-                'session_has_token' => !empty($sessionToken),
+                'post_token' => substr($postToken, 0, 10) . '...',
+                'expected_token_set' => !empty($expectedToken),
                 'action' => $_GET['a'] ?? $_POST['action'] ?? 'unknown',
             ], 'Token mismatch');
             echo json_encode(['success' => false, 'error' => 'Invalid CSRF token. Please refresh the page and try again.']);
