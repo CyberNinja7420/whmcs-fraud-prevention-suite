@@ -1387,7 +1387,7 @@ function fraud_prevention_suite_output(array $vars): void
 
     // Emit Google Font <link> tags (deduplicated)
     foreach ($googleTokensNeeded as $token => $param) {
-        $url = 'https://fonts.googleapis.com/css2?family=' . rawurlencode($param) . '&display=swap';
+        $url = 'https://fonts.googleapis.com/css2?family=' . $param . '&display=swap';
         echo '<link rel="stylesheet" data-fps-font="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8')
             . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">';
     }
