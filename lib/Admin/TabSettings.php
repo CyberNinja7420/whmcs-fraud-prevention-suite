@@ -66,6 +66,46 @@ class TabSettings
             $options .= '<option value="' . $val . '"' . $selected . '>' . $label . '</option>';
         }
 
+        // Color defaults
+        $colorDefaults = [
+            'admin_primary_color'   => '#667eea',
+            'admin_secondary_color' => '#764ba2',
+            'admin_bg_color'        => '#f4f6fb',
+            'admin_surface_color'   => '#ffffff',
+            'admin_text_color'      => '#1a1d2e',
+            'client_brand_color'    => '#2563eb',
+            'client_bg_color'       => '#f8fafc',
+            'client_text_color'     => '#334155',
+            'client_hero_start'     => '#1e3a5f',
+            'client_hero_end'       => '#2d1b4e',
+        ];
+
+        $colors = [];
+        foreach ($colorDefaults as $key => $default) {
+            $val = $config->getCustom($key, $default);
+            $colors[$key] = preg_match('/^#[0-9a-fA-F]{6}$/', (string)$val) ? $val : $default;
+        }
+
+        $darkMode = (int)$config->getCustom('admin_dark_mode', '0');
+        $darkChecked = $darkMode ? ' checked' : '';
+
+        // Build color picker HTML helper
+        $cp = function($key, $label, $desc) use ($colors) {
+            $v = htmlspecialchars($colors[$key]);
+            return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+                . '<input type="color" name="' . $key . '" value="' . $v . '" '
+                . 'style="width:44px;height:36px;border:1px solid var(--fps-border,#dde1ef);border-radius:6px;cursor:pointer;padding:2px;" '
+                . 'oninput="this.nextElementSibling.value=this.value;FpsAdmin.previewColor(\'' . $key . '\',this.value)">'
+                . '<input type="text" value="' . $v . '" maxlength="7" '
+                . 'style="width:90px;font-family:monospace;font-size:13px;padding:6px 8px;border:1px solid var(--fps-border,#dde1ef);border-radius:6px;" '
+                . 'oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){this.previousElementSibling.value=this.value;FpsAdmin.previewColor(\'' . $key . '\',this.value)}">'
+                . '<div style="flex:1;"><strong style="font-size:13px;">' . $label . '</strong>'
+                . '<div style="font-size:11px;color:var(--fps-text-muted,#9499b5);">' . $desc . '</div></div>'
+                . '</div>';
+        };
+
+        $defaultsJson = htmlspecialchars(json_encode($colorDefaults), ENT_QUOTES);
+
         $content = <<<HTML
 <div class="fps-form-row">
   <div class="fps-form-group" style="max-width:320px;">
@@ -77,6 +117,45 @@ class TabSettings
     <small style="margin-top:4px;display:block;color:#888;">Adjusts the entire FPS interface size. Takes effect immediately.</small>
   </div>
 </div>
+
+<hr style="border:none;border-top:1px solid var(--fps-border-light,#eaedf5);margin:20px 0;">
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+  <h4 style="margin:0;font-size:15px;"><i class="fas fa-palette"></i> Admin Panel Colors</h4>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+    <input type="checkbox" name="admin_dark_mode" value="1"{$darkChecked}
+      onchange="FpsAdmin.toggleDarkMode(this.checked)" style="width:16px;height:16px;">
+    <i class="fas fa-moon"></i> Dark Mode
+  </label>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">
+  {$cp('admin_primary_color', 'Primary Color', 'Header gradients, buttons, active tabs')}
+  {$cp('admin_secondary_color', 'Secondary Color', 'Gradient end color, secondary accents')}
+  {$cp('admin_bg_color', 'Page Background', 'Main page background behind cards')}
+  {$cp('admin_surface_color', 'Card Background', 'Card and panel surfaces')}
+  {$cp('admin_text_color', 'Text Color', 'Primary body text')}
+</div>
+
+<hr style="border:none;border-top:1px solid var(--fps-border-light,#eaedf5);margin:20px 0;">
+
+<h4 style="margin:0 0 16px;font-size:15px;"><i class="fas fa-globe"></i> Client Page Colors</h4>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">
+  {$cp('client_brand_color', 'Brand / Accent Color', 'Links, buttons, CTA on public pages')}
+  {$cp('client_bg_color', 'Page Background', 'Client area body background')}
+  {$cp('client_text_color', 'Text Color', 'Client area body text')}
+  {$cp('client_hero_start', 'Hero Gradient Start', 'Hero banner gradient start color')}
+  {$cp('client_hero_end', 'Hero Gradient End', 'Hero banner gradient end color')}
+</div>
+
+<hr style="border:none;border-top:1px solid var(--fps-border-light,#eaedf5);margin:20px 0;">
+
+<div style="display:flex;gap:12px;">
+  <button type="button" class="fps-btn fps-btn-sm fps-btn-outline"
+    onclick="FpsAdmin.resetThemeDefaults()" style="font-size:13px;">
+    <i class="fas fa-rotate-left"></i> Reset All Colors to Defaults
+  </button>
+</div>
+<input type="hidden" id="fps-color-defaults" value="{$defaultsJson}">
 HTML;
 
         echo FpsAdminRenderer::renderCard('Display Settings', 'fa-display', $content);
