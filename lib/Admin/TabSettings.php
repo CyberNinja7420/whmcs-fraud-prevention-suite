@@ -47,8 +47,8 @@ class TabSettings
      */
     private function fpsRenderDisplaySettings(FpsConfig $config): void
     {
-        $currentScale = (float) $config->getCustom('ui_font_scale', '1.0');
-        $currentScale = max(0.85, min(1.4, $currentScale));
+        $rawScale = $config->getCustom('ui_font_scale', '1.0');
+        $currentScale = max(0.85, min(1.4, (float)$rawScale));
 
         $scales = [
             '0.85' => 'Compact (85%)',
@@ -62,7 +62,8 @@ class TabSettings
 
         $options = '';
         foreach ($scales as $val => $label) {
-            $selected = ((string)$currentScale === $val) ? ' selected' : '';
+            // Compare as floats to avoid "1" vs "1.0" string mismatch
+            $selected = (abs($currentScale - (float)$val) < 0.001) ? ' selected' : '';
             $options .= '<option value="' . $val . '"' . $selected . '>' . $label . '</option>';
         }
 
