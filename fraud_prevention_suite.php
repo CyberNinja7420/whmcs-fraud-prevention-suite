@@ -654,6 +654,13 @@ function fraud_prevention_suite_activate(): array
             'font_size_table_body'   => '0.90',
             'font_size_card_header'  => '1.10',
             'font_size_card_body'    => '0.95',
+            'typo_tabs'         => '{"family":"system","weight":"600","size":"0.84","letterSpacing":"0.01","lineHeight":"1.4"}',
+            'typo_stats'        => '{"family":"system","weight":"700","size":"1.80","letterSpacing":"-0.02","lineHeight":"1.2"}',
+            'typo_stat_labels'  => '{"family":"system","weight":"500","size":"0.85","letterSpacing":"0.06","lineHeight":"1.4"}',
+            'typo_table_header' => '{"family":"system","weight":"600","size":"0.80","letterSpacing":"0.07","lineHeight":"1.4"}',
+            'typo_table_body'   => '{"family":"system","weight":"400","size":"0.90","letterSpacing":"0.00","lineHeight":"1.5"}',
+            'typo_card_header'  => '{"family":"system","weight":"600","size":"1.10","letterSpacing":"0.01","lineHeight":"1.3"}',
+            'typo_card_body'    => '{"family":"system","weight":"400","size":"0.95","letterSpacing":"0.00","lineHeight":"1.6"}',
         ];
 
         try {
