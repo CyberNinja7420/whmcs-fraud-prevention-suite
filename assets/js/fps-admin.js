@@ -1272,8 +1272,8 @@
           family:        src.family        || def.family,
           weight:        src.weight        || def.weight,
           size:          src.size          || def.size,
-          letterSpacing: src.ls            || def.letterSpacing,
-          lineHeight:    src.lh            || def.lineHeight,
+          letterSpacing: src.letterSpacing || src.ls || def.letterSpacing,
+          lineHeight:    src.lineHeight    || src.lh  || def.lineHeight,
         };
       });
       self.switchTypoSection('tabs');
