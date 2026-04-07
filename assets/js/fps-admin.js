@@ -1194,6 +1194,251 @@
       wrapper.style.setProperty(cssVar, parsed.toFixed(2) + 'rem');
     },
 
+    // -- Full Typography Panel -----------------------------------------------------------------
+
+    _typoActive: 'tabs',
+
+    _typoDefaults: {
+      tabs:         { family: 'system', weight: '600', size: '0.84', letterSpacing: '0.01', lineHeight: '1.4' },
+      stats:        { family: 'system', weight: '700', size: '1.80', letterSpacing: '-0.02', lineHeight: '1.2' },
+      stat_labels:  { family: 'system', weight: '500', size: '0.85', letterSpacing: '0.06', lineHeight: '1.4' },
+      table_header: { family: 'system', weight: '600', size: '0.80', letterSpacing: '0.07', lineHeight: '1.4' },
+      table_body:   { family: 'system', weight: '400', size: '0.90', letterSpacing: '0.00', lineHeight: '1.5' },
+      card_header:  { family: 'system', weight: '600', size: '1.10', letterSpacing: '0.01', lineHeight: '1.3' },
+      card_body:    { family: 'system', weight: '400', size: '0.95', letterSpacing: '0.00', lineHeight: '1.6' },
+    },
+
+    _typo: null,
+
+    _fontTokenMap: {
+      'system':       "system-ui,-apple-system,'Segoe UI',sans-serif",
+      'georgia':      "Georgia,'Times New Roman',serif",
+      'mono':         "'JetBrains Mono','Fira Code',Consolas,monospace",
+      'arial':        "Arial,Helvetica,sans-serif",
+      'inter-sys':    "Inter,system-ui,sans-serif",
+      'inter':        "Inter,system-ui,sans-serif",
+      'roboto':       "Roboto,system-ui,sans-serif",
+      'poppins':      "Poppins,system-ui,sans-serif",
+      'opensans':     "'Open Sans',system-ui,sans-serif",
+      'lato':         "Lato,system-ui,sans-serif",
+      'nunito':       "Nunito,system-ui,sans-serif",
+      'merriweather': "Merriweather,Georgia,serif",
+      'playfair':     "'Playfair Display',Georgia,serif",
+      'jetbrains':    "'JetBrains Mono',Consolas,monospace",
+    },
+
+    _googleFontUrls: {
+      'inter':        'Inter:wght@300;400;600;700',
+      'roboto':       'Roboto:wght@300;400;600;700',
+      'poppins':      'Poppins:wght@300;400;600;700',
+      'opensans':     'Open+Sans:wght@300;400;600;700',
+      'lato':         'Lato:wght@300;400;600;700',
+      'nunito':       'Nunito:wght@300;400;600;700',
+      'merriweather': 'Merriweather:wght@300;400;700',
+      'playfair':     'Playfair+Display:wght@400;700',
+      'jetbrains':    'JetBrains+Mono:wght@300;400;600;700',
+    },
+
+    _sizeVarMap: {
+      'tabs':         '--fps-size-tabs',
+      'stats':        '--fps-size-stats',
+      'stat_labels':  '--fps-size-stat-labels',
+      'table_header': '--fps-size-th',
+      'table_body':   '--fps-size-td',
+      'card_header':  '--fps-size-card-h',
+      'card_body':    '--fps-size-card-body',
+    },
+
+    _cssPrefixMap: {
+      'tabs':         'tabs',
+      'stats':        'stats',
+      'stat_labels':  'stat-labels',
+      'table_header': 'table-header',
+      'table_body':   'table-body',
+      'card_header':  'card-header',
+      'card_body':    'card-body',
+    },
+
+    initTypo: function() {
+      var self = FpsAdmin;
+      var init = window._fpsTypoInit;
+      if (!init) return;
+      self._typo = {};
+      var keys = ['tabs','stats','stat_labels','table_header','table_body','card_header','card_body'];
+      keys.forEach(function(k) {
+        var src = init[k] || {};
+        var def = self._typoDefaults[k];
+        self._typo[k] = {
+          family:        src.family        || def.family,
+          weight:        src.weight        || def.weight,
+          size:          src.size          || def.size,
+          letterSpacing: src.ls            || def.letterSpacing,
+          lineHeight:    src.lh            || def.lineHeight,
+        };
+      });
+      self.switchTypoSection('tabs');
+    },
+
+    switchTypoSection: function(sectionKey) {
+      var self = FpsAdmin;
+      if (!self._typo || !self._typo[sectionKey]) return;
+      self._typoActive = sectionKey;
+      var tv = self._typo[sectionKey];
+
+      // Update mini-tab active styles
+      document.querySelectorAll('.fps-typo-tab').forEach(function(btn) {
+        var active = btn.getAttribute('data-section') === sectionKey;
+        btn.style.background  = active ? 'var(--fps-primary,#667eea)' : 'var(--fps-surface-2,#f8f9fc)';
+        btn.style.color       = active ? '#fff' : 'var(--fps-text-secondary,#5a6176)';
+        btn.style.borderColor = active ? 'var(--fps-primary,#667eea)' : 'var(--fps-border,#dde1ef)';
+      });
+
+      // Update family select
+      var sel = document.getElementById('fps-typo-family-select');
+      if (sel) sel.value = tv.family;
+
+      // Update weight toggle active styles
+      document.querySelectorAll('.fps-typo-weight-btn').forEach(function(btn) {
+        var active = btn.getAttribute('data-weight') === tv.weight;
+        btn.style.background  = active ? 'var(--fps-primary,#667eea)' : 'var(--fps-surface-2,#f8f9fc)';
+        btn.style.color       = active ? '#fff' : 'var(--fps-text-primary,#1a1d2e)';
+        btn.style.borderColor = active ? 'var(--fps-primary,#667eea)' : 'var(--fps-border,#dde1ef)';
+      });
+
+      // Update sliders + value displays
+      var sliderData = {
+        'fps-typo-size':          { val: tv.size,          unit: 'rem' },
+        'fps-typo-letterSpacing': { val: tv.letterSpacing, unit: 'em'  },
+        'fps-typo-lineHeight':    { val: tv.lineHeight,     unit: ''   },
+      };
+      Object.keys(sliderData).forEach(function(id) {
+        var el    = document.getElementById(id);
+        var valEl = document.getElementById(id + '-val');
+        if (el) el.value = sliderData[id].val;
+        if (valEl) valEl.textContent = sliderData[id].val + sliderData[id].unit;
+      });
+
+      // Update live preview
+      self._updateTypoPreview(sectionKey, tv);
+    },
+
+    previewTypo: function(sectionKey, property, value) {
+      var self = FpsAdmin;
+      if (!self._typo || !self._typo[sectionKey]) return;
+
+      // Update state
+      if (property === 'letterSpacing' || property === 'lineHeight'
+          || property === 'size' || property === 'family' || property === 'weight') {
+        self._typo[sectionKey][property] = value;
+      }
+
+      var tv         = self._typo[sectionKey];
+      var wrapper    = document.querySelector('.fps-module-wrapper') || document.documentElement;
+      var cssPrefix  = self._cssPrefixMap[sectionKey] || sectionKey;
+
+      if (property === 'family') {
+        self.loadGoogleFont(value).then(function() {
+          var stack = self._fontTokenMap[value] || self._fontTokenMap['system'];
+          wrapper.style.setProperty('--fps-font-' + cssPrefix, stack);
+          self._updateTypoPreview(sectionKey, self._typo[sectionKey]);
+        });
+      } else if (property === 'weight') {
+        wrapper.style.setProperty('--fps-weight-' + cssPrefix, value);
+        // Update weight toggle active styles
+        document.querySelectorAll('.fps-typo-weight-btn').forEach(function(btn) {
+          var active = btn.getAttribute('data-weight') === value;
+          btn.style.background  = active ? 'var(--fps-primary,#667eea)' : 'var(--fps-surface-2,#f8f9fc)';
+          btn.style.color       = active ? '#fff' : 'var(--fps-text-primary,#1a1d2e)';
+          btn.style.borderColor = active ? 'var(--fps-primary,#667eea)' : 'var(--fps-border,#dde1ef)';
+        });
+        self._updateTypoPreview(sectionKey, tv);
+      } else if (property === 'size') {
+        var sizeVar = self._sizeVarMap[sectionKey] || ('--fps-size-' + cssPrefix);
+        wrapper.style.setProperty(sizeVar, parseFloat(value).toFixed(2) + 'rem');
+        var sizeValEl = document.getElementById('fps-typo-size-val');
+        if (sizeValEl) sizeValEl.textContent = parseFloat(value).toFixed(2) + 'rem';
+        self._updateTypoPreview(sectionKey, tv);
+      } else if (property === 'letterSpacing') {
+        wrapper.style.setProperty('--fps-tracking-' + cssPrefix, parseFloat(value).toFixed(2) + 'em');
+        var lsValEl = document.getElementById('fps-typo-letterSpacing-val');
+        if (lsValEl) lsValEl.textContent = parseFloat(value).toFixed(2) + 'em';
+        self._updateTypoPreview(sectionKey, tv);
+      } else if (property === 'lineHeight') {
+        wrapper.style.setProperty('--fps-lh-' + cssPrefix, parseFloat(value).toFixed(1));
+        var lhValEl = document.getElementById('fps-typo-lineHeight-val');
+        if (lhValEl) lhValEl.textContent = parseFloat(value).toFixed(1);
+        self._updateTypoPreview(sectionKey, tv);
+      }
+
+      self._syncTypoHidden(sectionKey);
+    },
+
+    loadGoogleFont: function(token) {
+      var self = FpsAdmin;
+      if (!self._googleFontUrls[token]) {
+        return Promise.resolve();
+      }
+      if (document.querySelector('link[data-fps-font="' + token + '"]')) {
+        return Promise.resolve();
+      }
+      return new Promise(function(resolve) {
+        var link  = document.createElement('link');
+        link.rel  = 'stylesheet';
+        link.setAttribute('data-fps-font', token);
+        link.href = 'https://fonts.googleapis.com/css2?family='
+                  + self._googleFontUrls[token] + '&display=swap';
+        var timer = setTimeout(resolve, 800);
+        link.onload  = function() { clearTimeout(timer); resolve(); };
+        link.onerror = function() { clearTimeout(timer); resolve(); };
+        document.head.appendChild(link);
+      });
+    },
+
+    _syncTypoHidden: function(sectionKey) {
+      var self = FpsAdmin;
+      if (!self._typo || !self._typo[sectionKey]) return;
+      var tv = self._typo[sectionKey];
+      var el = document.getElementById('fps-typo-hidden-' + sectionKey);
+      if (!el) return;
+      el.value = JSON.stringify({
+        family:        tv.family,
+        weight:        tv.weight,
+        size:          tv.size,
+        letterSpacing: tv.letterSpacing,
+        lineHeight:    tv.lineHeight,
+      });
+    },
+
+    _updateTypoPreview: function(sectionKey, tv) {
+      var self = FpsAdmin;
+      var prev = document.getElementById('fps-typo-preview');
+      if (!prev) return;
+      var stack = self._fontTokenMap[tv.family] || self._fontTokenMap['system'];
+      prev.style.fontFamily    = stack;
+      prev.style.fontWeight    = tv.weight;
+      prev.style.fontSize      = parseFloat(tv.size).toFixed(2) + 'rem';
+      prev.style.letterSpacing = parseFloat(tv.letterSpacing).toFixed(2) + 'em';
+      prev.style.lineHeight    = parseFloat(tv.lineHeight).toFixed(1);
+    },
+
+    resetTypoSection: function(sectionKey) {
+      var self = FpsAdmin;
+      if (!self._typo || !self._typoDefaults[sectionKey]) return;
+      self._typo[sectionKey] = Object.assign({}, self._typoDefaults[sectionKey]);
+      self.switchTypoSection(sectionKey);
+      self._syncTypoHidden(sectionKey);
+    },
+
+    resetAllTypo: function() {
+      var self = FpsAdmin;
+      if (!self._typo) return;
+      Object.keys(self._typoDefaults).forEach(function(k) {
+        self._typo[k] = Object.assign({}, self._typoDefaults[k]);
+        self._syncTypoHidden(k);
+      });
+      self.switchTypoSection(self._typoActive);
+    },
+
     // --- Tab-specific action handlers (AJAX wrappers) ---
 
     // API Keys tab
@@ -2446,6 +2691,11 @@
       });
     },
   };
+
+  // Initialize typography panel if on Settings page
+  if (window._fpsTypoInit) {
+    FpsAdmin.initTypo();
+  }
 
   /* ------------------------------------------------------------------
      PRIVATE HELPER: HTML escape (shared)
