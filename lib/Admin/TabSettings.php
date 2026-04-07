@@ -90,44 +90,181 @@ class TabSettings
         $darkMode = (int)$config->getCustom('admin_dark_mode', '0');
         $darkChecked = $darkMode ? ' checked' : '';
 
-        // Per-section font size sliders
-        $fontSizeDefs = [
-            'font_size_tabs'         => ['0.84', 'Tab Labels',        'Navigation tab text size'],
-            'font_size_stats'        => ['1.80', 'Stat Card Numbers', 'Large metric values on stat cards'],
-            'font_size_stat_labels'  => ['0.85', 'Stat Card Labels',  'Category labels beneath stat numbers'],
-            'font_size_table_header' => ['0.80', 'Table Headers',     'Column header text in all tables'],
-            'font_size_table_body'   => ['0.90', 'Table Body',        'Row data text in all tables'],
-            'font_size_card_header'  => ['1.10', 'Card Headers',      'Title text in card header bars'],
-            'font_size_card_body'    => ['0.95', 'Card Body Text',    'Content text inside card bodies'],
+        $fontTokens = [
+            'system'       => ['System Default',   "system-ui,-apple-system,'Segoe UI',sans-serif"],
+            'georgia'      => ['Georgia',          "Georgia,'Times New Roman',serif"],
+            'mono'         => ['Monospace',        "'JetBrains Mono','Fira Code',Consolas,monospace"],
+            'arial'        => ['Arial',            "Arial,Helvetica,sans-serif"],
+            'inter-sys'    => ['Inter (system)',   "Inter,system-ui,sans-serif"],
+            'inter'        => ['Inter',            "Inter,system-ui,sans-serif"],
+            'roboto'       => ['Roboto',           "Roboto,system-ui,sans-serif"],
+            'poppins'      => ['Poppins',          "Poppins,system-ui,sans-serif"],
+            'opensans'     => ['Open Sans',        "'Open Sans',system-ui,sans-serif"],
+            'lato'         => ['Lato',             "Lato,system-ui,sans-serif"],
+            'nunito'       => ['Nunito',           "Nunito,system-ui,sans-serif"],
+            'merriweather' => ['Merriweather',     "Merriweather,Georgia,serif"],
+            'playfair'     => ['Playfair Display', "'Playfair Display',Georgia,serif"],
+            'jetbrains'    => ['JetBrains Mono',   "'JetBrains Mono',Consolas,monospace"],
+        ];
+        $googleFontTokens = ['inter','roboto','poppins','opensans','lato','nunito','merriweather','playfair','jetbrains'];
+
+        $typoDefs = [
+            'tabs'         => ['typo_tabs',         'Tab Labels',    ['family'=>'system','weight'=>'600','size'=>'0.84','letterSpacing'=>'0.01','lineHeight'=>'1.4']],
+            'stats'        => ['typo_stats',        'Stat Numbers',  ['family'=>'system','weight'=>'700','size'=>'1.80','letterSpacing'=>'-0.02','lineHeight'=>'1.2']],
+            'stat_labels'  => ['typo_stat_labels',  'Stat Labels',   ['family'=>'system','weight'=>'500','size'=>'0.85','letterSpacing'=>'0.06','lineHeight'=>'1.4']],
+            'table_header' => ['typo_table_header', 'Table Headers', ['family'=>'system','weight'=>'600','size'=>'0.80','letterSpacing'=>'0.07','lineHeight'=>'1.4']],
+            'table_body'   => ['typo_table_body',   'Table Body',    ['family'=>'system','weight'=>'400','size'=>'0.90','letterSpacing'=>'0.00','lineHeight'=>'1.5']],
+            'card_header'  => ['typo_card_header',  'Card Headers',  ['family'=>'system','weight'=>'600','size'=>'1.10','letterSpacing'=>'0.01','lineHeight'=>'1.3']],
+            'card_body'    => ['typo_card_body',     'Card Body',    ['family'=>'system','weight'=>'400','size'=>'0.95','letterSpacing'=>'0.00','lineHeight'=>'1.6']],
         ];
 
-        $fontSizeHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">';
-        foreach ($fontSizeDefs as $key => [$default, $label, $desc]) {
-            $raw = $config->getCustom($key, $default);
-            $val = (is_numeric($raw) && (float)$raw >= 0.6 && (float)$raw <= 2.0)
-                ? number_format((float)$raw, 2)
-                : $default;
-            $displayVal = htmlspecialchars($val . 'rem');
-            $inputId    = 'fps-font-' . str_replace('_', '-', $key);
-            $keyEsc     = htmlspecialchars($key);
-            $fontSizeHtml .= '<div style="margin-bottom:18px;">'
-                . '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
-                . '<div><strong style="font-size:13px;">' . htmlspecialchars($label) . '</strong>'
-                . '<div style="font-size:11px;color:var(--fps-text-muted,#9499b5);">' . htmlspecialchars($desc) . '</div></div>'
+        $typoValues = [];
+        foreach ($typoDefs as $sectionKey => [$settingKey, , $sectionDefaults]) {
+            $raw     = $config->getCustom($settingKey, '');
+            $decoded = $raw ? @json_decode($raw, true) : null;
+            if (!is_array($decoded)) {
+                $decoded = $sectionDefaults;
+            }
+            $family = (isset($decoded['family']) && array_key_exists($decoded['family'], $fontTokens))
+                ? $decoded['family'] : $sectionDefaults['family'];
+            $weight = (isset($decoded['weight']) && in_array($decoded['weight'], ['300','400','500','600','700'], true))
+                ? $decoded['weight'] : $sectionDefaults['weight'];
+            $size   = (isset($decoded['size']) && is_numeric($decoded['size'])
+                       && (float)$decoded['size'] >= 0.60 && (float)$decoded['size'] <= 2.00)
+                ? number_format((float)$decoded['size'], 2) : $sectionDefaults['size'];
+            $ls     = (isset($decoded['letterSpacing']) && is_numeric($decoded['letterSpacing'])
+                       && (float)$decoded['letterSpacing'] >= -0.05 && (float)$decoded['letterSpacing'] <= 0.20)
+                ? number_format((float)$decoded['letterSpacing'], 2) : $sectionDefaults['letterSpacing'];
+            $lh     = (isset($decoded['lineHeight']) && is_numeric($decoded['lineHeight'])
+                       && (float)$decoded['lineHeight'] >= 1.0 && (float)$decoded['lineHeight'] <= 2.5)
+                ? number_format((float)$decoded['lineHeight'], 1) : $sectionDefaults['lineHeight'];
+            $typoValues[$sectionKey] = compact('family', 'weight', 'size', 'ls', 'lh');
+        }
+
+        $firstSection = array_key_first($typoDefs);
+        $miniTabsHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;" id="fps-typo-tab-bar">';
+        foreach ($typoDefs as $sectionKey => [, $sectionLabel]) {
+            $isFirst   = ($sectionKey === $firstSection);
+            $bg        = $isFirst ? 'var(--fps-primary,#667eea)' : 'var(--fps-surface-2,#f8f9fc)';
+            $color     = $isFirst ? '#fff' : 'var(--fps-text-secondary,#5a6176)';
+            $border    = $isFirst ? 'var(--fps-primary,#667eea)' : 'var(--fps-border,#dde1ef)';
+            $sKey      = htmlspecialchars($sectionKey);
+            $sLabel    = htmlspecialchars($sectionLabel);
+            $miniTabsHtml .= '<button type="button" class="fps-typo-tab" data-section="' . $sKey . '" '
+                . 'onclick="FpsAdmin.switchTypoSection(\'' . $sKey . '\')" '
+                . 'style="padding:5px 14px;border-radius:20px;border:2px solid ' . $border . ';'
+                . 'background:' . $bg . ';color:' . $color . ';'
+                . 'font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;">'
+                . $sLabel . '</button>';
+        }
+        $miniTabsHtml .= '</div>';
+
+        $systemTokens = ['system','georgia','mono','arial','inter-sys'];
+        $familySelectHtml  = '<select name="fps-typo-family-select" id="fps-typo-family-select" '
+            . 'onchange="FpsAdmin.previewTypo(FpsAdmin._typoActive,\'family\',this.value)" '
+            . 'style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--fps-border,#dde1ef);'
+            . 'background:var(--fps-surface,#fff);color:var(--fps-text-primary,#1a1d2e);font-size:13px;">';
+        $familySelectHtml .= '<optgroup label="System Fonts">';
+        foreach ($systemTokens as $token) {
+            $familySelectHtml .= '<option value="' . htmlspecialchars($token) . '">'
+                . htmlspecialchars($fontTokens[$token][0]) . '</option>';
+        }
+        $familySelectHtml .= '</optgroup><optgroup label="Google Fonts (loads on select)">';
+        foreach ($googleFontTokens as $token) {
+            $familySelectHtml .= '<option value="' . htmlspecialchars($token) . '">'
+                . htmlspecialchars($fontTokens[$token][0]) . '</option>';
+        }
+        $familySelectHtml .= '</optgroup></select>';
+
+        $weightToggleHtml  = '<div id="fps-typo-weight-toggle" style="display:flex;gap:6px;">';
+        foreach (['300' => 'Light', '400' => 'Regular', '700' => 'Bold'] as $w => $wLabel) {
+            $weightToggleHtml .= '<button type="button" class="fps-typo-weight-btn" data-weight="' . $w . '" '
+                . 'onclick="FpsAdmin.previewTypo(FpsAdmin._typoActive,\'weight\',\'' . $w . '\')" '
+                . 'style="flex:1;padding:7px 0;border-radius:6px;border:2px solid var(--fps-border,#dde1ef);'
+                . 'background:var(--fps-surface-2,#f8f9fc);cursor:pointer;font-size:13px;font-weight:600;">'
+                . htmlspecialchars($wLabel) . ' (' . $w . ')</button>';
+        }
+        $weightToggleHtml .= '</div>';
+
+        $sliderDefs  = [
+            ['size',          'Size',           '0.60', '2.00', '0.05', 'rem', 'fps-typo-size'],
+            ['letterSpacing', 'Letter Spacing', '-0.05','0.20', '0.01', 'em',  'fps-typo-letterSpacing'],
+            ['lineHeight',    'Line Height',    '1.0',  '2.5',  '0.1',  '',    'fps-typo-lineHeight'],
+        ];
+        $slidersHtml = '';
+        foreach ($sliderDefs as [$prop, $sliderLabel, $min, $max, $step, $unit, $inputId]) {
+            $propEsc = htmlspecialchars($prop);
+            $slidersHtml .= '<div style="margin-bottom:14px;">'
+                . '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
+                . '<strong style="font-size:13px;">' . htmlspecialchars($sliderLabel) . '</strong>'
                 . '<span id="' . $inputId . '-val" style="font-family:monospace;font-size:12px;'
                 . 'background:var(--fps-surface-2,#f8f9fc);padding:2px 7px;border-radius:4px;'
-                . 'border:1px solid var(--fps-border,#dde1ef);min-width:52px;text-align:center;">'
-                . $displayVal . '</span>'
+                . 'border:1px solid var(--fps-border,#dde1ef);min-width:60px;text-align:center;"></span>'
                 . '</div>'
-                . '<input type="range" name="' . $keyEsc . '" id="' . $inputId . '" '
-                . 'value="' . htmlspecialchars($val) . '" min="0.60" max="2.00" step="0.05" '
+                . '<input type="range" id="' . $inputId . '" data-prop="' . $propEsc . '" data-unit="' . htmlspecialchars($unit) . '" '
+                . 'min="' . $min . '" max="' . $max . '" step="' . $step . '" value="0" '
                 . 'style="width:100%;accent-color:var(--fps-primary,#667eea);cursor:pointer;" '
-                . 'oninput="var v=parseFloat(this.value).toFixed(2);'
-                . 'document.getElementById(\'' . $inputId . '-val\').textContent=v+\'rem\';'
-                . 'FpsAdmin.previewFontSize(\'' . $keyEsc . '\',v)">'
+                . 'oninput="FpsAdmin.previewTypo(FpsAdmin._typoActive,\'' . $propEsc . '\',this.value)">'
                 . '</div>';
         }
-        $fontSizeHtml .= '</div>';
+
+        $hiddenInputsHtml = '';
+        foreach ($typoDefs as $sectionKey => [$settingKey]) {
+            $tv       = $typoValues[$sectionKey];
+            $jsonVal  = json_encode([
+                'family'        => $tv['family'],
+                'weight'        => $tv['weight'],
+                'size'          => $tv['size'],
+                'letterSpacing' => $tv['ls'],
+                'lineHeight'    => $tv['lh'],
+            ], JSON_UNESCAPED_UNICODE);
+            $hiddenInputsHtml .= '<input type="hidden" '
+                . 'name="' . htmlspecialchars($settingKey) . '" '
+                . 'id="fps-typo-hidden-' . htmlspecialchars($sectionKey) . '" '
+                . 'value="' . htmlspecialchars($jsonVal, ENT_QUOTES) . '">';
+        }
+
+        $typoInitData = [];
+        foreach ($typoValues as $sectionKey => $tv) {
+            $typoInitData[$sectionKey] = $tv;
+        }
+        $typoInitJs = '<script>window._fpsTypoInit=' . json_encode($typoInitData, JSON_HEX_TAG | JSON_HEX_QUOT) . ';</script>';
+
+        $typographyPanelHtml = <<<TYPO
+<h4 style="margin:0 0 16px;font-size:15px;"><i class="fas fa-font"></i> Typography</h4>
+{$miniTabsHtml}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+  <div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Font Family</label>
+      {$familySelectHtml}
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Weight</label>
+      {$weightToggleHtml}
+    </div>
+  </div>
+  <div>{$slidersHtml}</div>
+</div>
+<div id="fps-typo-preview" style="margin:16px 0;padding:14px 18px;
+  background:var(--fps-surface-2,#f8f9fc);border-radius:8px;
+  border:1px solid var(--fps-border,#dde1ef);font-size:14px;
+  color:var(--fps-text-primary,#1a1d2e);">
+  The quick brown fox jumps over the lazy dog &mdash; 0123456789
+</div>
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:8px;">
+  <button type="button" class="fps-btn fps-btn-ghost fps-btn-sm"
+    onclick="FpsAdmin.resetTypoSection(FpsAdmin._typoActive)">
+    Reset This Section
+  </button>
+  <button type="button" class="fps-btn fps-btn-ghost fps-btn-sm"
+    onclick="FpsAdmin.resetAllTypo()">
+    Reset All Typography
+  </button>
+</div>
+{$hiddenInputsHtml}
+{$typoInitJs}
+TYPO;
 
         // Build color picker HTML helper
         $cp = function($key, $label, $desc) use ($colors) {
@@ -199,11 +336,7 @@ class TabSettings
 
 <hr style="border:none;border-top:1px solid var(--fps-border-light,#eaedf5);margin:20px 0;">
 
-<h4 style="margin:0 0 4px;font-size:15px;"><i class="fas fa-text-height"></i> Per-Section Font Sizes</h4>
-<p style="font-size:12px;color:var(--fps-text-muted,#9499b5);margin:0 0 16px;">
-  Fine-tune each section independently. Changes preview immediately; save with the button below.
-</p>
-{$fontSizeHtml}
+{$typographyPanelHtml}
 HTML;
 
         echo FpsAdminRenderer::renderCard('Display Settings', 'fa-display', $content);
