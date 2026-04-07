@@ -90,6 +90,45 @@ class TabSettings
         $darkMode = (int)$config->getCustom('admin_dark_mode', '0');
         $darkChecked = $darkMode ? ' checked' : '';
 
+        // Per-section font size sliders
+        $fontSizeDefs = [
+            'font_size_tabs'         => ['0.84', 'Tab Labels',        'Navigation tab text size'],
+            'font_size_stats'        => ['1.80', 'Stat Card Numbers', 'Large metric values on stat cards'],
+            'font_size_stat_labels'  => ['0.85', 'Stat Card Labels',  'Category labels beneath stat numbers'],
+            'font_size_table_header' => ['0.80', 'Table Headers',     'Column header text in all tables'],
+            'font_size_table_body'   => ['0.90', 'Table Body',        'Row data text in all tables'],
+            'font_size_card_header'  => ['1.10', 'Card Headers',      'Title text in card header bars'],
+            'font_size_card_body'    => ['0.95', 'Card Body Text',    'Content text inside card bodies'],
+        ];
+
+        $fontSizeHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">';
+        foreach ($fontSizeDefs as $key => [$default, $label, $desc]) {
+            $raw = $config->getCustom($key, $default);
+            $val = (is_numeric($raw) && (float)$raw >= 0.6 && (float)$raw <= 2.0)
+                ? number_format((float)$raw, 2)
+                : $default;
+            $displayVal = htmlspecialchars($val . 'rem');
+            $inputId    = 'fps-font-' . str_replace('_', '-', $key);
+            $keyEsc     = htmlspecialchars($key);
+            $fontSizeHtml .= '<div style="margin-bottom:18px;">'
+                . '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'
+                . '<div><strong style="font-size:13px;">' . htmlspecialchars($label) . '</strong>'
+                . '<div style="font-size:11px;color:var(--fps-text-muted,#9499b5);">' . htmlspecialchars($desc) . '</div></div>'
+                . '<span id="' . $inputId . '-val" style="font-family:monospace;font-size:12px;'
+                . 'background:var(--fps-surface-2,#f8f9fc);padding:2px 7px;border-radius:4px;'
+                . 'border:1px solid var(--fps-border,#dde1ef);min-width:52px;text-align:center;">'
+                . $displayVal . '</span>'
+                . '</div>'
+                . '<input type="range" name="' . $keyEsc . '" id="' . $inputId . '" '
+                . 'value="' . htmlspecialchars($val) . '" min="0.60" max="2.00" step="0.05" '
+                . 'style="width:100%;accent-color:var(--fps-primary,#667eea);cursor:pointer;" '
+                . 'oninput="var v=parseFloat(this.value).toFixed(2);'
+                . 'document.getElementById(\'' . $inputId . '-val\').textContent=v+\'rem\';'
+                . 'FpsAdmin.previewFontSize(\'' . $keyEsc . '\',v)">'
+                . '</div>';
+        }
+        $fontSizeHtml .= '</div>';
+
         // Build color picker HTML helper
         $cp = function($key, $label, $desc) use ($colors) {
             $v = htmlspecialchars($colors[$key]);
@@ -157,6 +196,14 @@ class TabSettings
   </button>
 </div>
 <input type="hidden" id="fps-color-defaults" value="{$defaultsJson}">
+
+<hr style="border:none;border-top:1px solid var(--fps-border-light,#eaedf5);margin:20px 0;">
+
+<h4 style="margin:0 0 4px;font-size:15px;"><i class="fas fa-text-height"></i> Per-Section Font Sizes</h4>
+<p style="font-size:12px;color:var(--fps-text-muted,#9499b5);margin:0 0 16px;">
+  Fine-tune each section independently. Changes preview immediately; save with the button below.
+</p>
+{$fontSizeHtml}
 HTML;
 
         echo FpsAdminRenderer::renderCard('Display Settings', 'fa-display', $content);
