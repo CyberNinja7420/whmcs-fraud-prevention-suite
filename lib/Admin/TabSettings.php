@@ -138,7 +138,13 @@ class TabSettings
             $lh     = (isset($decoded['lineHeight']) && is_numeric($decoded['lineHeight'])
                        && (float)$decoded['lineHeight'] >= 1.0 && (float)$decoded['lineHeight'] <= 2.5)
                 ? number_format((float)$decoded['lineHeight'], 1) : number_format((float)$sectionDefaults['lineHeight'], 1);
-            $typoValues[$sectionKey] = compact('family', 'weight', 'size', 'ls', 'lh');
+            $typoValues[$sectionKey] = [
+                'family'        => $family,
+                'weight'        => $weight,
+                'size'          => $size,
+                'letterSpacing' => $ls,
+                'lineHeight'    => $lh,
+            ];
         }
 
         $firstSection = array_key_first($typoDefs);
@@ -177,7 +183,7 @@ class TabSettings
         $familySelectHtml .= '</optgroup></select>';
 
         $weightToggleHtml  = '<div id="fps-typo-weight-toggle" style="display:flex;gap:6px;">';
-        foreach (['300' => 'Light', '400' => 'Regular', '600' => 'SemiBold', '700' => 'Bold'] as $w => $wLabel) {
+        foreach (['300' => 'Light', '400' => 'Regular', '500' => 'Medium', '600' => 'SemiBold', '700' => 'Bold'] as $w => $wLabel) {
             $weightToggleHtml .= '<button type="button" class="fps-typo-weight-btn" data-weight="' . $w . '" '
                 . 'onclick="FpsAdmin.previewTypo(FpsAdmin._typoActive,\'weight\',\'' . $w . '\')" '
                 . 'style="flex:1;padding:7px 0;border-radius:6px;border:2px solid var(--fps-border,#dde1ef);'
@@ -215,8 +221,8 @@ class TabSettings
                 'family'        => $tv['family'],
                 'weight'        => $tv['weight'],
                 'size'          => $tv['size'],
-                'letterSpacing' => $tv['ls'],
-                'lineHeight'    => $tv['lh'],
+                'letterSpacing' => $tv['letterSpacing'],
+                'lineHeight'    => $tv['lineHeight'],
             ], JSON_HEX_TAG | JSON_HEX_QUOT | JSON_HEX_AMP);
             $hiddenInputsHtml .= '<input type="hidden" '
                 . 'name="' . htmlspecialchars($settingKey) . '" '

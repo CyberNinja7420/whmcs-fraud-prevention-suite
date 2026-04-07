@@ -1272,8 +1272,8 @@
           family:        src.family        || def.family,
           weight:        src.weight        || def.weight,
           size:          src.size          || def.size,
-          letterSpacing: src.letterSpacing || src.ls || def.letterSpacing,
-          lineHeight:    src.lineHeight    || src.lh  || def.lineHeight,
+          letterSpacing: src.letterSpacing || def.letterSpacing,
+          lineHeight:    src.lineHeight    || def.lineHeight,
         };
       });
       self.switchTypoSection('tabs');
@@ -1519,6 +1519,8 @@
           if (!name) return;
           // Skip non-setting fields
           if (name === 'token' || name === 'module' || name === 'action') return;
+          // Skip typography UI controls (not hidden inputs) - they have no name and sync via _syncTypoHidden
+          if (el.id && el.id.indexOf('fps-typo-') === 0 && el.type !== 'hidden') return;
           var val = el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.value;
           // Detect gateway threshold fields: gateway_thresholds[gateway][field]
           var gwMatch = name.match(/^gateway_thresholds\[([^\]]+)\]\[([^\]]+)\]$/);
@@ -2693,9 +2695,11 @@
   };
 
   // Initialize typography panel if on Settings page
-  if (window._fpsTypoInit) {
-    FpsAdmin.initTypo();
-  }
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window._fpsTypoInit) {
+      FpsAdmin.initTypo();
+    }
+  });
 
   /* ------------------------------------------------------------------
      PRIVATE HELPER: HTML escape (shared)
