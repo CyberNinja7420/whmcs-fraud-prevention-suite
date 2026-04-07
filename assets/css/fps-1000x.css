@@ -364,7 +364,7 @@
 
 .fps-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--fps-space-sm);
   padding: var(--fps-space-md) 0;
   margin-bottom: var(--fps-space-lg);
@@ -374,6 +374,10 @@
   z-index: 10;
   background: var(--fps-bg);
   align-items: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fps-primary) transparent;
 }
 
 .fps-tab-nav {
