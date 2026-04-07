@@ -658,6 +658,59 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
     $cssVer = '4.2.10';
     $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-site-theme.css?v=' . $cssVer . '">';
 
+    // Inject custom client theme color overrides from admin settings
+    try {
+        $clientColorKeys = [
+            'client_brand_color', 'client_bg_color', 'client_text_color',
+            'client_hero_start', 'client_hero_end',
+        ];
+        $clientColors = Capsule::table('mod_fps_settings')
+            ->whereIn('setting_key', $clientColorKeys)
+            ->pluck('setting_value', 'setting_key')
+            ->toArray();
+
+        $clientDefaults = [
+            'client_brand_color' => '#2563eb',
+            'client_bg_color'    => '#f8fafc',
+            'client_text_color'  => '#334155',
+            'client_hero_start'  => '#1e3a5f',
+            'client_hero_end'    => '#2d1b4e',
+        ];
+
+        $hasCustom = false;
+        foreach ($clientColors as $k => $v) {
+            if (preg_match('/^#[0-9a-fA-F]{6}$/', $v) && strtolower($v) !== strtolower($clientDefaults[$k] ?? '')) {
+                $hasCustom = true;
+                break;
+            }
+        }
+
+        if ($hasCustom) {
+            $brand = $clientColors['client_brand_color'] ?? $clientDefaults['client_brand_color'];
+            $bg    = $clientColors['client_bg_color'] ?? $clientDefaults['client_bg_color'];
+            $text  = $clientColors['client_text_color'] ?? $clientDefaults['client_text_color'];
+            $heroS = $clientColors['client_hero_start'] ?? $clientDefaults['client_hero_start'];
+            $heroE = $clientColors['client_hero_end'] ?? $clientDefaults['client_hero_end'];
+
+            $output .= '<style>'
+                . ':root{'
+                . '--body-bg:' . $bg . '!important;'
+                . '--body-color:' . $text . '!important;'
+                . '--text-color:' . $text . '!important;'
+                . '--link-color:' . $brand . '!important;'
+                . '--btn-primary-bg:' . $brand . '!important;'
+                . '--text-heading-color:' . $text . '!important;'
+                . '}'
+                . '.fps-pub-hero{background:linear-gradient(135deg,' . $heroS . ' 0%,' . $heroE . ' 100%)!important;}'
+                . '.fps-pub-nav a.active,.fps-pub-nav a:hover{color:' . $brand . '!important;border-bottom-color:' . $brand . '!important;}'
+                . '.fps-cta-section{background:linear-gradient(135deg,' . $heroS . ' 0%,' . $heroE . ' 100%)!important;}'
+                . 'a:not(.btn):not([class*="btn"]){color:' . $brand . ';}'
+                . '</style>';
+        }
+    } catch (\Throwable $e) {
+        // Non-fatal -- use default theme colors
+    }
+
     /* === LEGACY INLINE CSS MOVED TO fps-site-theme.css ===
      * The following 280+ CSS rules were moved to a static file for:
      * - Browser caching (saves ~11KB per page load after first visit)

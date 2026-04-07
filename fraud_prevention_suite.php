@@ -634,6 +634,18 @@ function fraud_prevention_suite_activate(): array
             // v4.1: User purge controls on WHMCS Users page
             'user_purge_on_users_page' => '1',
             'ui_font_scale' => '1.0',
+            // v4.3: Theme color customization
+            'admin_primary_color'   => '#667eea',
+            'admin_secondary_color' => '#764ba2',
+            'admin_bg_color'        => '#f4f6fb',
+            'admin_surface_color'   => '#ffffff',
+            'admin_text_color'      => '#1a1d2e',
+            'admin_dark_mode'       => '0',
+            'client_brand_color'    => '#2563eb',
+            'client_bg_color'       => '#f8fafc',
+            'client_text_color'     => '#334155',
+            'client_hero_start'     => '#1e3a5f',
+            'client_hero_end'       => '#2d1b4e',
         ];
 
         try {
@@ -1165,20 +1177,64 @@ function fraud_prevention_suite_output(array $vars): void
     echo '  if(localStorage.getItem("fps-theme")==="dark")document.documentElement.classList.add("fps-theme-dark");';
     echo '});</script>';
 
-    // Module header -- apply saved font scale
+    // Module header -- apply saved font scale + custom theme colors
     $fontScale = '1.0';
+    $darkMode = false;
+    $adminColors = [];
     try {
-        $savedScale = Capsule::table('mod_fps_settings')
-            ->where('setting_key', 'ui_font_scale')
-            ->value('setting_value');
-        if ($savedScale !== null && $savedScale !== '') {
+        $displaySettings = Capsule::table('mod_fps_settings')
+            ->whereIn('setting_key', [
+                'ui_font_scale',
+                'admin_primary_color', 'admin_secondary_color',
+                'admin_bg_color', 'admin_surface_color', 'admin_text_color',
+                'admin_dark_mode',
+            ])
+            ->pluck('setting_value', 'setting_key')
+            ->toArray();
+
+        $savedScale = $displaySettings['ui_font_scale'] ?? '';
+        if ($savedScale !== '') {
             $fontScale = (string) max(0.85, min(1.4, (float) $savedScale));
+        }
+        $darkMode = ($displaySettings['admin_dark_mode'] ?? '0') === '1';
+
+        // Collect custom admin colors (only non-default values)
+        $colorMap = [
+            'admin_primary_color'   => ['--fps-primary', '#667eea'],
+            'admin_secondary_color' => ['--fps-secondary', '#764ba2'],
+            'admin_bg_color'        => ['--fps-bg', '#f4f6fb'],
+            'admin_surface_color'   => ['--fps-surface', '#ffffff'],
+            'admin_text_color'      => ['--fps-text-primary', '#1a1d2e'],
+        ];
+        foreach ($colorMap as $key => [$cssVar, $default]) {
+            $val = $displaySettings[$key] ?? $default;
+            if (preg_match('/^#[0-9a-fA-F]{6}$/', $val) && strtolower($val) !== strtolower($default)) {
+                $adminColors[$cssVar] = $val;
+            }
+        }
+        // Rebuild gradient if primary or secondary changed
+        $p = $displaySettings['admin_primary_color'] ?? '#667eea';
+        $s = $displaySettings['admin_secondary_color'] ?? '#764ba2';
+        if (isset($adminColors['--fps-primary']) || isset($adminColors['--fps-secondary'])) {
+            $adminColors['--fps-grad-primary'] = 'linear-gradient(135deg, ' . $p . ' 0%, ' . $s . ' 100%)';
         }
     } catch (\Throwable $e) {
         // Non-fatal
     }
+
+    // Inject custom color overrides as inline style block
+    if (!empty($adminColors)) {
+        $cssOverrides = ':root,.fps-root{';
+        foreach ($adminColors as $prop => $val) {
+            $cssOverrides .= htmlspecialchars($prop, ENT_QUOTES, 'UTF-8') . ':' . htmlspecialchars($val, ENT_QUOTES, 'UTF-8') . ';';
+        }
+        $cssOverrides .= '}';
+        echo '<style>' . $cssOverrides . '</style>';
+    }
+
     $zoomStyle = ($fontScale !== '1.0') ? ' style="zoom:' . htmlspecialchars($fontScale, ENT_QUOTES, 'UTF-8') . ';"' : '';
-    echo '<div class="fps-module-wrapper"' . $zoomStyle . '>';
+    $darkClass = $darkMode ? ' fps-theme-dark' : '';
+    echo '<div class="fps-module-wrapper' . $darkClass . '"' . $zoomStyle . '>';
     echo '<div class="fps-header">';
     echo '  <div class="fps-header-content">';
     echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.2.2</span></h2>';

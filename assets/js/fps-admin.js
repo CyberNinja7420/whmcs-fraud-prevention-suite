@@ -1109,6 +1109,72 @@
       });
     },
 
+    // --- Theme color live preview ---
+
+    previewColor: function(key, value) {
+      if (!/^#[0-9a-fA-F]{6}$/.test(value)) return;
+      var wrapper = document.querySelector('.fps-module-wrapper') || document.documentElement;
+      var map = {
+        'admin_primary_color':   '--fps-primary',
+        'admin_secondary_color': '--fps-secondary',
+        'admin_bg_color':        '--fps-bg',
+        'admin_surface_color':   '--fps-surface',
+        'admin_text_color':      '--fps-text-primary'
+      };
+      if (map[key]) {
+        wrapper.style.setProperty(map[key], value);
+        // Update gradient if primary or secondary changed
+        if (key === 'admin_primary_color' || key === 'admin_secondary_color') {
+          var p = key === 'admin_primary_color' ? value :
+            (document.querySelector('input[name="admin_primary_color"]') || {}).value || '#667eea';
+          var s = key === 'admin_secondary_color' ? value :
+            (document.querySelector('input[name="admin_secondary_color"]') || {}).value || '#764ba2';
+          wrapper.style.setProperty('--fps-grad-primary', 'linear-gradient(135deg, ' + p + ' 0%, ' + s + ' 100%)');
+        }
+      }
+    },
+
+    toggleDarkMode: function(enabled) {
+      var wrapper = document.querySelector('.fps-module-wrapper');
+      if (wrapper) {
+        if (enabled) {
+          wrapper.classList.add('fps-theme-dark');
+        } else {
+          wrapper.classList.remove('fps-theme-dark');
+        }
+      }
+      ajax('save_settings', {settings: JSON.stringify({admin_dark_mode: enabled ? '1' : '0'})}, function(err, r) {
+        if (!err && r && !r.error) toast('Dark mode ' + (enabled ? 'enabled' : 'disabled'), 'success', 2000);
+      });
+    },
+
+    resetThemeDefaults: function() {
+      var el = document.getElementById('fps-color-defaults');
+      if (!el) return;
+      try {
+        var defaults = JSON.parse(el.value);
+        var settings = {};
+        for (var key in defaults) {
+          if (!defaults.hasOwnProperty(key)) continue;
+          settings[key] = defaults[key];
+          // Update both color and text inputs
+          var inputs = document.querySelectorAll('input[name="' + key + '"]');
+          inputs.forEach(function(inp) { inp.value = defaults[key]; });
+          // Apply preview
+          FpsAdmin.previewColor(key, defaults[key]);
+        }
+        // Also reset dark mode
+        settings['admin_dark_mode'] = '0';
+        var dmCb = document.querySelector('input[name="admin_dark_mode"]');
+        if (dmCb) dmCb.checked = false;
+        FpsAdmin.toggleDarkMode(false);
+
+        ajax('save_settings', {settings: JSON.stringify(settings)}, function(err, r) {
+          if (!err && r && !r.error) toast('Theme colors reset to defaults', 'success', 3000);
+        });
+      } catch(e) { console.error('resetThemeDefaults:', e); }
+    },
+
     // --- Tab-specific action handlers (AJAX wrappers) ---
 
     // API Keys tab
