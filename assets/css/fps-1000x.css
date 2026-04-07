@@ -94,6 +94,43 @@
   --fps-size-card-h:      1.1rem;
   --fps-size-card-body:   0.95rem;
 
+  /* Per-section typography vars (set via inline <style> from saved settings) */
+  /* tabs */
+  --fps-font-tabs:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fps-weight-tabs:   600;
+  --fps-tracking-tabs: 0.01em;
+  --fps-lh-tabs:       1.4;
+  /* stats */
+  --fps-font-stats:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fps-weight-stats:   700;
+  --fps-tracking-stats: -0.02em;
+  --fps-lh-stats:       1.2;
+  /* stat labels */
+  --fps-font-stat-labels:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fps-weight-stat-labels:   500;
+  --fps-tracking-stat-labels: 0.06em;
+  --fps-lh-stat-labels:       1.4;
+  /* table headers */
+  --fps-font-table-header:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fps-weight-table-header:   600;
+  --fps-tracking-table-header: 0.07em;
+  --fps-lh-table-header:       1.4;
+  /* table body */
+  --fps-font-table-body:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fps-weight-table-body:   400;
+  --fps-tracking-table-body: 0em;
+  --fps-lh-table-body:       1.5;
+  /* card headers */
+  --fps-font-card-header:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fps-weight-card-header:   600;
+  --fps-tracking-card-header: 0.01em;
+  --fps-lh-card-header:       1.3;
+  /* card body */
+  --fps-font-card-body:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fps-weight-card-body:   400;
+  --fps-tracking-card-body: 0em;
+  --fps-lh-card-body:       1.6;
+
   /* Transitions */
   --fps-transition:  0.3s ease;
   --fps-transition-fast: 0.15s ease;
@@ -231,10 +268,12 @@
 .fps-card-header h3,
 .fps-card-header h4 {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--fps-weight-card-header, 600);
   color: inherit;
   font-size: var(--fps-size-card-h, 1.1rem);
-  letter-spacing: 0.01em;
+  letter-spacing: var(--fps-tracking-card-header, 0.01em);
+  font-family: var(--fps-font-card-header, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  line-height: var(--fps-lh-card-header, 1.3);
 }
 
 .fps-card-header-icon {
@@ -258,6 +297,10 @@
   padding: var(--fps-space-lg) var(--fps-space-xl);
   color: var(--fps-text-primary);
   font-size: var(--fps-size-card-body, 0.95rem);
+  font-family: var(--fps-font-card-body, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  font-weight: var(--fps-weight-card-body, 400);
+  letter-spacing: var(--fps-tracking-card-body, 0em);
+  line-height: var(--fps-lh-card-body, 1.6);
 }
 
 .fps-card-footer {
@@ -341,10 +384,11 @@
 
 .fps-stat-value {
   font-size: var(--fps-size-stats, 1.8rem);
-  font-weight: 700;
+  font-weight: var(--fps-weight-stats, 700);
   color: var(--fps-text-primary);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: var(--fps-lh-stats, 1.2);
+  letter-spacing: var(--fps-tracking-stats, -0.02em);
+  font-family: var(--fps-font-stats, system-ui, -apple-system, 'Segoe UI', sans-serif);
   animation: fps-countUp 0.5s ease;
 }
 
@@ -352,9 +396,11 @@
   font-size: var(--fps-size-stat-labels, 0.85rem);
   color: var(--fps-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--fps-tracking-stat-labels, 0.06em);
   margin-top: var(--fps-space-xs);
-  font-weight: 500;
+  font-weight: var(--fps-weight-stat-labels, 500);
+  font-family: var(--fps-font-stat-labels, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  line-height: var(--fps-lh-stat-labels, 1.4);
 }
 
 .fps-stat-trend {
@@ -410,8 +456,10 @@
   background: var(--fps-surface-2);
   color: var(--fps-text-secondary);
   font-size: var(--fps-size-tabs, 0.84rem);
-  font-weight: 600;
-  font-family: var(--fps-font);
+  font-weight: var(--fps-weight-tabs, 600);
+  font-family: var(--fps-font-tabs, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  letter-spacing: var(--fps-tracking-tabs, 0.01em);
+  line-height: var(--fps-lh-tabs, 1.4);
   cursor: pointer;
   transition:
     background var(--fps-transition),
@@ -475,6 +523,10 @@
   font-size: var(--fps-size-td, 0.9rem);
   background: var(--fps-surface);
   color: var(--fps-text-primary);
+  font-family: var(--fps-font-table-body, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  font-weight: var(--fps-weight-table-body, 400);
+  letter-spacing: var(--fps-tracking-table-body, 0em);
+  line-height: var(--fps-lh-table-body, 1.5);
 }
 
 .fps-table thead {
@@ -485,15 +537,17 @@
 .fps-table thead th {
   padding: 14px 16px;
   text-align: left;
-  font-weight: 600;
+  font-weight: var(--fps-weight-table-header, 600);
   font-size: var(--fps-size-th, 0.8rem);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--fps-tracking-table-header, 0.07em);
   color: var(--fps-text-secondary);
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   transition: color var(--fps-transition-fast);
+  font-family: var(--fps-font-table-header, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  line-height: var(--fps-lh-table-header, 1.4);
 }
 
 .fps-table thead th:hover {
