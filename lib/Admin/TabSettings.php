@@ -224,7 +224,7 @@ class TabSettings
                 . 'value="' . htmlspecialchars($jsonVal, ENT_QUOTES) . '">';
         }
 
-        $typoInitJs = '<script>window._fpsTypoInit=' . json_encode($typoValues, JSON_HEX_TAG | JSON_HEX_QUOT) . ';</script>';
+        $typoInitJs = '<script>window._fpsTypoInit=' . json_encode($typoValues, JSON_HEX_TAG | JSON_HEX_QUOT | JSON_HEX_AMP) . ';</script>';
 
         $typographyPanelHtml = <<<TYPO
 <h4 style="margin:0 0 16px;font-size:15px;"><i class="fas fa-font"></i> Typography</h4>
