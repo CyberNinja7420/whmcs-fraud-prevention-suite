@@ -1175,6 +1175,25 @@
       } catch(e) { console.error('resetThemeDefaults:', e); }
     },
 
+    // --- Per-section font size live preview ---
+    previewFontSize: function(key, value) {
+      var map = {
+        'font_size_tabs':         '--fps-size-tabs',
+        'font_size_stats':        '--fps-size-stats',
+        'font_size_stat_labels':  '--fps-size-stat-labels',
+        'font_size_table_header': '--fps-size-th',
+        'font_size_table_body':   '--fps-size-td',
+        'font_size_card_header':  '--fps-size-card-h',
+        'font_size_card_body':    '--fps-size-card-body',
+      };
+      var cssVar = map[key];
+      if (!cssVar) return;
+      var parsed = parseFloat(value);
+      if (isNaN(parsed) || parsed < 0.6 || parsed > 2.0) return;
+      var wrapper = document.querySelector('.fps-module-wrapper') || document.documentElement;
+      wrapper.style.setProperty(cssVar, parsed.toFixed(2) + 'rem');
+    },
+
     // --- Tab-specific action handlers (AJAX wrappers) ---
 
     // API Keys tab

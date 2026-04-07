@@ -85,6 +85,15 @@
   --fps-font-size:   15px;
   --fps-line-height: 1.6;
 
+  /* Per-section font sizes (overridable via inline style from saved settings) */
+  --fps-size-tabs:        0.84rem;
+  --fps-size-stats:       1.8rem;
+  --fps-size-stat-labels: 0.85rem;
+  --fps-size-th:          0.8rem;
+  --fps-size-td:          0.9rem;
+  --fps-size-card-h:      1.1rem;
+  --fps-size-card-body:   0.95rem;
+
   /* Transitions */
   --fps-transition:  0.3s ease;
   --fps-transition-fast: 0.15s ease;
@@ -224,7 +233,7 @@
   margin: 0;
   font-weight: 600;
   color: inherit;
-  font-size: 1.1em;
+  font-size: var(--fps-size-card-h, 1.1rem);
   letter-spacing: 0.01em;
 }
 
@@ -248,6 +257,7 @@
 .fps-card-body {
   padding: var(--fps-space-lg) var(--fps-space-xl);
   color: var(--fps-text-primary);
+  font-size: var(--fps-size-card-body, 0.95rem);
 }
 
 .fps-card-footer {
@@ -330,7 +340,7 @@
 .fps-stat-icon--info    { background: var(--fps-grad-info); }
 
 .fps-stat-value {
-  font-size: 1.8rem;
+  font-size: var(--fps-size-stats, 1.8rem);
   font-weight: 700;
   color: var(--fps-text-primary);
   line-height: 1.2;
@@ -339,7 +349,7 @@
 }
 
 .fps-stat-label {
-  font-size: 0.85rem;
+  font-size: var(--fps-size-stat-labels, 0.85rem);
   color: var(--fps-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -399,7 +409,7 @@
   border: 2px solid transparent;
   background: var(--fps-surface-2);
   color: var(--fps-text-secondary);
-  font-size: 0.84rem;
+  font-size: var(--fps-size-tabs, 0.84rem);
   font-weight: 600;
   font-family: var(--fps-font);
   cursor: pointer;
@@ -462,7 +472,7 @@
 .fps-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: var(--fps-size-td, 0.9rem);
   background: var(--fps-surface);
   color: var(--fps-text-primary);
 }
@@ -476,7 +486,7 @@
   padding: 14px 16px;
   text-align: left;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: var(--fps-size-th, 0.8rem);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--fps-text-secondary);

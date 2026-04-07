@@ -646,6 +646,14 @@ function fraud_prevention_suite_activate(): array
             'client_text_color'     => '#334155',
             'client_hero_start'     => '#1e3a5f',
             'client_hero_end'       => '#2d1b4e',
+            // v4.3: Per-section font sizes (stored as plain floats, unit appended at CSS injection)
+            'font_size_tabs'         => '0.84',
+            'font_size_stats'        => '1.80',
+            'font_size_stat_labels'  => '0.85',
+            'font_size_table_header' => '0.80',
+            'font_size_table_body'   => '0.90',
+            'font_size_card_header'  => '1.10',
+            'font_size_card_body'    => '0.95',
         ];
 
         try {
@@ -1188,6 +1196,9 @@ function fraud_prevention_suite_output(array $vars): void
                 'admin_primary_color', 'admin_secondary_color',
                 'admin_bg_color', 'admin_surface_color', 'admin_text_color',
                 'admin_dark_mode',
+                'font_size_tabs', 'font_size_stats', 'font_size_stat_labels',
+                'font_size_table_header', 'font_size_table_body',
+                'font_size_card_header', 'font_size_card_body',
             ])
             ->pluck('setting_value', 'setting_key')
             ->toArray();
@@ -1230,6 +1241,29 @@ function fraud_prevention_suite_output(array $vars): void
         }
         $cssOverrides .= '}';
         echo '<style>' . $cssOverrides . '</style>';
+    }
+
+    // Inject custom per-section font size overrides (only non-default values)
+    $fontSizeMap = [
+        'font_size_tabs'         => ['--fps-size-tabs',        '0.84'],
+        'font_size_stats'        => ['--fps-size-stats',       '1.80'],
+        'font_size_stat_labels'  => ['--fps-size-stat-labels', '0.85'],
+        'font_size_table_header' => ['--fps-size-th',          '0.80'],
+        'font_size_table_body'   => ['--fps-size-td',          '0.90'],
+        'font_size_card_header'  => ['--fps-size-card-h',      '1.10'],
+        'font_size_card_body'    => ['--fps-size-card-body',   '0.95'],
+    ];
+    $fontSizeParts = [];
+    foreach ($fontSizeMap as $key => [$cssVar, $default]) {
+        $val = $displaySettings[$key] ?? $default;
+        if (is_numeric($val) && (float)$val >= 0.6 && (float)$val <= 2.0
+                && abs((float)$val - (float)$default) >= 0.001) {
+            $fontSizeParts[] = htmlspecialchars($cssVar, ENT_QUOTES, 'UTF-8')
+                . ':' . number_format((float)$val, 2) . 'rem';
+        }
+    }
+    if (!empty($fontSizeParts)) {
+        echo '<style>:root,.fps-root{' . implode(';', $fontSizeParts) . '}</style>';
     }
 
     $zoomStyle = ($fontScale !== '1.0') ? ' style="zoom:' . htmlspecialchars($fontScale, ENT_QUOTES, 'UTF-8') . ';"' : '';
