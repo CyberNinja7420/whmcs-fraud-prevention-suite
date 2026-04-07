@@ -1206,6 +1206,9 @@ function fraud_prevention_suite_output(array $vars): void
                 'font_size_tabs', 'font_size_stats', 'font_size_stat_labels',
                 'font_size_table_header', 'font_size_table_body',
                 'font_size_card_header', 'font_size_card_body',
+                'typo_tabs', 'typo_stats', 'typo_stat_labels',
+                'typo_table_header', 'typo_table_body',
+                'typo_card_header', 'typo_card_body',
             ])
             ->pluck('setting_value', 'setting_key')
             ->toArray();
@@ -1271,6 +1274,127 @@ function fraud_prevention_suite_output(array $vars): void
     }
     if (!empty($fontSizeParts)) {
         echo '<style>:root,.fps-root{' . implode(';', $fontSizeParts) . '}</style>';
+    }
+
+    // -- Typography injection (typo_* settings -> CSS vars + Google Font links) --
+    $fontTokenMap = [
+        'system'       => "system-ui,-apple-system,'Segoe UI',sans-serif",
+        'georgia'      => "Georgia,'Times New Roman',serif",
+        'mono'         => "'JetBrains Mono','Fira Code',Consolas,monospace",
+        'arial'        => "Arial,Helvetica,sans-serif",
+        'inter-sys'    => "Inter,system-ui,sans-serif",
+        'inter'        => "Inter,system-ui,sans-serif",
+        'roboto'       => "Roboto,system-ui,sans-serif",
+        'poppins'      => "Poppins,system-ui,sans-serif",
+        'opensans'     => "'Open Sans',system-ui,sans-serif",
+        'lato'         => "Lato,system-ui,sans-serif",
+        'nunito'       => "Nunito,system-ui,sans-serif",
+        'merriweather' => "Merriweather,Georgia,serif",
+        'playfair'     => "'Playfair Display',Georgia,serif",
+        'jetbrains'    => "'JetBrains Mono',Consolas,monospace",
+    ];
+    $googleFontUrls = [
+        'inter'        => 'Inter:wght@300;400;600;700',
+        'roboto'       => 'Roboto:wght@300;400;600;700',
+        'poppins'      => 'Poppins:wght@300;400;600;700',
+        'opensans'     => 'Open+Sans:wght@300;400;600;700',
+        'lato'         => 'Lato:wght@300;400;600;700',
+        'nunito'       => 'Nunito:wght@300;400;600;700',
+        'merriweather' => 'Merriweather:wght@300;400;700',
+        'playfair'     => 'Playfair+Display:wght@400;700',
+        'jetbrains'    => 'JetBrains+Mono:wght@300;400;600;700',
+    ];
+    // Section key => [setting_key, css-var-prefix, defaults]
+    $typoSections = [
+        'tabs'         => ['typo_tabs',         'tabs',         ['family'=>'system','weight'=>'600','size'=>'0.84','letterSpacing'=>'0.01','lineHeight'=>'1.4']],
+        'stats'        => ['typo_stats',        'stats',        ['family'=>'system','weight'=>'700','size'=>'1.80','letterSpacing'=>'-0.02','lineHeight'=>'1.2']],
+        'stat_labels'  => ['typo_stat_labels',  'stat-labels',  ['family'=>'system','weight'=>'500','size'=>'0.85','letterSpacing'=>'0.06','lineHeight'=>'1.4']],
+        'table_header' => ['typo_table_header', 'table-header', ['family'=>'system','weight'=>'600','size'=>'0.80','letterSpacing'=>'0.07','lineHeight'=>'1.4']],
+        'table_body'   => ['typo_table_body',   'table-body',   ['family'=>'system','weight'=>'400','size'=>'0.90','letterSpacing'=>'0.00','lineHeight'=>'1.5']],
+        'card_header'  => ['typo_card_header',  'card-header',  ['family'=>'system','weight'=>'600','size'=>'1.10','letterSpacing'=>'0.01','lineHeight'=>'1.3']],
+        'card_body'    => ['typo_card_body',     'card-body',   ['family'=>'system','weight'=>'400','size'=>'0.95','letterSpacing'=>'0.00','lineHeight'=>'1.6']],
+    ];
+    // Map cssPrefix => the existing --fps-size-* variable name (these already exist from CSS Task 1)
+    $sizeVarMap = [
+        'tabs'         => '--fps-size-tabs',
+        'stats'        => '--fps-size-stats',
+        'stat-labels'  => '--fps-size-stat-labels',
+        'table-header' => '--fps-size-th',
+        'table-body'   => '--fps-size-td',
+        'card-header'  => '--fps-size-card-h',
+        'card-body'    => '--fps-size-card-body',
+    ];
+
+    $typoCssParts       = [];
+    $googleTokensNeeded = [];
+
+    foreach ($typoSections as $sectionKey => [$settingKey, $cssPrefix, $defaults]) {
+        $raw = $displaySettings[$settingKey] ?? '';
+        if ($raw === '') {
+            continue; // not in DB yet -> all defaults -> skip
+        }
+        $tv = @json_decode($raw, true);
+        if (!is_array($tv)) {
+            continue; // malformed -> skip
+        }
+
+        // family
+        $family = (isset($tv['family']) && array_key_exists($tv['family'], $fontTokenMap))
+            ? $tv['family'] : $defaults['family'];
+        if ($family !== $defaults['family']) {
+            $stack = $fontTokenMap[$family];
+            $typoCssParts[] = '--fps-font-' . $cssPrefix . ':' . $stack;
+            if (isset($googleFontUrls[$family])) {
+                $googleTokensNeeded[$family] = $googleFontUrls[$family];
+            }
+        }
+
+        // weight
+        $weight = (isset($tv['weight']) && in_array($tv['weight'], ['300','400','500','600','700'], true))
+            ? $tv['weight'] : $defaults['weight'];
+        if ($weight !== $defaults['weight']) {
+            $typoCssParts[] = '--fps-weight-' . $cssPrefix . ':' . $weight;
+        }
+
+        // size (reuses existing --fps-size-* var names from CSS Task 1)
+        $size = (isset($tv['size']) && is_numeric($tv['size'])
+                 && (float)$tv['size'] >= 0.6 && (float)$tv['size'] <= 2.0)
+            ? number_format((float)$tv['size'], 2) : null;
+        $defaultSize = number_format((float)$defaults['size'], 2);
+        if ($size !== null && abs((float)$size - (float)$defaultSize) >= 0.001) {
+            $sizeVar = $sizeVarMap[$cssPrefix] ?? ('--fps-size-' . $cssPrefix);
+            $typoCssParts[] = $sizeVar . ':' . $size . 'rem';
+        }
+
+        // letterSpacing
+        $ls = (isset($tv['letterSpacing']) && is_numeric($tv['letterSpacing'])
+               && (float)$tv['letterSpacing'] >= -0.05 && (float)$tv['letterSpacing'] <= 0.20)
+            ? number_format((float)$tv['letterSpacing'], 2) : null;
+        $defaultLs = number_format((float)$defaults['letterSpacing'], 2);
+        if ($ls !== null && abs((float)$ls - (float)$defaultLs) >= 0.001) {
+            $typoCssParts[] = '--fps-tracking-' . $cssPrefix . ':' . $ls . 'em';
+        }
+
+        // lineHeight
+        $lh = (isset($tv['lineHeight']) && is_numeric($tv['lineHeight'])
+               && (float)$tv['lineHeight'] >= 1.0 && (float)$tv['lineHeight'] <= 2.5)
+            ? number_format((float)$tv['lineHeight'], 1) : null;
+        $defaultLh = number_format((float)$defaults['lineHeight'], 1);
+        if ($lh !== null && abs((float)$lh - (float)$defaultLh) >= 0.001) {
+            $typoCssParts[] = '--fps-lh-' . $cssPrefix . ':' . $lh;
+        }
+    }
+
+    // Emit Google Font <link> tags (deduplicated)
+    foreach ($googleTokensNeeded as $token => $param) {
+        $url = 'https://fonts.googleapis.com/css2?family=' . rawurlencode($param) . '&display=swap';
+        echo '<link rel="stylesheet" data-fps-font="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8')
+            . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">';
+    }
+
+    // Emit CSS var overrides (only non-default values)
+    if (!empty($typoCssParts)) {
+        echo '<style>:root,.fps-root{' . implode(';', $typoCssParts) . '}</style>';
     }
 
     $zoomStyle = ($fontScale !== '1.0') ? ' style="zoom:' . htmlspecialchars($fontScale, ENT_QUOTES, 'UTF-8') . ';"' : '';
