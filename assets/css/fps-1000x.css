@@ -364,8 +364,8 @@
 
 .fps-tabs {
   display: flex;
-  flex-wrap: nowrap;
-  gap: var(--fps-space-sm);
+  flex-wrap: wrap;
+  gap: 6px;
   padding: var(--fps-space-md) 0;
   margin-bottom: var(--fps-space-lg);
   border-bottom: 2px solid var(--fps-border);
@@ -374,10 +374,7 @@
   z-index: 10;
   background: var(--fps-bg);
   align-items: center;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--fps-primary) transparent;
+  justify-content: center;
 }
 
 .fps-tab-nav {
@@ -397,13 +394,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 18px;
+  padding: 10px 18px;
   border-radius: var(--fps-radius-full);
   border: 2px solid transparent;
   background: var(--fps-surface-2);
   color: var(--fps-text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.84rem;
+  font-weight: 600;
   font-family: var(--fps-font);
   cursor: pointer;
   transition:
