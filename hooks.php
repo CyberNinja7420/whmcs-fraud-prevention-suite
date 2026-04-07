@@ -631,6 +631,7 @@ add_hook('ClientAreaPageCart', 1, function ($vars) {
 // 6b. ClientAreaHeaderOutput -- Inject Turnstile API script
 // ---------------------------------------------------------------------------
 add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
+    try {
     $output = '';
 
     // Turnstile CAPTCHA script (only when enabled + key configured)
@@ -1032,6 +1033,9 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         . '</script>';
 
     return $output;
+    } catch (\Throwable $e) {
+        return '';
+    }
 });
 
 // ---------------------------------------------------------------------------

@@ -4017,13 +4017,11 @@ function fps_ajaxGdprSubmitRequest(): array
             // Email send failure is non-fatal -- admin can verify manually
         }
 
-        return [
-            'success' => true,
-            'message' => 'Request submitted (Reference #' . $requestId . '). Please check your email to verify your identity. The link expires in 72 hours.',
-            'request_id' => $requestId,
-        ];
+        // Return same generic message regardless of outcome (GDPR Art. 12(4) non-enumerable)
+        return ['success' => true, 'message' => $genericMessage];
     } catch (\Throwable $e) {
-        return ['error' => 'Failed to submit request: ' . $e->getMessage()];
+        // Return generic message even on error to prevent enumeration
+        return ['success' => true, 'message' => $genericMessage];
     }
 }
 
