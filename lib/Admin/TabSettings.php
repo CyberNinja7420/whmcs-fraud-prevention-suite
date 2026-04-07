@@ -131,13 +131,13 @@ class TabSettings
                 ? $decoded['weight'] : $sectionDefaults['weight'];
             $size   = (isset($decoded['size']) && is_numeric($decoded['size'])
                        && (float)$decoded['size'] >= 0.60 && (float)$decoded['size'] <= 2.00)
-                ? number_format((float)$decoded['size'], 2) : $sectionDefaults['size'];
+                ? number_format((float)$decoded['size'], 2) : number_format((float)$sectionDefaults['size'], 2);
             $ls     = (isset($decoded['letterSpacing']) && is_numeric($decoded['letterSpacing'])
                        && (float)$decoded['letterSpacing'] >= -0.05 && (float)$decoded['letterSpacing'] <= 0.20)
-                ? number_format((float)$decoded['letterSpacing'], 2) : $sectionDefaults['letterSpacing'];
+                ? number_format((float)$decoded['letterSpacing'], 2) : number_format((float)$sectionDefaults['letterSpacing'], 2);
             $lh     = (isset($decoded['lineHeight']) && is_numeric($decoded['lineHeight'])
                        && (float)$decoded['lineHeight'] >= 1.0 && (float)$decoded['lineHeight'] <= 2.5)
-                ? number_format((float)$decoded['lineHeight'], 1) : $sectionDefaults['lineHeight'];
+                ? number_format((float)$decoded['lineHeight'], 1) : number_format((float)$sectionDefaults['lineHeight'], 1);
             $typoValues[$sectionKey] = compact('family', 'weight', 'size', 'ls', 'lh');
         }
 
@@ -177,7 +177,7 @@ class TabSettings
         $familySelectHtml .= '</optgroup></select>';
 
         $weightToggleHtml  = '<div id="fps-typo-weight-toggle" style="display:flex;gap:6px;">';
-        foreach (['300' => 'Light', '400' => 'Regular', '700' => 'Bold'] as $w => $wLabel) {
+        foreach (['300' => 'Light', '400' => 'Regular', '600' => 'SemiBold', '700' => 'Bold'] as $w => $wLabel) {
             $weightToggleHtml .= '<button type="button" class="fps-typo-weight-btn" data-weight="' . $w . '" '
                 . 'onclick="FpsAdmin.previewTypo(FpsAdmin._typoActive,\'weight\',\'' . $w . '\')" '
                 . 'style="flex:1;padding:7px 0;border-radius:6px;border:2px solid var(--fps-border,#dde1ef);'
@@ -217,18 +217,14 @@ class TabSettings
                 'size'          => $tv['size'],
                 'letterSpacing' => $tv['ls'],
                 'lineHeight'    => $tv['lh'],
-            ], JSON_UNESCAPED_UNICODE);
+            ], JSON_HEX_TAG | JSON_HEX_QUOT | JSON_HEX_AMP);
             $hiddenInputsHtml .= '<input type="hidden" '
                 . 'name="' . htmlspecialchars($settingKey) . '" '
                 . 'id="fps-typo-hidden-' . htmlspecialchars($sectionKey) . '" '
                 . 'value="' . htmlspecialchars($jsonVal, ENT_QUOTES) . '">';
         }
 
-        $typoInitData = [];
-        foreach ($typoValues as $sectionKey => $tv) {
-            $typoInitData[$sectionKey] = $tv;
-        }
-        $typoInitJs = '<script>window._fpsTypoInit=' . json_encode($typoInitData, JSON_HEX_TAG | JSON_HEX_QUOT) . ';</script>';
+        $typoInitJs = '<script>window._fpsTypoInit=' . json_encode($typoValues, JSON_HEX_TAG | JSON_HEX_QUOT) . ';</script>';
 
         $typographyPanelHtml = <<<TYPO
 <h4 style="margin:0 0 16px;font-size:15px;"><i class="fas fa-font"></i> Typography</h4>
