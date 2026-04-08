@@ -1896,41 +1896,171 @@
         if (cancelBtn) cancelBtn.style.display = 'none';
         toast(message, 'success');
 
-        // Update result summary
-        var totalEl = document.getElementById('fps-scan-total-result');
+        // Update result summary counters
+        var totalEl      = document.getElementById('fps-scan-total-result');
         var flaggedResEl = document.getElementById('fps-scan-flagged-result');
         var blockedResEl = document.getElementById('fps-scan-blocked-result');
-        if (totalEl) totalEl.textContent = window._fpsScanResults.length;
-        if (flaggedResEl) flaggedResEl.textContent = window._fpsScanFlagged;
-        if (blockedResEl) blockedResEl.textContent = window._fpsScanBlocked;
+        if (totalEl)      totalEl.textContent      = window._fpsScanResults.length;
+        if (flaggedResEl) flaggedResEl.textContent  = window._fpsScanFlagged;
+        if (blockedResEl) blockedResEl.textContent  = window._fpsScanBlocked;
 
-        // Populate results table
-        var tableEl = document.getElementById('fps-scan-results-table');
-        if (tableEl && window._fpsScanResults.length > 0) {
-          var html = '<table class="fps-table fps-table-hover"><thead><tr>'
-            + '<th><input type="checkbox" onclick="FpsAdmin.toggleSelectAll(\'fps-scan-row-check\')"></th>'
-            + '<th>Client ID</th><th>Risk Score</th><th>Risk Level</th><th>Providers</th><th>Status</th></tr></thead><tbody>';
-          window._fpsScanResults.forEach(function(res) {
-            var score = 0, level = 'low', providers = 0;
-            if (res.success && res.data) {
-              score = Math.round(res.data.risk_score || res.data.score || 0);
-              level = res.data.risk_level || (score >= 70 ? 'critical' : score >= 40 ? 'medium' : 'low');
-              providers = res.data.providers_checked || res.data.provider_count || 0;
-            }
-            var levelClass = level === 'critical' || level === 'high' ? 'fps-text-danger'
-              : level === 'medium' ? 'fps-text-warning' : 'fps-text-success';
-            html += '<tr>'
-              + '<td><input type="checkbox" class="fps-scan-row-check" value="' + res.client_id + '"></td>'
-              + '<td><a href="clientssummary.php?userid=' + res.client_id + '">#' + res.client_id + '</a></td>'
-              + '<td><strong>' + score + '</strong></td>'
-              + '<td><span class="' + levelClass + '">' + level.toUpperCase() + '</span></td>'
-              + '<td>' + providers + '</td>'
-              + '<td>' + (res.success ? '<span class="fps-text-success">OK</span>' : '<span class="fps-text-danger">' + (res.error || 'Error') + '</span>') + '</td>'
-              + '</tr>';
-          });
-          html += '</tbody></table>';
-          tableEl.innerHTML = html;
+        // ---- local helpers ----
+
+        // Risk level -> badge CSS class
+        function levelBadge(lvl) {
+          return { critical: 'fps-badge-critical', high: 'fps-badge-high',
+                   medium: 'fps-badge-medium', low: 'fps-badge-low' }[lvl] || 'fps-badge-low';
         }
+        // Capitalise first letter
+        function ucFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+        // Action taken -> badge HTML (icon + label + colour)
+        function actionBadge(action) {
+          var a = (action || '').toLowerCase().replace(/[^a-z]/g, '');
+          var map = {
+            block:     ['fps-badge-blocked',  'fa-ban',              'Blocked'],
+            lock:      ['fps-badge-blocked',  'fa-lock',             'Locked'],
+            flag:      ['fps-badge-pending',  'fa-flag',             'Flagged'],
+            allow:     ['fps-badge-approved', 'fa-check-circle',     'Allowed'],
+            review:    ['fps-badge-pending',  'fa-search',           'Review'],
+            terminate: ['fps-badge-critical', 'fa-skull-crossbones', 'Terminated'],
+          };
+          var m = map[a] || ['fps-scan-badge-none', 'fa-minus-circle', action ? ucFirst(action) : 'None'];
+          return '<span class="fps-badge ' + m[0] + '"><i class="fas ' + m[1] + '"></i> ' + m[2] + '</span>';
+        }
+
+        // Risk score -> mini progress bar + coloured number
+        function scoreCell(score) {
+          var pct  = Math.min(100, Math.max(0, score));
+          var barCls  = score >= 70 ? 'fps-progress-bar--danger'
+                      : score >= 40 ? 'fps-progress-bar--warning'
+                      : 'fps-progress-bar--success';
+          var numCls  = score >= 70 ? 'fps-text-danger'
+                      : score >= 40 ? 'fps-text-warning'
+                      : 'fps-text-success';
+          return '<div class="fps-scan-score-cell">'
+            + '<span class="fps-scan-score-num ' + numCls + '">' + score + '</span>'
+            + '<div class="fps-scan-score-bar">'
+            + '<div class="fps-scan-score-fill ' + barCls + '" style="width:' + pct + '%"></div>'
+            + '</div>'
+            + '</div>';
+        }
+
+        // Format milliseconds to human-readable
+        function fmtMs(ms) {
+          if (!ms || ms < 0) return '<span class="fps-text-muted">-</span>';
+          return '<span class="fps-mono fps-text-muted">' + (ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms') + '</span>';
+        }
+
+        // 2-letter ISO code -> flag emoji (Unicode regional indicator trick)
+        function countryFlag(code) {
+          if (!code || code.length !== 2) return '';
+          try {
+            return String.fromCodePoint(
+              0x1F1E6 + code.toUpperCase().charCodeAt(0) - 65,
+              0x1F1E6 + code.toUpperCase().charCodeAt(1) - 65
+            ) + '\u00A0';
+          } catch (e) { return ''; }
+        }
+
+        // Provider scores object -> tooltip string
+        function providerTip(scores) {
+          if (!scores || typeof scores !== 'object') return '';
+          return Object.keys(scores).map(function(k) {
+            return k + ': ' + Math.round(scores[k]);
+          }).join(' | ');
+        }
+
+        // ---- build table ----
+        var tableEl = document.getElementById('fps-scan-results-table');
+        if (!tableEl) { return; }
+
+        if (!window._fpsScanResults.length) {
+          tableEl.innerHTML = '<p class="fps-text-muted"><i class="fas fa-info-circle"></i> No clients scanned.</p>';
+          document.getElementById('fps-scan-results-card').style.display = '';
+          return;
+        }
+
+        var html = '<div class="fps-table-wrapper fps-scan-table-wrap">'
+          + '<table class="fps-table fps-scan-results-table">'
+          + '<thead><tr>'
+          + '<th class="fps-col-check"><input type="checkbox" onclick="FpsAdmin.toggleSelectAll(\'fps-scan-row-check\')" title="Select all"></th>'
+          + '<th class="fps-col-client">Client</th>'
+          + '<th class="fps-col-ip">IP&nbsp;/ Country</th>'
+          + '<th class="fps-col-score">Risk Score</th>'
+          + '<th class="fps-col-level">Level</th>'
+          + '<th class="fps-col-action">Action Taken</th>'
+          + '<th class="fps-col-providers" title="Number of detection providers queried">Providers</th>'
+          + '<th class="fps-col-time" title="Total scan duration">Scan Time</th>'
+          + '<th class="fps-col-actions">Actions</th>'
+          + '</tr></thead>'
+          + '<tbody>';
+
+        window._fpsScanResults.forEach(function(res) {
+          var d         = (res.success && res.data) ? res.data : {};
+          var score     = Math.round(d.risk_score || 0);
+          var level     = d.risk_level || (score >= 70 ? 'critical' : score >= 40 ? 'medium' : 'low');
+          var action    = d.action_taken || '';
+          var providers = d.providers_checked || 0;
+          var execMs    = d.execution_ms || 0;
+          var email     = d.email || '';
+          var ip        = d.ip || '';
+          var name      = d.name || '';
+          var country   = d.country || '';
+          var checkId   = d.check_id || '';
+          var locked    = d.locked || false;
+          var provScores = d.provider_scores || {};
+
+          var clientHref = 'clientssummary.php?userid=' + res.client_id;
+          var profileHref = 'addonmodules.php?module=fraud_prevention_suite&tab=client_profile&client_id=' + res.client_id;
+
+          // Client cell: name (link) + ID + email stacked
+          var displayName = name || ('#' + res.client_id);
+          var clientCell  = '<div class="fps-scan-client-cell">'
+            + '<a href="' + clientHref + '" class="fps-scan-client-name" target="_blank">' + _esc(displayName) + '</a>'
+            + (name ? '<span class="fps-scan-client-id">&nbsp;#' + res.client_id + '</span>' : '')
+            + (email ? '<span class="fps-scan-client-email"><i class="fas fa-envelope" style="opacity:0.45;font-size:0.7em;margin-right:3px;"></i>' + _esc(email) + '</span>' : '')
+            + '</div>';
+          var lockIcon = locked ? ' <i class="fas fa-lock fps-text-danger fps-scan-lock-icon" title="Account locked"></i>' : '';
+
+          // IP + country cell
+          var flag    = countryFlag(country);
+          var ipCell  = ip
+            ? '<span class="fps-mono fps-scan-ip">' + _esc(ip) + '</span>'
+              + (country ? '<br><small class="fps-scan-country fps-text-muted">' + flag + _esc(country) + '</small>' : '')
+            : '<span class="fps-text-muted">—</span>';
+
+          html += '<tr class="fps-scan-result-row' + (locked ? ' fps-scan-row-locked' : '') + '" data-client-id="' + res.client_id + '">';
+          html += '<td class="fps-col-check"><input type="checkbox" class="fps-scan-row-check" value="' + res.client_id + '"></td>';
+          html += '<td class="fps-col-client">' + clientCell + lockIcon + '</td>';
+          html += '<td class="fps-col-ip">' + ipCell + '</td>';
+
+          if (res.success) {
+            var tip = providerTip(provScores);
+            html += '<td class="fps-col-score">' + scoreCell(score) + '</td>';
+            html += '<td class="fps-col-level"><span class="fps-badge ' + levelBadge(level) + '">' + ucFirst(level) + '</span></td>';
+            html += '<td class="fps-col-action">' + actionBadge(action) + '</td>';
+            html += '<td class="fps-col-providers fps-mono" title="' + _esc(tip) + '">'
+              + '<span class="fps-scan-provider-count">' + providers + '</span>'
+              + (tip ? '<i class="fas fa-info-circle fps-text-muted fps-scan-tip-icon" title="' + _esc(tip) + '"></i>' : '')
+              + '</td>';
+            html += '<td class="fps-col-time">' + fmtMs(execMs) + '</td>';
+            html += '<td class="fps-col-actions fps-scan-actions-cell">'
+              + '<a href="' + profileHref + '" class="fps-btn fps-btn-xs fps-btn-primary" title="FPS client profile">'
+              + '<i class="fas fa-shield-alt"></i> Profile</a>'
+              + '</td>';
+          } else {
+            html += '<td colspan="6">'
+              + '<span class="fps-badge fps-badge-critical"><i class="fas fa-exclamation-triangle"></i> '
+              + _esc(res.error || 'Scan error') + '</span>'
+              + '</td>';
+          }
+
+          html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        tableEl.innerHTML = html;
 
         // Show results card
         var resultsCard = document.getElementById('fps-scan-results-card');
