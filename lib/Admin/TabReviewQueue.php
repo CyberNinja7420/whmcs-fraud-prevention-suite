@@ -337,16 +337,46 @@ class TabReviewQueue
                 ->get(['id', 'firstname', 'lastname', 'email', 'status', 'datecreated', 'ip']);
 
             // Count unscanned users (tblusers)
+            // A tblusers account is only "unscanned" when:
+            //   1. Its email hasn't appeared in any fraud check, AND
+            //   2. It is linked (via tblusers_clients) to at least one EXISTING client
+            //      that has NOT been scanned yet.
+            // This filters out:
+            //   - Users linked only to deleted clients (orphaned tblusers_clients rows)
+            //   - Users with no client link at all (admin/system accounts)
+            //   - Users whose linked clients have ALL been scanned already
             $unscannedUserCount = 0;
             if (Capsule::schema()->hasTable('tblusers')) {
-                // Users whose email doesn't appear in any fraud check
                 $checkedEmails = Capsule::table('mod_fps_checks')
                     ->whereNotNull('email')
                     ->distinct()->pluck('email')->toArray();
 
-                $unscannedUserCount = Capsule::table('tblusers')
-                    ->whereNotIn('email', $checkedEmails ?: [''])
-                    ->count();
+                $userQuery = Capsule::table('tblusers')
+                    ->whereNotIn('email', $checkedEmails ?: ['']);
+
+                // WHMCS 8.x uses tblusers_clients (auth_user_id -> client_id).
+                // Some installations may use tblclients_users (users_id -> clients_id).
+                // The JOIN on tblclients ensures we ignore links to deleted clients
+                // (e.g. user linked only to a purged client_id stays filtered out).
+                if (Capsule::schema()->hasTable('tblusers_clients')) {
+                    $userQuery->whereExists(function ($sub) use ($scannedIds) {
+                        $sub->selectRaw('1')
+                            ->from('tblusers_clients')
+                            ->join('tblclients', 'tblclients.id', '=', 'tblusers_clients.client_id')
+                            ->whereRaw('tblusers_clients.auth_user_id = tblusers.id')
+                            ->whereNotIn('tblusers_clients.client_id', $scannedIds ?: [0]);
+                    });
+                } elseif (Capsule::schema()->hasTable('tblclients_users')) {
+                    $userQuery->whereExists(function ($sub) use ($scannedIds) {
+                        $sub->selectRaw('1')
+                            ->from('tblclients_users')
+                            ->join('tblclients', 'tblclients.id', '=', 'tblclients_users.clients_id')
+                            ->whereRaw('tblclients_users.users_id = tblusers.id')
+                            ->whereNotIn('tblclients_users.clients_id', $scannedIds ?: [0]);
+                    });
+                }
+
+                $unscannedUserCount = $userQuery->count();
             }
 
             $clientCount = count($unscannedClients);
