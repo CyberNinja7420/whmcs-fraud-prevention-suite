@@ -2185,8 +2185,29 @@ function fps_ajaxMassScan(): array
         $clientIds = $clients;
     }
 
+    // Pre-fetch client names in a single query to avoid N+1 per-client lookups
+    $clientMap = [];
+    try {
+        if (!empty($clientIds)) {
+            Capsule::table('tblclients')
+                ->whereIn('id', $clientIds)
+                ->select(['id', 'firstname', 'lastname', 'email', 'country'])
+                ->get()
+                ->each(function ($row) use (&$clientMap) {
+                    $clientMap[(int)$row->id] = [
+                        'name'    => trim($row->firstname . ' ' . $row->lastname),
+                        'email'   => $row->email ?? '',
+                        'country' => $row->country ?? '',
+                    ];
+                });
+        }
+    } catch (\Throwable $e) {
+        // Non-fatal: name/country will fall back to empty
+    }
+
     $results = [];
     foreach ($clientIds as $cid) {
+        $meta = $clientMap[(int)$cid] ?? ['name' => '', 'email' => '', 'country' => ''];
         try {
             $runner = new \FraudPreventionSuite\Lib\FpsCheckRunner();
             $result = $runner->runManualCheck((int)$cid);
@@ -2194,22 +2215,30 @@ function fps_ajaxMassScan(): array
 
             // Flatten the key fields JS expects to the top level of data
             $results[] = [
-                'client_id'        => (int)$cid,
-                'success'          => true,
-                'data'             => [
-                    'risk_score'       => $arr['score'] ?? 0,
-                    'risk_level'       => $arr['level'] ?? 'low',
-                    'action_taken'     => $arr['action_taken'] ?? '',
-                    'locked'           => $arr['locked'] ?? false,
-                    'execution_ms'     => $arr['execution_ms'] ?? 0,
+                'client_id'         => (int)$cid,
+                'success'           => true,
+                'data'              => [
+                    'name'              => $meta['name'],
+                    'email'             => $arr['context']['email'] ?? $meta['email'],
+                    'ip'                => $arr['context']['ip'] ?? '',
+                    'country'           => $meta['country'],
+                    'risk_score'        => $arr['score'] ?? 0,
+                    'risk_level'        => $arr['level'] ?? 'low',
+                    'action_taken'      => $arr['action_taken'] ?? '',
+                    'locked'            => $arr['locked'] ?? false,
+                    'execution_ms'      => $arr['execution_ms'] ?? 0,
                     'providers_checked' => count($arr['risk']['provider_scores'] ?? []),
-                    'email'            => $arr['context']['email'] ?? '',
-                    'ip'               => $arr['context']['ip'] ?? '',
-                    'check_id'         => $arr['check_id'] ?? null,
+                    'provider_scores'   => $arr['risk']['provider_scores'] ?? [],
+                    'check_id'          => $arr['check_id'] ?? null,
                 ],
             ];
         } catch (\Throwable $e) {
-            $results[] = ['client_id' => (int)$cid, 'success' => false, 'error' => $e->getMessage()];
+            $results[] = [
+                'client_id' => (int)$cid,
+                'success'   => false,
+                'error'     => $e->getMessage(),
+                'data'      => ['name' => $meta['name'], 'email' => $meta['email']],
+            ];
         }
     }
 

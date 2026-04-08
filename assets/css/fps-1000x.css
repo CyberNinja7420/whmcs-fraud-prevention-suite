@@ -2636,6 +2636,189 @@ input:checked + .fps-toggle-slider::after { transform: translateX(16px); }
 .fps-event-medium { border-left: 3px solid var(--fps-risk-medium); }
 .fps-event-low { border-left: 3px solid var(--fps-risk-low); }
 
+/* ============================================================
+   MASS SCAN — Results table
+   ============================================================ */
+
+/* Outer wrapper: allow horizontal scroll on narrow screens */
+.fps-scan-table-wrap {
+  margin-top: var(--fps-space-md);
+}
+
+/* Column widths */
+.fps-scan-results-table .fps-col-check     { width: 36px;  text-align: center; }
+.fps-scan-results-table .fps-col-client    { min-width: 200px; }
+.fps-scan-results-table .fps-col-ip        { min-width: 130px; }
+.fps-scan-results-table .fps-col-score     { min-width: 120px; }
+.fps-scan-results-table .fps-col-level     { width: 100px; }
+.fps-scan-results-table .fps-col-action    { width: 120px; }
+.fps-scan-results-table .fps-col-providers { width: 90px; text-align: center; }
+.fps-scan-results-table .fps-col-time      { width: 80px; text-align: right; }
+.fps-scan-results-table .fps-col-actions   { width: 110px; text-align: right; white-space: nowrap; }
+
+/* Stacked client info cell */
+.fps-scan-client-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fps-scan-client-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--fps-primary);
+  text-decoration: none;
+  transition: color var(--fps-transition-fast);
+  line-height: 1.3;
+}
+.fps-scan-client-name:hover { color: var(--fps-primary-hover, var(--fps-primary)); text-decoration: underline; }
+.fps-scan-client-id {
+  font-size: 0.72rem;
+  color: var(--fps-text-muted);
+  font-family: var(--fps-font-mono);
+}
+.fps-scan-client-email {
+  font-size: 0.78rem;
+  color: var(--fps-text-secondary);
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+/* IP address + country */
+.fps-scan-ip {
+  font-size: 0.82rem;
+  color: var(--fps-text-primary);
+  letter-spacing: 0.02em;
+}
+.fps-scan-country {
+  font-size: 0.75rem;
+  display: inline-block;
+  margin-top: 2px;
+}
+
+/* Score cell: number above, thin progress bar below */
+.fps-scan-score-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 80px;
+}
+.fps-scan-score-num {
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-family: var(--fps-font-mono);
+  line-height: 1;
+}
+.fps-scan-score-bar {
+  height: 4px;
+  width: 100%;
+  background: var(--fps-surface-3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.fps-scan-score-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+/* Reuse gradient classes from progress system */
+.fps-scan-score-fill.fps-progress-bar--danger  { background: var(--fps-grad-danger,  linear-gradient(90deg,#f5576c,#eb3349)); }
+.fps-scan-score-fill.fps-progress-bar--warning { background: var(--fps-grad-warning, linear-gradient(90deg,#f5c842,#f09819)); }
+.fps-scan-score-fill.fps-progress-bar--success { background: var(--fps-grad-success, linear-gradient(90deg,#56ab2f,#38ef7d)); }
+
+/* "None" action badge */
+.fps-scan-badge-none {
+  background: var(--fps-surface-3);
+  color: var(--fps-text-muted);
+  border: 1px solid var(--fps-border);
+}
+
+/* Provider count cell */
+.fps-scan-provider-count {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.fps-scan-tip-icon {
+  margin-left: 5px;
+  font-size: 0.72rem;
+  vertical-align: middle;
+  cursor: help;
+}
+
+/* Lock icon next to client name */
+.fps-scan-lock-icon {
+  margin-left: 6px;
+  font-size: 0.8rem;
+  vertical-align: middle;
+}
+
+/* Locked row highlight */
+.fps-scan-row-locked td {
+  background: rgba(235, 51, 73, 0.04) !important;
+}
+.fps-theme-dark .fps-scan-row-locked td {
+  background: rgba(235, 51, 73, 0.08) !important;
+}
+
+/* Action buttons in the results table */
+.fps-scan-actions-cell {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* Error row */
+.fps-scan-row-error td {
+  opacity: 0.7;
+}
+
+/* xs button (used only in scan table) */
+.fps-btn-xs {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: var(--fps-radius-sm);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: opacity var(--fps-transition-fast), transform var(--fps-transition-fast);
+  border: none;
+  line-height: 1.4;
+}
+.fps-btn-xs:hover { opacity: 0.85; transform: translateY(-1px); }
+.fps-btn-xs.fps-btn-primary { background: var(--fps-grad-primary); color: #fff; }
+.fps-btn-xs.fps-btn-danger  { background: var(--fps-grad-danger);  color: #fff; }
+.fps-btn-xs.fps-btn-warning { background: var(--fps-grad-warning); color: #fff; }
+
+/* Dark mode table header readability fix */
+.fps-theme-dark .fps-table thead th {
+  color: var(--fps-text-primary);
+  background: rgba(255,255,255,0.04);
+}
+/* Ensure all badge types stay readable in dark mode */
+.fps-theme-dark .fps-scan-badge-none {
+  background: rgba(255,255,255,0.07);
+  color: var(--fps-text-secondary);
+  border-color: var(--fps-border);
+}
+/* Tighten badge text so it wraps less */
+.fps-scan-results-table .fps-badge {
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+/* Responsive: collapse non-essential cols on small screens */
+@media (max-width: 1100px) {
+  .fps-scan-results-table .fps-col-time,
+  .fps-scan-results-table .fps-col-providers { display: none; }
+}
+@media (max-width: 820px) {
+  .fps-scan-results-table .fps-col-ip { display: none; }
+}
+
 /* Print */
 @media print {
   .fps-theme-toggle,
