@@ -2249,11 +2249,13 @@ function fps_ajaxSaveSettings(): array
         'abuseipdb_api_key', 'ipqs_api_key',
         'safe_browsing_api_key', 'virustotal_api_key',
         'sfs_report_api_key', 'fraudrecord_api_key',
+        'ipinfo_api_key', 'hibp_api_key',
     ];
 
     // Keys that must be saved to tbladdonmodules (WHMCS module config table)
-    // because providers read from there, not mod_fps_settings
-    $addonModuleKeys = ['fraudrecord_api_key'];
+    // because their providers read from tbladdonmodules, not mod_fps_settings.
+    // Always also written to mod_fps_settings so the Settings UI can read them back.
+    $addonModuleKeys = ['fraudrecord_api_key', 'ipinfo_api_key', 'hibp_api_key'];
 
     foreach ($settings as $key => $value) {
         $key = preg_replace('/[^a-z0-9_]/', '', $key);

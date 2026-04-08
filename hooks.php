@@ -618,7 +618,15 @@ add_hook('ClientAreaPageCart', 1, function ($vars) {
 
         if ($enabled !== '1') return [];
 
-        // Inject fingerprint.js on checkout pages
+        // Only inject here when scope is 'checkout'.
+        // When scope is 'all', ClientAreaFooterOutput (hook 7) covers every page
+        // including cart -- loading here too would double-inject the script.
+        $scope = Capsule::table('mod_fps_settings')
+            ->where('setting_key', 'fingerprint_scope')
+            ->value('setting_value') ?? 'all';
+
+        if ($scope !== 'checkout') return [];
+
         return [
             'fps_fingerprint_js' => '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-fingerprint.js" defer></script>',
         ];
@@ -1092,17 +1100,24 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
 });
 
 // ---------------------------------------------------------------------------
-// 7. ClientAreaFooterOutput -- Inject fingerprint JS on ALL pages
+// 7. ClientAreaFooterOutput -- Inject fingerprint JS (scope-aware)
 // ---------------------------------------------------------------------------
 add_hook('ClientAreaFooterOutput', 1, function ($vars) {
     try {
-        // Load fingerprint collector on ALL client-area pages (not just cart)
-        // This enables passive fingerprint collection from every visitor
         $enabled = Capsule::table('mod_fps_settings')
             ->where('setting_key', 'fingerprint_enabled')
             ->value('setting_value');
 
         if ($enabled !== '1') return '';
+
+        // Only inject when scope is 'all' (every client-area page).
+        // When scope is 'checkout', ClientAreaPageCart (hook 6) handles it
+        // so this hook stays silent to avoid double-injecting on cart pages.
+        $scope = Capsule::table('mod_fps_settings')
+            ->where('setting_key', 'fingerprint_scope')
+            ->value('setting_value') ?? 'all';
+
+        if ($scope !== 'all') return '';
 
         return '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-fingerprint.js" defer></script>';
     } catch (\Throwable $e) {
