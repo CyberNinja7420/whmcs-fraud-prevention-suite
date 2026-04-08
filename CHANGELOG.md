@@ -29,6 +29,7 @@ This project uses [Semantic Versioning](https://semver.org/).
 - **Topology duplicate CSS class** -- active button HTML had fps-topo-range-btn listed twice; removed from $activeCls since it's already in the base class
 - **deleteClientRelatedData() missing reviewed_by** -- FpsBotDetector purge function marked checks with [purged] suffix but didn't set reviewed_by/reviewed_at, leaving them in the review queue; now sets both fields
 - **Dark mode table header unreadable** -- added .fps-theme-dark .fps-table thead th color override to use --fps-text-primary
+- **Settings save silently failing** -- WHMCS 8.x runs all $_POST values through htmlspecialchars(), converting JSON double-quotes to &amp;quot; entities which made json_decode() return null; added htmlspecialchars_decode() before json_decode() for both settings and gateway_thresholds POST payloads; this fix restores Typography, Colors, Provider Keys, and all other Settings tab saves
 
 ### Changed
 - **Review queue profile links** -- known clients link to FPS client_profile tab; guest/deleted clients show email search button linking to clients.php?search=email
