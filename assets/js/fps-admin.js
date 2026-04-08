@@ -1492,6 +1492,20 @@
       });
     },
     bulkAction: function(action, ajaxUrl) {
+      // archive_guest is a server-side operation on all client_id=0 rows -- no selection needed
+      if (action === 'archive_guest') {
+        confirm(
+          'Archive all unreviewed guest (pre-checkout) checks? These are fraud events from anonymous visitors with no associated client account.',
+          function() {
+            ajax('archive_guest', {}, function(err, data) {
+              if (err || (data && data.error)) { toast(data ? data.error : 'Archive failed', 'error'); return; }
+              toast((data.message || 'Guest checks archived'), 'success');
+              setTimeout(function() { location.reload(); }, 800);
+            });
+          }
+        );
+        return;
+      }
       var ids = getSelected('fps-queue-check');
       if (!ids.length) { toast('No items selected', 'warning'); return; }
       ajax('bulk_' + action, {check_ids: ids.join(',')}, function(err, data) {

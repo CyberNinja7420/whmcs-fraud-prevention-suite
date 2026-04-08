@@ -70,14 +70,37 @@ class TabReviewQueue
                 ->limit($perPage)
                 ->get();
 
-            // Queue count badge
-            echo '<div class="fps-queue-badge-bar">';
-            echo '  <span class="fps-badge fps-badge-high"><i class="fas fa-exclamation-triangle"></i> ';
-            echo htmlspecialchars((string)$total, ENT_QUOTES, 'UTF-8') . ' orders pending review</span>';
+            // ---- Batch-fetch client names (single query, avoids N+1) ----
+            $clientIds = $checks->pluck('client_id')
+                ->filter(fn($id) => (int)$id > 0)
+                ->unique()
+                ->values()
+                ->toArray();
+
+            $clientMap = [];
+            if (!empty($clientIds)) {
+                Capsule::table('tblclients')
+                    ->whereIn('id', $clientIds)
+                    ->get(['id', 'firstname', 'lastname', 'email'])
+                    ->each(function ($c) use (&$clientMap) {
+                        $clientMap[(int)$c->id] = $c;
+                    });
+            }
+
+            // ---- Queue count badge ----
+            $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+
+            echo '<div class="fps-queue-badge-bar fps-queue-header-row">';
+            echo '  <span class="fps-badge fps-badge-high"><i class="fas fa-clock"></i> '
+                . htmlspecialchars((string)$total, ENT_QUOTES, 'UTF-8')
+                . ' checks pending review</span>';
+            echo '  <button type="button" class="fps-btn fps-btn-sm fps-btn-warning" style="margin-left:auto;"'
+                . ' onclick="FpsAdmin.bulkAction(\'archive_guest\', \'' . $ajaxUrl . '\')"'
+                . ' title="Archive all guest pre-checkout entries that have no associated client account">'
+                . '<i class="fas fa-archive"></i> Archive Guest Checks</button>';
             echo '</div>';
 
-            // Bulk actions bar
-            $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+            // ---- Bulk actions bar ----
             echo '<div class="fps-bulk-actions-bar">';
             echo '  <label class="fps-checkbox-label">';
             echo '    <input type="checkbox" id="fps-select-all-queue" onclick="FpsAdmin.toggleSelectAll(\'fps-queue-check\')">';
@@ -91,50 +114,119 @@ class TabReviewQueue
             echo '  </button>';
             echo '</div>';
 
-            // Build table rows
-            $headers = ['', 'Client', 'Email', 'Order #', 'Risk Score', 'IP', 'Country', 'Time', 'Actions'];
+            // ---- Build table rows ----
+            $headers = ['', 'Client', 'Email', 'Type', 'Order', 'Risk Score', 'IP', 'Country', 'Time', 'Actions'];
             $rows = [];
 
             foreach ($checks as $check) {
-                $client = Capsule::table('tblclients')
-                    ->where('id', $check->client_id)
-                    ->first(['id', 'firstname', 'lastname', 'email']);
-
-                $clientName = $client
-                    ? htmlspecialchars($client->firstname . ' ' . $client->lastname, ENT_QUOTES, 'UTF-8')
-                    : 'Client #' . (int)$check->client_id;
-                $clientEmail = $client
-                    ? htmlspecialchars($client->email, ENT_QUOTES, 'UTF-8')
-                    : htmlspecialchars($check->email ?? '', ENT_QUOTES, 'UTF-8');
-
-                $checkIdSafe = (int)$check->id;
+                $checkIdSafe  = (int)$check->id;
                 $clientIdSafe = (int)$check->client_id;
-                $orderIdSafe = (int)$check->order_id;
+                $orderIdSafe  = (int)$check->order_id;
+                $checkType    = $check->check_type ?? 'auto';
+                $isGuest      = ($clientIdSafe === 0);
+                $client       = $clientMap[$clientIdSafe] ?? null;
+                $clientExists = ($client !== null);
 
-                $checkbox = '<input type="checkbox" class="fps-queue-check" value="' . $checkIdSafe . '">';
+                // ---- Client cell ----
+                $checkEmail = htmlspecialchars($check->email ?? '', ENT_QUOTES, 'UTF-8');
+                if ($isGuest) {
+                    // No client yet — pre-checkout visitor
+                    $clientName = '<span class="fps-queue-guest-cell">'
+                        . '<span class="fps-badge fps-badge-pending" style="font-size:0.68rem;">'
+                        . '<i class="fas fa-user-clock"></i> Guest</span>'
+                        . '<span class="fps-queue-guest-note">Pre-checkout visitor</span>'
+                        . '</span>';
+                } elseif (!$clientExists) {
+                    // Client was deleted after the check was recorded
+                    $clientName = '<span class="fps-queue-deleted-cell">'
+                        . '<i class="fas fa-user-slash fps-text-muted"></i>'
+                        . ' <span class="fps-text-muted fps-mono" style="font-size:0.8rem;">Deleted #' . $clientIdSafe . '</span>'
+                        . '</span>';
+                } else {
+                    $name = trim($client->firstname . ' ' . $client->lastname);
+                    $displayName = $name !== '' ? $name : 'Client #' . $clientIdSafe;
+                    $profileUrl  = htmlspecialchars(
+                        $modulelink . '&tab=client_profile&client_id=' . $clientIdSafe,
+                        ENT_QUOTES, 'UTF-8'
+                    );
+                    $clientName  = '<div class="fps-queue-client-cell">'
+                        . '<a href="' . $profileUrl . '" class="fps-queue-client-name">'
+                        . htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') . '</a>'
+                        . '<span class="fps-queue-client-id fps-mono">#' . $clientIdSafe . '</span>'
+                        . '</div>';
+                }
 
+                // Use client's confirmed email if available, otherwise the check email
+                $displayEmail = ($clientExists && !empty($client->email))
+                    ? htmlspecialchars($client->email, ENT_QUOTES, 'UTF-8')
+                    : $checkEmail;
+
+                // ---- Check type badge ----
+                $typeLabels = [
+                    'pre_checkout'     => ['fps-badge-pending',  'fa-cart-shopping', 'Pre-checkout'],
+                    'auto'             => ['fps-badge-info',     'fa-bolt',          'New Order'],
+                    'registration'     => ['fps-badge-info',     'fa-user-plus',     'Registration'],
+                    'bot_signup_block' => ['fps-badge-blocked',  'fa-robot',         'Bot Block'],
+                    'bot_detection'    => ['fps-badge-blocked',  'fa-robot',         'Bot'],
+                    'manual'           => ['fps-scan-badge-none','fa-hand',          'Manual'],
+                    'engine_validation'=> ['fps-scan-badge-none','fa-flask',         'Test'],
+                ];
+                [$typeBadgeCls, $typeIcon, $typeLabel] = $typeLabels[$checkType]
+                    ?? ['fps-scan-badge-none', 'fa-question-circle', ucfirst($checkType)];
+                $typeBadge = '<span class="fps-badge ' . $typeBadgeCls . '" style="font-size:0.68rem;">'
+                    . '<i class="fas ' . $typeIcon . '"></i> ' . $typeLabel . '</span>';
+
+                // ---- Order cell ----
+                $orderCell = ($orderIdSafe > 0)
+                    ? '<a href="orders.php?action=view&id=' . $orderIdSafe . '" class="fps-mono fps-text-muted" style="font-size:0.85rem;">#' . $orderIdSafe . '</a>'
+                    : '<span class="fps-text-muted">—</span>';
+
+                // ---- Risk badge ----
                 $badge = FpsAdminRenderer::renderBadge($check->risk_level, (float)$check->risk_score);
 
-                $ip      = htmlspecialchars($check->ip_address ?? '--', ENT_QUOTES, 'UTF-8');
-                $country = htmlspecialchars($check->country ?? '--', ENT_QUOTES, 'UTF-8');
+                // ---- IP / Country ----
+                $ip      = htmlspecialchars($check->ip_address ?? '—', ENT_QUOTES, 'UTF-8');
+                $country = htmlspecialchars($check->country ?? '—', ENT_QUOTES, 'UTF-8');
                 $time    = htmlspecialchars($check->created_at ?? '', ENT_QUOTES, 'UTF-8');
 
-                $actions  = '<div class="fps-action-group">';
-                $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-success" '
-                    . 'onclick="FpsAdmin.approveCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Approve">'
+                // ---- Actions ----
+                $actions = '<div class="fps-action-group">';
+                $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-success"'
+                    . ' onclick="FpsAdmin.approveCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Approve — mark reviewed, allow">'
                     . '<i class="fas fa-check"></i></button>';
-                $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-danger" '
-                    . 'onclick="FpsAdmin.denyCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Deny">'
+                $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-danger"'
+                    . ' onclick="FpsAdmin.denyCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Deny — mark reviewed, block">'
                     . '<i class="fas fa-times"></i></button>';
-                $actions .= '<a href="' . htmlspecialchars($modulelink . '&tab=client_profile&client_id=' . $clientIdSafe, ENT_QUOTES, 'UTF-8')
-                    . '" class="fps-btn fps-btn-xs fps-btn-info" title="View Profile">'
-                    . '<i class="fas fa-user-shield"></i></a>';
-                $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-warning" '
-                    . 'onclick="FpsAdmin.reportToFraudRecord(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Report to FraudRecord">'
+
+                if (!$isGuest && $clientExists) {
+                    // Real client — show profile link
+                    $profileUrl = htmlspecialchars($modulelink . '&tab=client_profile&client_id=' . $clientIdSafe, ENT_QUOTES, 'UTF-8');
+                    $actions .= '<a href="' . $profileUrl . '" class="fps-btn fps-btn-xs fps-btn-info" title="View FPS Client Profile">'
+                        . '<i class="fas fa-user-shield"></i></a>';
+                } else {
+                    // Guest or deleted — search by email instead
+                    $emailSearch = urlencode($check->email ?? '');
+                    $actions .= '<a href="clients.php?search=' . $emailSearch . '" class="fps-btn fps-btn-xs fps-btn-secondary" title="Search WHMCS for this email">'
+                        . '<i class="fas fa-search"></i></a>';
+                }
+
+                $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-warning"'
+                    . ' onclick="FpsAdmin.reportToFraudRecord(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Report IP/email to FraudRecord">'
                     . '<i class="fas fa-flag"></i></button>';
                 $actions .= '</div>';
 
-                $rows[] = [$checkbox, $clientName, $clientEmail, '#' . $orderIdSafe, $badge, $ip, $country, $time, $actions];
+                $rows[] = [
+                    '<input type="checkbox" class="fps-queue-check" value="' . $checkIdSafe . '">',
+                    $clientName,
+                    $displayEmail,
+                    $typeBadge,
+                    $orderCell,
+                    $badge,
+                    $ip,
+                    $country,
+                    $time,
+                    $actions,
+                ];
             }
 
             echo FpsAdminRenderer::renderTable($headers, $rows, 'fps-review-queue-table');

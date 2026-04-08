@@ -2819,6 +2819,92 @@ input:checked + .fps-toggle-slider::after { transform: translateX(16px); }
   .fps-scan-results-table .fps-col-ip { display: none; }
 }
 
+/* ============================================================
+   REVIEW QUEUE — Client cells, guest/deleted states
+   ============================================================ */
+
+/* Header row: badge + archive button on same line */
+.fps-queue-header-row {
+  display: flex;
+  align-items: center;
+  gap: var(--fps-space-md);
+  margin-bottom: var(--fps-space-sm);
+  flex-wrap: wrap;
+}
+
+/* Stacked name + ID for known clients */
+.fps-queue-client-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fps-queue-client-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--fps-primary);
+  text-decoration: none;
+  transition: color var(--fps-transition-fast);
+}
+.fps-queue-client-name:hover { text-decoration: underline; }
+.fps-queue-client-id {
+  font-size: 0.72rem;
+  color: var(--fps-text-muted);
+  font-family: var(--fps-font-mono);
+}
+
+/* Guest pre-checkout visitor cell */
+.fps-queue-guest-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fps-queue-guest-note {
+  font-size: 0.72rem;
+  color: var(--fps-text-muted);
+  font-style: italic;
+}
+
+/* Deleted client cell */
+.fps-queue-deleted-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0.7;
+}
+
+/* Rows for guest entries — subtle orange-tint background */
+.fps-review-queue-table tbody tr:has(.fps-queue-guest-cell) td {
+  background: rgba(245, 166, 35, 0.04) !important;
+}
+.fps-theme-dark .fps-review-queue-table tbody tr:has(.fps-queue-guest-cell) td {
+  background: rgba(245, 166, 35, 0.07) !important;
+}
+
+/* Rows for deleted-client entries — subtle muted background */
+.fps-review-queue-table tbody tr:has(.fps-queue-deleted-cell) td {
+  background: rgba(150, 150, 150, 0.04) !important;
+}
+
+/* fps-badge-info (used for auto/registration check type badge) */
+.fps-badge-info {
+  background: rgba(102, 126, 234, 0.12);
+  color: var(--fps-primary);
+  border: 1px solid rgba(102, 126, 234, 0.25);
+}
+.fps-theme-dark .fps-badge-info {
+  background: rgba(102, 126, 234, 0.18);
+  color: #a5b4fc;
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+/* fps-btn-secondary for guest search button */
+.fps-btn-secondary {
+  background: var(--fps-surface-3);
+  color: var(--fps-text-secondary);
+  border: 1px solid var(--fps-border);
+}
+.fps-btn-secondary:hover { background: var(--fps-surface-2); }
+
 /* Print */
 @media print {
   .fps-theme-toggle,
