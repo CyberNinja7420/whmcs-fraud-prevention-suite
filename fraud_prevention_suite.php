@@ -1590,6 +1590,10 @@ function fps_handleAjax(string $modulelink): void
                 echo json_encode(fps_ajaxBulkDeny());
                 break;
 
+            case 'archive_guest':
+                echo json_encode(fps_ajaxArchiveGuestChecks());
+                break;
+
             case 'bulk_flag':
                 echo json_encode(fps_ajaxBulkFlag());
                 break;
@@ -2585,6 +2589,28 @@ function fps_ajaxBulkDeny(): array
     }
     logActivity("Fraud Prevention: Bulk denied {$count} checks by admin #{$_SESSION['adminid']}");
     return ['success' => true, 'count' => $count];
+}
+
+/**
+ * Archive all pending pre-checkout checks with client_id = 0.
+ * These are fraud checks fired during anonymous checkout attempts
+ * where no WHMCS client account was ever created. They cannot be
+ * approved/denied per-client so this bulk archives them from the queue.
+ */
+function fps_ajaxArchiveGuestChecks(): array
+{
+    $adminId = (int)($_SESSION['adminid'] ?? 0);
+    $count = Capsule::table('mod_fps_checks')
+        ->where('client_id', 0)
+        ->whereNull('reviewed_by')
+        ->update([
+            'reviewed_by'  => $adminId ?: 1,
+            'reviewed_at'  => date('Y-m-d H:i:s'),
+            'action_taken' => 'archived',
+        ]);
+
+    logActivity("Fraud Prevention: Archived {$count} guest pre-checkout checks by admin #{$adminId}");
+    return ['success' => true, 'count' => $count, 'message' => "Archived {$count} guest check(s)"];
 }
 
 function fps_ajaxBulkFlag(): array
