@@ -38,7 +38,8 @@ class TabTopology
 
         echo '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;margin-bottom:12px;background:rgba(10,10,26,0.6);border:1px solid rgba(102,126,234,0.1);border-radius:10px;flex-wrap:wrap;gap:10px;">';
 
-        // Time range buttons
+        // Time range buttons -- default active is 24h
+        $currentRange = $_GET['topo_range'] ?? '24h';
         echo '<div class="fps-quick-range-btns">';
         $ranges = [
             '1h'  => '1 Hour',
@@ -46,12 +47,17 @@ class TabTopology
             '24h' => '24 Hours',
             '7d'  => '7 Days',
             '30d' => '30 Days',
+            'all' => 'All Time',
         ];
         foreach ($ranges as $val => $label) {
-            $active = $val === '24h' ? ' fps-filter-active fps-topo-range-btn' : ' fps-topo-range-btn';
+            // Use fps-filter-active for the initially-selected range;
+            // JS will toggle this same class on click (no duplicate class bug).
+            $isActive  = ($val === $currentRange);
+            $activeCls = $isActive ? ' fps-filter-active' : '';
             $safeVal   = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
             $safeLabel = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
-            echo '<button type="button" class="fps-btn fps-btn-sm fps-btn-outline fps-topo-range-btn' . $active . '" '
+            echo '<button type="button" class="fps-btn fps-btn-sm fps-btn-outline fps-topo-range-btn' . $activeCls . '" '
+                . 'data-range="' . $safeVal . '" '
                 . 'onclick="FpsAdmin.setTopologyRange(\'' . $safeVal . '\', \'' . $ajaxUrl . '\', this)">'
                 . $safeLabel . '</button>';
         }

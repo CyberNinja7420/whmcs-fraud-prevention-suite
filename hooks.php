@@ -1648,6 +1648,68 @@ add_hook('InvoiceUnpaid', 1, function ($vars) {
 });
 
 // ---------------------------------------------------------------------------
+// Hook: ClientDelete
+// Fires when a WHMCS admin deletes a client directly via the admin panel
+// (i.e. NOT through the FPS module purge path). Marks all associated
+// mod_fps_checks rows as reviewed/archived so they don't remain in the queue.
+// ---------------------------------------------------------------------------
+add_hook('ClientDelete', 1, function (array $vars) {
+    try {
+        $clientId = (int)($vars['userid'] ?? 0);
+        if ($clientId < 1) {
+            return;
+        }
+
+        $pending = \WHMCS\Database\Capsule::table('mod_fps_checks')
+            ->where('client_id', $clientId)
+            ->whereNull('reviewed_by')
+            ->count();
+
+        if ($pending < 1) {
+            return; // Nothing to clean up
+        }
+
+        // Snapshot client data -- WHMCS still has the row at hook-fire time
+        $snapshot = 'Deleted Client #' . $clientId;
+        try {
+            $client = \WHMCS\Database\Capsule::table('tblclients')
+                ->where('id', $clientId)
+                ->first(['firstname', 'lastname', 'email']);
+            if ($client) {
+                $name = trim(($client->firstname ?? '') . ' ' . ($client->lastname ?? ''));
+                $snapshot = ($name !== '' ? $name : 'Client #' . $clientId)
+                    . ' <' . ($client->email ?? '') . '>';
+            }
+        } catch (\Throwable $e) {
+            // Snapshot is best-effort
+        }
+
+        \WHMCS\Database\Capsule::table('mod_fps_checks')
+            ->where('client_id', $clientId)
+            ->whereNull('reviewed_by')
+            ->update([
+                'action_taken'  => \WHMCS\Database\Capsule::raw(
+                    "CONCAT(COALESCE(action_taken,''), ' [client_deleted]')"
+                ),
+                'reviewed_by'   => 0,   // 0 = system auto-review
+                'reviewed_at'   => date('Y-m-d H:i:s'),
+                'check_context' => json_encode([
+                    'deleted_at'      => date('Y-m-d H:i:s'),
+                    'deleted_via'     => 'whmcs_admin_panel',
+                    'original_client' => $snapshot,
+                ]),
+            ]);
+
+        logActivity(
+            "Fraud Prevention: Auto-archived {$pending} check(s) for deleted client "
+            . "#{$clientId} ({$snapshot})"
+        );
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'ClientDelete_hook', $vars, $e->getMessage());
+    }
+});
+
+// ---------------------------------------------------------------------------
 // NOTE: Helper functions (fps_recordGeoEvent, fps_refreshDisposableDomains,
 // fps_autoSuspendChargebackAbusers, fps_legacyFraudCheck) are in
 // lib/FpsHookHelpers.php as static methods. Called via:

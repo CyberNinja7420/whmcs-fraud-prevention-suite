@@ -2125,8 +2125,11 @@
     // Topology tab
     setTopologyRange: function(range, ajaxUrl, btn) {
       if (typeof FpsTopology !== 'undefined' && FpsTopology.setRange) FpsTopology.setRange(range, ajaxUrl);
-      document.querySelectorAll('.fps-topo-range-btn').forEach(function(b) { b.classList.remove('active'); });
-      if (btn) btn.classList.add('active');
+      // Sync active highlight -- use fps-filter-active (matches the CSS class defined in fps-1000x.css)
+      document.querySelectorAll('.fps-topo-range-btn').forEach(function(b) {
+        b.classList.remove('fps-filter-active');
+      });
+      if (btn) btn.classList.add('fps-filter-active');
     },
     toggleTopologyAutoRefresh: function(enabled) {
       if (typeof FpsTopology !== 'undefined') { enabled ? FpsTopology.startAutoRefresh(60000) : FpsTopology.stopAutoRefresh(); }

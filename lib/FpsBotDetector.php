@@ -709,19 +709,27 @@ class FpsBotDetector
                 ? trim($client->firstname . ' ' . $client->lastname) . ' <' . $client->email . '>'
                 : 'Purged Client #' . $clientId;
 
+            $adminId = (int)($_SESSION['adminid'] ?? 0) ?: 1;
+            // Mark ALL checks for this client as reviewed + purged so they leave the review queue.
+            // reviewed_by = admin who performed the purge; reviewed_at = now.
             Capsule::table('mod_fps_checks')->where('client_id', $clientId)->update([
-                'action_taken' => Capsule::raw("CONCAT(COALESCE(action_taken,''), ' [purged]')"),
+                'action_taken'  => Capsule::raw("CONCAT(COALESCE(action_taken,''), ' [purged]')"),
+                'reviewed_by'   => $adminId,
+                'reviewed_at'   => date('Y-m-d H:i:s'),
                 'check_context' => json_encode([
-                    'purged_at' => date('Y-m-d H:i:s'),
-                    'purged_by' => (int)($_SESSION['adminid'] ?? 0),
+                    'purged_at'       => date('Y-m-d H:i:s'),
+                    'purged_by'       => $adminId,
                     'original_client' => $snapshot,
                 ]),
             ]);
         } catch (\Throwable $e) {
-            // Fallback: if snapshot fails, still don't delete the checks
+            // Fallback: snapshot failed -- still mark as reviewed so queue stays clean
             try {
+                $adminId = (int)($_SESSION['adminid'] ?? 0) ?: 1;
                 Capsule::table('mod_fps_checks')->where('client_id', $clientId)->update([
                     'action_taken' => 'purged',
+                    'reviewed_by'  => $adminId,
+                    'reviewed_at'  => date('Y-m-d H:i:s'),
                 ]);
             } catch (\Throwable $e2) {}
         }

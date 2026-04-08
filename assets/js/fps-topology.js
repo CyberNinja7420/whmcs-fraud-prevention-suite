@@ -409,9 +409,9 @@
         },
 
         setRange: function(range) {
-            // Convert range string (1h, 6h, 24h, 7d, 30d) to hours
-            const map = {'1h': 1, '6h': 6, '24h': 24, '7d': 168, '30d': 720};
-            this.currentHours = map[range] || 24;
+            // Convert range string to hours. 0 = all time (no date filter).
+            const map = {'1h': 1, '6h': 6, '24h': 24, '7d': 168, '30d': 720, 'all': 0};
+            this.currentHours = (range in map) ? map[range] : 24;
             this.loadData();
         },
 
