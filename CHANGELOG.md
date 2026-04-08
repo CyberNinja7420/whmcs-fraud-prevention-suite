@@ -7,6 +7,37 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.3] - 2026-04-08
+
+### Added
+- **Mass scan rich results table** -- 9-column table with client name/ID/email, IP, country flag (Unicode regional indicator), score bar with gradient fill, risk level badge, action taken badge, scan time, and provider tooltip; locked rows highlighted with red tint
+- **Review queue Type column** -- new column showing check type badge (Pre-checkout, New Order, Registration, Bot Block, Manual, Test) with distinct colors and icons
+- **Review queue Archive Guest Checks button** -- admin tool to bulk-archive all unreviewed pre-checkout guest entries via single AJAX call
+- **Topology All Time button** -- added "All Time" range option (hours=0 sentinel); backend skips date filter entirely for full-history view
+- **ClientDelete hook** -- new WHMCS hook in hooks.php auto-archives unreviewed fraud checks when a client is deleted directly through WHMCS admin (outside FPS purge), preventing orphaned records from appearing in the review queue
+
+### Fixed
+- **Mass scan returning 0 clients** -- four bugs: empty status string passed as filter, FpsCheckResult object not serialized (toArray()), date/skip filters silently ignored, total count using hardcoded "Active" status
+- **Review queue Client #0 display** -- pre-checkout guest checks (client_id=0) now show "Guest" badge with "Pre-checkout visitor" note instead of "Client #0"
+- **Review queue orphaned client rows** -- checks from deleted clients now show "Deleted #N" muted style with email search button instead of broken profile link
+- **Review queue N+1 query** -- per-row client lookup replaced with single batch whereIn() query using clientMap
+- **Review queue order column** -- order_id=0 now shows dash instead of broken link to "orders.php?id=0"
+- **Review queue count label** -- changed from misleading "orders pending review" to accurate "checks pending review"
+- **Unscanned users false count** -- tblusers query now uses whereExists() against tblusers_clients with tblclients JOIN; users linked only to deleted clients or with no client link are excluded from "unscanned" count
+- **FraudRecord report missing argument** -- fps_ajaxReportFraudRecord() and fps_ajaxReportClientFraudRecord() were passing 4 arguments to fps_reportToFraudRecord() which expects 5; added $reporter parameter from fraudrecord_email setting
+- **Topology active class mismatch** -- PHP emitted fps-filter-active but JS toggled plain "active" class; now both use fps-filter-active consistently
+- **Topology duplicate CSS class** -- active button HTML had fps-topo-range-btn listed twice; removed from $activeCls since it's already in the base class
+- **deleteClientRelatedData() missing reviewed_by** -- FpsBotDetector purge function marked checks with [purged] suffix but didn't set reviewed_by/reviewed_at, leaving them in the review queue; now sets both fields
+- **Dark mode table header unreadable** -- added .fps-theme-dark .fps-table thead th color override to use --fps-text-primary
+
+### Changed
+- **Review queue profile links** -- known clients link to FPS client_profile tab; guest/deleted clients show email search button linking to clients.php?search=email
+- **Topology setRange map** -- added "all": 0 entry; max hours cap raised from 720 to 8760 (1 year)
+- **fps_ajaxTopologyData** -- hours=0 now treated as all-time query (no date filter) instead of defaulting to 24h
+- **Module version** -- bumped from 4.2.2 to 4.2.3
+
+---
+
 ## [4.2.2] - 2026-04-06
 
 ### Security
