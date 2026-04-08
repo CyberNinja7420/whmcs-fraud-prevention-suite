@@ -2334,9 +2334,12 @@ function fps_ajaxToggleRule(): array
 function fps_ajaxSaveSettings(): array
 {
     $settings = $_POST['settings'] ?? [];
-    // Accept JSON-encoded settings string from JS
+    // Accept JSON-encoded settings string from JS.
+    // WHMCS sanitises $_POST values with htmlspecialchars(), which turns the
+    // JSON double-quotes into &quot; entities.  Reverse that before decoding.
     if (is_string($settings)) {
-        $decoded = json_decode($settings, true);
+        $settings = htmlspecialchars_decode($settings, ENT_QUOTES);
+        $decoded  = json_decode($settings, true);
         $settings = is_array($decoded) ? $decoded : [];
     }
     if (!is_array($settings) || empty($settings)) return ['error' => 'Invalid settings data'];
@@ -2378,9 +2381,10 @@ function fps_ajaxSaveSettings(): array
         );
     }
 
-    // Save per-gateway thresholds
+    // Save per-gateway thresholds (same htmlspecialchars_decode needed)
     $gatewaySettings = $_POST['gateway_thresholds'] ?? [];
     if (is_string($gatewaySettings)) {
+        $gatewaySettings = htmlspecialchars_decode($gatewaySettings, ENT_QUOTES);
         $decoded = json_decode($gatewaySettings, true);
         $gatewaySettings = is_array($decoded) ? $decoded : [];
     }
