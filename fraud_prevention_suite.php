@@ -2651,12 +2651,18 @@ function fps_ajaxReportFraudRecord(): array
 
     if (class_exists('\\FraudPreventionSuite\\Lib\\Providers\\FraudRecordProvider')) {
         $provider = new \FraudPreventionSuite\Lib\Providers\FraudRecordProvider();
+        $reporterEmail = Capsule::table('tbladdonmodules')
+            ->where('module', 'fraud_prevention_suite')
+            ->where('setting', 'fraudrecord_email')
+            ->value('value') ?? '';
         $result = $provider->fps_reportToFraudRecord(
             $check->email ?? '',
             $check->ip_address ?? '',
             '',
-            'Flagged by FPS: score ' . ($check->risk_score ?? 0) . ', level ' . ($check->risk_level ?? 'unknown')
+            'Flagged by FPS: score ' . ($check->risk_score ?? 0) . ', level ' . ($check->risk_level ?? 'unknown'),
+            $reporterEmail
         );
+        logActivity("Fraud Prevention: Check #{$checkId} reported to FraudRecord by admin #{$_SESSION['adminid']}");
         return ['success' => true, 'result' => $result];
     }
 
@@ -2674,11 +2680,16 @@ function fps_ajaxReportClientFraudRecord(): array
 
     if (class_exists('\\FraudPreventionSuite\\Lib\\Providers\\FraudRecordProvider')) {
         $provider = new \FraudPreventionSuite\Lib\Providers\FraudRecordProvider();
+        $reporterEmail = Capsule::table('tbladdonmodules')
+            ->where('module', 'fraud_prevention_suite')
+            ->where('setting', 'fraudrecord_email')
+            ->value('value') ?? '';
         $result = $provider->fps_reportToFraudRecord(
             $client->email ?? '',
             $client->ip ?? '',
             $client->phonenumber ?? '',
-            'Reported via admin by admin #' . ($_SESSION['adminid'] ?? 0)
+            'Reported via admin by admin #' . ($_SESSION['adminid'] ?? 0),
+            $reporterEmail
         );
         logActivity("Fraud Prevention: Client #{$clientId} reported to FraudRecord by admin #{$_SESSION['adminid']}");
         return ['success' => true, 'result' => $result];
