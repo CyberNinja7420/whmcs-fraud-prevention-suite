@@ -2146,19 +2146,42 @@ function fps_ajaxMassScan(): array
 {
     $clientIds = $_POST['client_ids'] ?? [];
     if (empty($clientIds)) {
-        // Get batch of unscanned clients
-        $status = $_POST['status'] ?? 'Active';
-        $limit = min((int)($_POST['batch_size'] ?? 25), 50);
-        $offset = (int)($_POST['offset'] ?? 0);
+        $status    = $_POST['status'] ?? '';          // '' = all statuses
+        $limit     = min((int)($_POST['batch_size'] ?? 25), 50);
+        $offset    = (int)($_POST['offset'] ?? 0);
+        $dateFrom  = trim($_POST['date_from'] ?? '');
+        $dateTo    = trim($_POST['date_to'] ?? '');
+        $skipDays  = max(0, (int)($_POST['skip_recent'] ?? 0));
 
-        $clients = Capsule::table('tblclients')
-            ->where('status', $status)
-            ->orderBy('id')
-            ->offset($offset)
-            ->limit($limit)
-            ->pluck('id')
-            ->toArray();
+        $query = Capsule::table('tblclients');
 
+        // Status filter -- only apply when a specific status is requested
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
+        // Date range filters on account registration date
+        if ($dateFrom !== '') {
+            $query->where('datecreated', '>=', $dateFrom . ' 00:00:00');
+        }
+        if ($dateTo !== '') {
+            $query->where('datecreated', '<=', $dateTo . ' 23:59:59');
+        }
+
+        // Skip clients already checked within the last N days
+        if ($skipDays > 0) {
+            $cutoff = date('Y-m-d H:i:s', strtotime("-{$skipDays} days"));
+            $recentlyChecked = Capsule::table('mod_fps_checks')
+                ->where('created_at', '>=', $cutoff)
+                ->distinct()
+                ->pluck('client_id')
+                ->toArray();
+            if (!empty($recentlyChecked)) {
+                $query->whereNotIn('id', $recentlyChecked);
+            }
+        }
+
+        $clients  = $query->orderBy('id')->offset($offset)->limit($limit)->pluck('id')->toArray();
         $clientIds = $clients;
     }
 
@@ -2167,21 +2190,63 @@ function fps_ajaxMassScan(): array
         try {
             $runner = new \FraudPreventionSuite\Lib\FpsCheckRunner();
             $result = $runner->runManualCheck((int)$cid);
-            $results[] = ['client_id' => (int)$cid, 'success' => true, 'data' => $result];
+            $arr    = $result->toArray();
+
+            // Flatten the key fields JS expects to the top level of data
+            $results[] = [
+                'client_id'        => (int)$cid,
+                'success'          => true,
+                'data'             => [
+                    'risk_score'       => $arr['score'] ?? 0,
+                    'risk_level'       => $arr['level'] ?? 'low',
+                    'action_taken'     => $arr['action_taken'] ?? '',
+                    'locked'           => $arr['locked'] ?? false,
+                    'execution_ms'     => $arr['execution_ms'] ?? 0,
+                    'providers_checked' => count($arr['risk']['provider_scores'] ?? []),
+                    'email'            => $arr['context']['email'] ?? '',
+                    'ip'               => $arr['context']['ip'] ?? '',
+                    'check_id'         => $arr['check_id'] ?? null,
+                ],
+            ];
         } catch (\Throwable $e) {
             $results[] = ['client_id' => (int)$cid, 'success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    $total = Capsule::table('tblclients')
-        ->where('status', $_POST['status'] ?? 'Active')
-        ->count();
+    // Total count uses the same filters so the JS progress bar is accurate
+    $status   = $_POST['status'] ?? '';
+    $dateFrom = trim($_POST['date_from'] ?? '');
+    $dateTo   = trim($_POST['date_to'] ?? '');
+    $skipDays = max(0, (int)($_POST['skip_recent'] ?? 0));
+
+    $countQuery = Capsule::table('tblclients');
+    if ($status !== '') {
+        $countQuery->where('status', $status);
+    }
+    if ($dateFrom !== '') {
+        $countQuery->where('datecreated', '>=', $dateFrom . ' 00:00:00');
+    }
+    if ($dateTo !== '') {
+        $countQuery->where('datecreated', '<=', $dateTo . ' 23:59:59');
+    }
+    if ($skipDays > 0) {
+        $cutoff = date('Y-m-d H:i:s', strtotime("-{$skipDays} days"));
+        $recentlyChecked = Capsule::table('mod_fps_checks')
+            ->where('created_at', '>=', $cutoff)
+            ->distinct()
+            ->pluck('client_id')
+            ->toArray();
+        if (!empty($recentlyChecked)) {
+            $countQuery->whereNotIn('id', $recentlyChecked);
+        }
+    }
+    $total = $countQuery->count();
 
     return [
-        'success' => true,
-        'results' => $results,
+        'success'      => true,
+        'results'      => $results,
         'total_clients' => $total,
-        'processed' => count($results),
+        'processed'    => count($results),
     ];
 }
 
