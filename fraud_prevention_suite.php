@@ -2449,44 +2449,46 @@ function fps_ajaxRevokeApiKey(): array
 
 function fps_ajaxTopologyData(): array
 {
-    $hours = min((int)($_GET['hours'] ?? 24), 720);
-    $since = date('Y-m-d H:i:s', time() - ($hours * 3600));
+    // hours=0 means "all time" (no date filter); max cap 8760h = 1 year for safety
+    $hoursRaw = (int)($_GET['hours'] ?? 24);
+    $allTime  = ($hoursRaw === 0);
+    $hours    = $allTime ? 0 : min($hoursRaw, 8760);
+    $since    = $allTime ? null : date('Y-m-d H:i:s', time() - ($hours * 3600));
 
-    $events = Capsule::table('mod_fps_geo_events')
-        ->where('created_at', '>=', $since)
-        ->orderByDesc('created_at')
-        ->limit(1000)
-        ->get()
-        ->toArray();
+    // Helper: apply optional since-filter to a query builder
+    $withSince = function ($q) use ($since) {
+        return $since !== null ? $q->where('created_at', '>=', $since) : $q;
+    };
 
-    // Aggregate hotspots
-    $hotspots = Capsule::table('mod_fps_geo_events')
-        ->where('created_at', '>=', $since)
-        ->selectRaw('country_code, ROUND(latitude, 1) as lat, ROUND(longitude, 1) as lng, COUNT(*) as count, AVG(risk_score) as avg_score')
+    $eventsQ  = $withSince(Capsule::table('mod_fps_geo_events'));
+    $events   = $eventsQ->orderByDesc('created_at')->limit(1000)->get()->toArray();
+
+    $hotspots = $withSince(Capsule::table('mod_fps_geo_events'))
+        ->selectRaw(
+            'country_code, ROUND(latitude, 1) as lat, ROUND(longitude, 1) as lng, '
+            . 'COUNT(*) as count, AVG(risk_score) as avg_score'
+        )
         ->groupBy('country_code', Capsule::raw('ROUND(latitude, 1)'), Capsule::raw('ROUND(longitude, 1)'))
         ->orderByDesc('count')
         ->limit(200)
         ->get()
         ->toArray();
 
-    // Global stats for the overlay counters
-    $totalChecks = Capsule::table('mod_fps_geo_events')
-        ->where('created_at', '>=', $since)->count();
-    $activeCountries = Capsule::table('mod_fps_geo_events')
-        ->where('created_at', '>=', $since)->distinct()->count('country_code');
-    $totalBlocks = Capsule::table('mod_fps_geo_events')
-        ->where('created_at', '>=', $since)
+    $totalChecks     = $withSince(Capsule::table('mod_fps_geo_events'))->count();
+    $activeCountries = $withSince(Capsule::table('mod_fps_geo_events'))->distinct()->count('country_code');
+    $totalBlocks     = $withSince(Capsule::table('mod_fps_geo_events'))
         ->whereIn('risk_level', ['high', 'critical'])->count();
 
     return [
         'success' => true,
         'data' => [
-            'events' => array_slice($events, 0, 50),
-            'hotspots' => $hotspots,
-            'total_events' => count($events),
-            'total_checks' => $totalChecks,
+            'events'           => array_slice($events, 0, 50),
+            'hotspots'         => $hotspots,
+            'total_events'     => count($events),
+            'total_checks'     => $totalChecks,
             'active_countries' => $activeCountries,
-            'total_blocks' => $totalBlocks,
+            'total_blocks'     => $totalBlocks,
+            'range_label'      => $allTime ? 'All Time' : ($hours . 'h'),
         ],
     ];
 }
