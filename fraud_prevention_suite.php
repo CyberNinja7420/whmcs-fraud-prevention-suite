@@ -314,11 +314,26 @@ function fraud_prevention_suite_activate(): array
                 $table->string('endpoint', 100)->index();
                 $table->string('method', 10)->default('GET');
                 $table->string('ip_address', 45)->nullable();
+                $table->string('user_agent', 255)->nullable();
+                $table->string('source', 20)->default('anonymous');
                 $table->text('request_params')->nullable();
                 $table->integer('response_code')->default(200);
                 $table->integer('response_time_ms')->nullable();
                 $table->timestamp('created_at')->useCurrent();
             });
+        }
+        // v4.2.3+: add user_agent and source columns if missing (upgrade path)
+        if (Capsule::schema()->hasTable('mod_fps_api_logs')) {
+            if (!Capsule::schema()->hasColumn('mod_fps_api_logs', 'user_agent')) {
+                Capsule::schema()->table('mod_fps_api_logs', function ($table) {
+                    $table->string('user_agent', 255)->nullable()->after('ip_address');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_api_logs', 'source')) {
+                Capsule::schema()->table('mod_fps_api_logs', function ($table) {
+                    $table->string('source', 20)->default('anonymous')->after('user_agent');
+                });
+            }
         }
 
         if (!Capsule::schema()->hasTable('mod_fps_geo_events')) {
