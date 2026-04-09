@@ -303,7 +303,52 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                     $tsToken = $_POST['cf-turnstile-response'] ?? '';
                     $tsResult = $tsValidator->validate($tsToken, $ip);
                     if (!$tsResult['success'] && !in_array('network-error-failopen', $tsResult['error_codes'] ?? [])) {
-                        logActivity("Fraud Prevention: Turnstile FAILED at checkout -- IP: {$ip}, errors: " . implode(', ', $tsResult['error_codes'] ?? []));
+                        $tsErrors = implode(', ', $tsResult['error_codes'] ?? []);
+                        logActivity("Fraud Prevention: Turnstile FAILED at checkout -- IP: {$ip}, errors: {$tsErrors}");
+
+                        // Record the block in mod_fps_checks so it appears in
+                        // dashboard stats, reports, topology, and global intel.
+                        try {
+                            Capsule::table('mod_fps_checks')->insert([
+                                'order_id'     => 0,
+                                'client_id'    => $clientId,
+                                'email'        => $email ?: null,
+                                'ip_address'   => $ip,
+                                'country'      => $country ?: null,
+                                'check_type'   => 'turnstile_block',
+                                'risk_score'   => 100.0,
+                                'risk_level'   => 'critical',
+                                'action_taken' => 'block',
+                                'locked'       => 1,
+                                'reviewed_by'  => 0,
+                                'reviewed_at'  => date('Y-m-d H:i:s'),
+                                'check_context'=> json_encode([
+                                    'turnstile_errors' => $tsResult['error_codes'] ?? [],
+                                    'blocked_at'       => 'checkout',
+                                    'user_agent'       => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
+                                ]),
+                                'created_at'   => date('Y-m-d H:i:s'),
+                            ]);
+                            // Also increment daily stats counters
+                            $statsDate = date('Y-m-d');
+                            $statsRow = Capsule::table('mod_fps_stats')->where('date', $statsDate)->first();
+                            if ($statsRow) {
+                                Capsule::table('mod_fps_stats')->where('date', $statsDate)->increment('checks_total');
+                                Capsule::table('mod_fps_stats')->where('date', $statsDate)->increment('checks_blocked');
+                                if (Capsule::schema()->hasColumn('mod_fps_stats', 'pre_checkout_blocks')) {
+                                    Capsule::table('mod_fps_stats')->where('date', $statsDate)->increment('pre_checkout_blocks');
+                                }
+                            } else {
+                                Capsule::table('mod_fps_stats')->insert([
+                                    'date' => $statsDate, 'checks_total' => 1, 'checks_flagged' => 1,
+                                    'checks_blocked' => 1, 'orders_locked' => 0,
+                                    'reports_submitted' => 0, 'false_positives' => 0,
+                                ]);
+                            }
+                        } catch (\Throwable $e) {
+                            // Non-fatal -- don't let logging failure unblock the bot
+                        }
+
                         return ['Bot protection verification failed. Please refresh the page and try again. Reference: FPS-TS-' . date('ymdHi')];
                     }
                 }

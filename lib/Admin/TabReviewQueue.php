@@ -168,6 +168,7 @@ class TabReviewQueue
                     'registration'     => ['fps-badge-info',     'fa-user-plus',     'Registration'],
                     'bot_signup_block' => ['fps-badge-blocked',  'fa-robot',         'Bot Block'],
                     'bot_detection'    => ['fps-badge-blocked',  'fa-robot',         'Bot'],
+                    'turnstile_block'  => ['fps-badge-critical', 'fa-shield-halved', 'Turnstile'],
                     'manual'           => ['fps-scan-badge-none','fa-hand',          'Manual'],
                     'engine_validation'=> ['fps-scan-badge-none','fa-flask',         'Test'],
                 ];
