@@ -3999,23 +3999,19 @@ function fps_getPublicStats(): array
         try { $countries = array_merge($countries, Capsule::table('mod_fps_global_intel')
             ->whereNotNull('country')->where('country', '!=', '')->distinct()->pluck('country')->toArray()); } catch (\Throwable $e) {}
         $countriesMonitored = count(array_unique($countries));
-        // Count bots: local checks + Turnstile blocks + global intel bot_detected flags.
-        // mod_fps_checks is volatile, so also count from global intel evidence_flags.
-        $botsDetected = (int)Capsule::table('mod_fps_checks')
-            ->where(function($q) {
-                $q->where('check_type', 'bot_detection')
-                  ->orWhere('check_type', 'bot_signup_block')
-                  ->orWhere('check_type', 'turnstile_block')
-                  ->orWhere('details', 'LIKE', '%"bot_detection":1%');
-            })->count();
-        // Enrich with global intel bot detections (persistent, never truncated)
+        // Count confirmed bots: use mod_fps_stats.checks_blocked (persistent, includes
+        // Turnstile blocks + scoring engine blocks) plus high-risk bot intel from the hub.
+        // This avoids inflating the count with low-risk orphan_user flags (which have
+        // bot_detected:true but risk_score=0 and aren't confirmed bot activity).
+        $botsDetected = (int)(Capsule::table('mod_fps_stats')->sum('checks_blocked') ?? 0);
         try {
             if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
-                $intelBots = (int)Capsule::table('mod_fps_global_intel')
+                // Only count high-risk confirmed bots from global intel (score >= 50)
+                $criticalBots = (int)Capsule::table('mod_fps_global_intel')
                     ->where('evidence_flags', 'LIKE', '%"bot_detected":true%')
-                    ->orWhere('evidence_flags', 'LIKE', '%"bot_detected": true%')
+                    ->where('risk_score', '>=', 50)
                     ->count();
-                $botsDetected = max($botsDetected, $intelBots);
+                $botsDetected += $criticalBots;
             }
         } catch (\Throwable $e) {}
 
