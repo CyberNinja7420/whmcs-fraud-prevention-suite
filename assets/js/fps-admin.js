@@ -922,24 +922,56 @@
           var clientDisplay = c.client_name ? _esc(c.client_name) :
             (c.client_id > 0 ? '#' + c.client_id : '<span style="opacity:0.5;" title="' + _esc(c.check_type || 'pre_checkout') + '">' + _esc(c.ip_address || 'Guest') + '</span>');
           var actionClass = (c.action_taken === 'approved') ? 'fps-badge-low' :
-            (c.action_taken === 'denied' || c.action_taken === 'blocked') ? 'fps-badge-critical' :
+            (c.action_taken === 'denied' || c.action_taken === 'blocked' || c.action_taken === 'block') ? 'fps-badge-critical' :
             (c.action_taken === 'held' || c.action_taken === 'flagged') ? 'fps-badge-medium' : '';
           var actionLabel = _esc(c.action_taken || 'pending');
 
+          // Build block reason tooltip from check_context
+          var ctx = {};
+          try { ctx = typeof c.check_context === 'string' ? JSON.parse(c.check_context || '{}') : (c.check_context || {}); } catch(e){}
+          var reasonParts = [];
+          if (c.check_type === 'turnstile_block') {
+            reasonParts.push('Turnstile: ' + ((ctx.turnstile_errors || []).join(', ') || 'failed'));
+            if (ctx.user_agent) reasonParts.push('UA: ' + ctx.user_agent.substring(0, 60));
+          } else if (c.check_type === 'pre_checkout') {
+            reasonParts.push('Pre-checkout fraud check');
+          } else if (c.check_type === 'auto') {
+            reasonParts.push('Automated order check');
+          } else if (c.check_type) {
+            reasonParts.push('Type: ' + c.check_type);
+          }
+          if (c.provider_scores) {
+            try {
+              var ps = typeof c.provider_scores === 'string' ? JSON.parse(c.provider_scores) : c.provider_scores;
+              Object.keys(ps).forEach(function(k) { reasonParts.push(k + ': ' + ps[k]); });
+            } catch(e){}
+          }
+          var reasonTooltip = reasonParts.length > 0 ? reasonParts.join('&#10;') : '';
+
+          // Build action buttons
           var actions = '<div class="fps-action-group" style="gap:2px;">';
           if (!c.reviewed_by) {
             actions += '<button class="fps-btn fps-btn-xs fps-btn-success" onclick="FpsAdmin.approveCheck(' + c.id + ')" title="Approve"><i class="fas fa-check"></i></button>';
             actions += '<button class="fps-btn fps-btn-xs fps-btn-danger" onclick="FpsAdmin.denyCheck(' + c.id + ')" title="Deny"><i class="fas fa-times"></i></button>';
           }
-          actions += '<a href="' + _state.modulelink + '&tab=client_profile&client_id=' + (c.client_id || 0) + '" class="fps-btn fps-btn-xs fps-btn-info" title="View Profile"><i class="fas fa-user-shield"></i></a>';
+          // Profile link: for real clients go to FPS profile, for guests search by email
+          if (c.client_id > 0) {
+            actions += '<a href="' + _state.modulelink + '&tab=client_profile&client_id=' + c.client_id + '" class="fps-btn fps-btn-xs fps-btn-info" title="View FPS Profile"><i class="fas fa-user-shield"></i></a>';
+          } else if (c.email) {
+            actions += '<a href="clients.php?search=' + encodeURIComponent(c.email) + '" class="fps-btn fps-btn-xs fps-btn-secondary" title="Search WHMCS for ' + _esc(c.email) + '"><i class="fas fa-search"></i></a>';
+          }
+          // Report to FraudRecord button (for all checks with IP or email)
+          if (c.ip_address || c.email) {
+            actions += '<button class="fps-btn fps-btn-xs fps-btn-warning" onclick="FpsAdmin.reportToFraudRecord(' + c.id + ')" title="Report to FraudRecord"><i class="fas fa-flag"></i></button>';
+          }
           actions += '</div>';
 
           return '<tr>' +
             '<td style="font-size:0.85rem;">' + clientDisplay + '</td>' +
             '<td style="font-size:0.85rem;">' + _esc(c.email || '') + '</td>' +
             '<td style="font-size:0.85rem;">' + _esc(c.ip_address || '') + '</td>' +
-            '<td><span class="fps-badge fps-badge-' + _esc(c.risk_level || 'low') + '">' + _esc(c.risk_level || '') + ' (' + parseFloat(c.risk_score || 0).toFixed(0) + ')</span></td>' +
-            '<td><span class="fps-badge ' + actionClass + '">' + actionLabel + '</span></td>' +
+            '<td><span class="fps-badge fps-badge-' + _esc(c.risk_level || 'low') + '" title="' + reasonTooltip + '" style="cursor:help;">' + _esc(c.risk_level || '') + ' (' + parseFloat(c.risk_score || 0).toFixed(0) + ')</span></td>' +
+            '<td><span class="fps-badge ' + actionClass + '" title="' + reasonTooltip + '" style="cursor:help;">' + actionLabel + '</span></td>' +
             '<td style="font-size:0.8rem;">' + timeAgo(c.created_at || '') + '</td>' +
             '<td>' + actions + '</td>' +
             '</tr>';
