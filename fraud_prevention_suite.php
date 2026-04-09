@@ -3977,7 +3977,18 @@ function fps_getPublicStats(): array
 
         $totalChecks    = $localChecks + $hubRecords;
         $threatsBlocked = $localBlocked;
-        $uniqueIps = (int)Capsule::table('mod_fps_checks')->whereNotNull('ip_address')->distinct()->count('ip_address');
+
+        // Unique IPs: use persistent mod_fps_stats SUM first, then enrich with
+        // global intel distinct IPs. mod_fps_checks is volatile (can be truncated).
+        $uniqueIps = (int)(Capsule::table('mod_fps_stats')->sum('unique_ips') ?? 0);
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
+                $intelIps = (int)Capsule::table('mod_fps_global_intel')
+                    ->whereNotNull('ip_address')->where('ip_address', '!=', '')
+                    ->distinct()->count('ip_address');
+                $uniqueIps = max($uniqueIps, $intelIps);
+            }
+        } catch (\Throwable $e) {}
 
         // Countries: merge checks + geo_events + global intel for broadest coverage
         $countries = [];
@@ -3988,14 +3999,25 @@ function fps_getPublicStats(): array
         try { $countries = array_merge($countries, Capsule::table('mod_fps_global_intel')
             ->whereNotNull('country')->where('country', '!=', '')->distinct()->pluck('country')->toArray()); } catch (\Throwable $e) {}
         $countriesMonitored = count(array_unique($countries));
-        // Count bots: check_type=bot_* OR bot_detection provider scored > 0
+        // Count bots: local checks + Turnstile blocks + global intel bot_detected flags.
+        // mod_fps_checks is volatile, so also count from global intel evidence_flags.
         $botsDetected = (int)Capsule::table('mod_fps_checks')
             ->where(function($q) {
                 $q->where('check_type', 'bot_detection')
                   ->orWhere('check_type', 'bot_signup_block')
-                  ->orWhere('details', 'LIKE', '%"bot_detection":1%')
-                  ->orWhere('details', 'LIKE', '%"bot_pattern"%');
+                  ->orWhere('check_type', 'turnstile_block')
+                  ->orWhere('details', 'LIKE', '%"bot_detection":1%');
             })->count();
+        // Enrich with global intel bot detections (persistent, never truncated)
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
+                $intelBots = (int)Capsule::table('mod_fps_global_intel')
+                    ->where('evidence_flags', 'LIKE', '%"bot_detected":true%')
+                    ->orWhere('evidence_flags', 'LIKE', '%"bot_detected": true%')
+                    ->count();
+                $botsDetected = max($botsDetected, $intelBots);
+            }
+        } catch (\Throwable $e) {}
 
         // IP intel breakdowns -- count from BOTH cache table AND check details JSON
         $vpnDetected = 0; $torDetected = 0; $proxyDetected = 0; $dcDetected = 0;
@@ -4033,6 +4055,29 @@ function fps_getPublicStats(): array
                     ->where('details', 'LIKE', '%"is_tor":true%')
                     ->orWhere('details', 'LIKE', '%"is_tor": true%')
                     ->count();
+            }
+            // Final fallback: global intel evidence_flags (persistent, community-wide data)
+            if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
+                if ($vpnDetected === 0) {
+                    $vpnDetected = (int)Capsule::table('mod_fps_global_intel')
+                        ->where('evidence_flags', 'LIKE', '%"vpn":true%')
+                        ->orWhere('evidence_flags', 'LIKE', '%"vpn": true%')->count();
+                }
+                if ($torDetected === 0) {
+                    $torDetected = (int)Capsule::table('mod_fps_global_intel')
+                        ->where('evidence_flags', 'LIKE', '%"tor":true%')
+                        ->orWhere('evidence_flags', 'LIKE', '%"tor": true%')->count();
+                }
+                if ($proxyDetected === 0) {
+                    $proxyDetected = (int)Capsule::table('mod_fps_global_intel')
+                        ->where('evidence_flags', 'LIKE', '%"proxy":true%')
+                        ->orWhere('evidence_flags', 'LIKE', '%"proxy": true%')->count();
+                }
+                if ($dcDetected === 0) {
+                    $dcDetected = (int)Capsule::table('mod_fps_global_intel')
+                        ->where('evidence_flags', 'LIKE', '%"datacenter":true%')
+                        ->orWhere('evidence_flags', 'LIKE', '%"datacenter": true%')->count();
+                }
             }
             if (Capsule::schema()->hasTable('mod_fps_email_intel')) {
                 $disposableEmails = (int)Capsule::table('mod_fps_email_intel')->where('is_disposable', 1)->count();
