@@ -166,34 +166,74 @@ class FpsApiRouter
     private function logRequest(?int $keyId, string $endpoint, string $method, int $code, float $startTime): void
     {
         try {
-            Capsule::table('mod_fps_api_logs')->insert([
-                'api_key_id' => $keyId,
-                'endpoint' => substr($endpoint, 0, 100),
-                'method' => $method,
-                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
-                'request_params' => json_encode(array_diff_key($_GET, ['api_key' => 1])),
-                'response_code' => $code,
-                'response_time_ms' => (int)((microtime(true) - $startTime) * 1000),
-                'created_at' => date('Y-m-d H:i:s'),
-            ]);
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255);
 
-            // Update daily stats
-            $today = date('Y-m-d');
-            if (Capsule::table('mod_fps_stats')->where('date', $today)->exists()) {
-                Capsule::table('mod_fps_stats')->where('date', $today)->increment('api_requests');
+            // Classify request source:
+            //   api_key   = authenticated external consumer with a valid API key
+            //   internal  = our own WHMCS pages (topology/overview JS calling the API)
+            //   hub       = Global Intel Hub server
+            //   anonymous = unauthenticated external request
+            $source = 'anonymous';
+            if ($keyId) {
+                $source = 'api_key';
+            } else {
+                // Detect internal requests: referrer from our own domain or
+                // known internal IPs (WAN IP of the WHMCS server itself)
+                $referer = $_SERVER['HTTP_REFERER'] ?? '';
+                $systemUrl = Capsule::table('tblconfiguration')
+                    ->where('setting', 'SystemURL')
+                    ->value('value') ?? '';
+                $systemHost = parse_url($systemUrl, PHP_URL_HOST) ?: '';
+
+                if ($systemHost !== '' && str_contains($referer, $systemHost)) {
+                    $source = 'internal';
+                }
+                // Hub server requests carry X-FPS-Hub-Key or X-FPS-Instance-ID
+                if (!empty($_SERVER['HTTP_X_FPS_HUB_KEY']) || !empty($_SERVER['HTTP_X_FPS_INSTANCE_ID'])) {
+                    $source = 'hub';
+                }
             }
 
-            // Update key usage
+            Capsule::table('mod_fps_api_logs')->insert([
+                'api_key_id'      => $keyId,
+                'endpoint'        => substr($endpoint, 0, 100),
+                'method'          => $method,
+                'ip_address'      => $ip,
+                'user_agent'      => $ua,
+                'source'          => $source,
+                'request_params'  => json_encode(array_diff_key($_GET, ['api_key' => 1])),
+                'response_code'   => $code,
+                'response_time_ms'=> (int)((microtime(true) - $startTime) * 1000),
+                'created_at'      => date('Y-m-d H:i:s'),
+            ]);
+
+            // Update daily stats -- upsert to avoid race condition when the
+            // first activity of the day is an API call (no stats row yet).
+            $today = date('Y-m-d');
+            $row = Capsule::table('mod_fps_stats')->where('date', $today)->first();
+            if ($row) {
+                Capsule::table('mod_fps_stats')->where('date', $today)->increment('api_requests');
+            } else {
+                Capsule::table('mod_fps_stats')->insert([
+                    'date' => $today, 'checks_total' => 0, 'checks_flagged' => 0,
+                    'checks_blocked' => 0, 'orders_locked' => 0,
+                    'reports_submitted' => 0, 'false_positives' => 0,
+                    'api_requests' => 1,
+                ]);
+            }
+
+            // Update per-key usage counters
             if ($keyId) {
                 Capsule::table('mod_fps_api_keys')
                     ->where('id', $keyId)
                     ->update([
-                        'last_used_at' => date('Y-m-d H:i:s'),
+                        'last_used_at'   => date('Y-m-d H:i:s'),
                         'total_requests' => Capsule::raw('total_requests + 1'),
                     ]);
             }
         } catch (\Throwable $e) {
-            // Non-fatal
+            // Non-fatal -- never let logging errors break API responses
         }
     }
 }
