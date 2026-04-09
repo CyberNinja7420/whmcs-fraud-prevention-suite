@@ -30,6 +30,10 @@ This project uses [Semantic Versioning](https://semver.org/).
 - **deleteClientRelatedData() missing reviewed_by** -- FpsBotDetector purge function marked checks with [purged] suffix but didn't set reviewed_by/reviewed_at, leaving them in the review queue; now sets both fields
 - **Dark mode table header unreadable** -- added .fps-theme-dark .fps-table thead th color override to use --fps-text-primary
 - **Settings save silently failing** -- WHMCS 8.x runs all $_POST values through htmlspecialchars(), converting JSON double-quotes to &amp;quot; entities which made json_decode() return null; added htmlspecialchars_decode() before json_decode() for both settings and gateway_thresholds POST payloads; this fix restores Typography, Colors, Provider Keys, and all other Settings tab saves
+- **Bot User Purge toolbar hidden at page bottom** -- AdminAreaFooterOutput injects after footer; added JS to reposition toolbar above the users table on page load
+- **Bot User Purge AJAX URL wrong path** -- relative URL `addonmodules.php` resolved incorrectly from `/whmcsadmin/user/list`; now extracts admin directory from REQUEST_URI to build absolute path
+- **Bot User Purge missing CSRF token** -- scan/purge POST requests had no token; now passes WHMCS CSRF token from generate_token()
+- **Bot User Purge email matching failed** -- WHMCS email cells contain "Email Verified" badge text; changed from exact match to includes() search so bot users highlight correctly (3/3 matched)
 
 ### Changed
 - **Review queue profile links** -- known clients link to FPS client_profile tab; guest/deleted clients show email search button linking to clients.php?search=email

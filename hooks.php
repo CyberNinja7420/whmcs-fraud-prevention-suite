@@ -79,13 +79,23 @@ add_hook('AdminAreaFooterOutput', 2, function ($vars) {
             ->value('setting_value');
         if ($enabled !== '1') return '';
 
-        // Get the module link for AJAX calls
-        $moduleLink = 'addonmodules.php?module=fraud_prevention_suite';
+        // Build absolute AJAX URL using the admin path from configuration.php.
+        // $customadminpath is a PHP variable (NOT in tblconfiguration), so we
+        // extract the admin directory from the current REQUEST_URI which is
+        // guaranteed to contain the correct admin path (e.g. /whmcsadmin/user/list).
+        $adminDir = 'admin';
+        if (preg_match('#^/([^/]+)/user/#', $uri, $m)) {
+            $adminDir = $m[1]; // e.g. "whmcsadmin"
+        }
+        $moduleLink = '/' . $adminDir . '/addonmodules.php?module=fraud_prevention_suite';
+
+        // Get CSRF token for AJAX POST requests
+        $csrfToken = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
 
         // Inject the toolbar and JavaScript
         return <<<FPSHTML
 <style>
-.fps-user-toolbar{background:linear-gradient(135deg,#1a1a2e,#302b63);color:#fff;padding:16px 20px;border-radius:10px;margin:15px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:-apple-system,sans-serif;}
+.fps-user-toolbar{background:linear-gradient(135deg,#1a1a2e,#302b63);color:#fff;padding:16px 20px;border-radius:10px;margin:15px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:-apple-system,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
 .fps-user-toolbar h4{margin:0;font-size:1rem;font-weight:600;}
 .fps-user-toolbar .fps-ubtn{padding:8px 16px;border:none;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;}
 .fps-user-toolbar .fps-ubtn-scan{background:#667eea;color:#fff;}
@@ -102,7 +112,7 @@ tr.fps-bot-user{background:rgba(235,51,73,0.06) !important;}
 tr.fps-bot-user td:first-child::before{content:'\\f544';font-family:'Font Awesome 6 Free';font-weight:900;color:#eb3349;margin-right:6px;font-size:0.8rem;}
 </style>
 
-<div class="fps-user-toolbar" id="fps-user-toolbar">
+<div class="fps-user-toolbar" id="fps-user-toolbar" style="display:none;">
   <h4><i class="fas fa-shield-halved"></i> FPS Bot Detection</h4>
   <button class="fps-ubtn fps-ubtn-scan" onclick="fpsUserPurge.scan()"><i class="fas fa-search"></i> Scan for Bot Users</button>
   <button class="fps-ubtn fps-ubtn-select" onclick="fpsUserPurge.selectBots()" style="display:none;" id="fps-uselect-btn"><i class="fas fa-check-double"></i> Select All Bots</button>
@@ -112,66 +122,94 @@ tr.fps-bot-user td:first-child::before{content:'\\f544';font-family:'Font Awesom
 
 <script>
 (function(){
+  // Absolute AJAX URL so it works from /admin/user/list (different path depth)
   var moduleLink = '{$moduleLink}';
+  var csrfToken  = '{$csrfToken}';
   var botUserIds = [];
   var selectedIds = new Set();
+
+  // Reposition toolbar: move from footer to above the users table
+  var toolbar = document.getElementById('fps-user-toolbar');
+  if (toolbar) {
+    // Find the main content area -- WHMCS uses .content-wrapper > section.content
+    var table = document.querySelector('.content-wrapper table, section.content table, .tab-content table');
+    if (table) {
+      table.parentNode.insertBefore(toolbar, table);
+    } else {
+      // Fallback: insert after the page heading
+      var heading = document.querySelector('.content-header, h1, .main-title');
+      if (heading) heading.parentNode.insertBefore(toolbar, heading.nextSibling);
+    }
+    toolbar.style.display = '';
+  }
+
+  function ajaxPost(action, extraBody, callback) {
+    var url = moduleLink + '&ajax=1&a=' + action;
+    var body = 'token=' + encodeURIComponent(csrfToken);
+    if (extraBody) body += '&' + extraBody;
+    fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, credentials:'same-origin', body:body})
+      .then(function(r){return r.json();})
+      .then(function(data){ callback(null, data); })
+      .catch(function(err){ callback(err, null); });
+  }
 
   window.fpsUserPurge = {
     scan: function() {
       var status = document.getElementById('fps-ustatus');
       if (status) status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
 
-      var url = moduleLink + '&ajax=1&a=detect_orphan_users';
-      fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, credentials:'same-origin'})
-        .then(function(r){return r.json();})
-        .then(function(data){
-          if (data.error) { if (status) status.textContent = 'Error: ' + data.error; return; }
+      ajaxPost('detect_orphan_users', '', function(err, data) {
+        if (err || (data && data.error)) {
+          if (status) status.textContent = 'Error: ' + (data ? data.error : err.message);
+          return;
+        }
 
-          botUserIds = (data.users || []).map(function(u){return u.id;});
-          var botEmails = {};
-          (data.users || []).forEach(function(u){ botEmails[u.email.toLowerCase()] = u; });
+        botUserIds = (data.users || []).map(function(u){return u.id;});
+        var botEmails = {};
+        (data.users || []).forEach(function(u){ botEmails[u.email.toLowerCase()] = u; });
 
-          // Highlight bot users in the existing table
-          var rows = document.querySelectorAll('table tbody tr, .dataTables_wrapper tbody tr');
-          var marked = 0;
-          rows.forEach(function(row){
-            var cells = row.querySelectorAll('td');
-            // Try to find the email cell (usually 2nd or 3rd column)
-            var found = false;
-            cells.forEach(function(cell){
-              var text = (cell.textContent || '').trim().toLowerCase();
-              if (botEmails[text]) {
-                found = true;
-                row.classList.add('fps-bot-user');
-                // Add checkbox if not already present
-                if (!row.querySelector('.fps-ucheck')) {
-                  var cb = document.createElement('input');
-                  cb.type = 'checkbox';
-                  cb.className = 'fps-ucheck';
-                  cb.dataset.userId = botEmails[text].id;
-                  cb.onchange = function(){ fpsUserPurge._toggle(parseInt(this.dataset.userId), this.checked); };
-                  cells[0].prepend(cb);
-                  cb.insertAdjacentHTML('afterend', ' ');
-                }
-                marked++;
+        // Highlight bot users in the existing table.
+        // WHMCS email cells contain extra text like "Email Verified" badges,
+        // so we use includes() instead of exact match.
+        var rows = document.querySelectorAll('table tbody tr, .dataTables_wrapper tbody tr');
+        var marked = 0;
+        var emailKeys = Object.keys(botEmails);
+        rows.forEach(function(row){
+          var cells = row.querySelectorAll('td');
+          var rowText = '';
+          cells.forEach(function(cell){ rowText += ' ' + (cell.textContent || ''); });
+          rowText = rowText.toLowerCase();
+          for (var i = 0; i < emailKeys.length; i++) {
+            if (rowText.indexOf(emailKeys[i]) !== -1) {
+              row.classList.add('fps-bot-user');
+              if (!row.querySelector('.fps-ucheck')) {
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'fps-ucheck';
+                cb.dataset.userId = botEmails[emailKeys[i]].id;
+                cb.onchange = function(){ fpsUserPurge._toggle(parseInt(this.dataset.userId), this.checked); };
+                cells[0].prepend(cb);
+                cb.insertAdjacentHTML('afterend', ' ');
               }
-            });
-          });
-
-          if (status) {
-            status.innerHTML = '<span class="fps-ubadge fps-ubadge-red">' + data.total + ' bot users</span> ' +
-              '<span class="fps-ubadge fps-ubadge-green">' + (data.total_users - data.total) + ' real</span> ' +
-              '(' + marked + ' highlighted in table)';
+              marked++;
+              break;
+            }
           }
+        });
 
-          if (data.total > 0) {
-            var selectBtn = document.getElementById('fps-uselect-btn');
-            var purgeBtn = document.getElementById('fps-upurge-btn');
-            if (selectBtn) selectBtn.style.display = '';
-            if (purgeBtn) purgeBtn.style.display = '';
-          }
-        })
-        .catch(function(err){ if (status) status.textContent = 'Scan failed: ' + err.message; });
+        if (status) {
+          status.innerHTML = '<span class="fps-ubadge fps-ubadge-red">' + data.total + ' bot users</span> ' +
+            '<span class="fps-ubadge fps-ubadge-green">' + (data.total_users - data.total) + ' real</span> ' +
+            '(' + marked + ' highlighted in table)';
+        }
+
+        if (data.total > 0) {
+          var selectBtn = document.getElementById('fps-uselect-btn');
+          var purgeBtn = document.getElementById('fps-upurge-btn');
+          if (selectBtn) selectBtn.style.display = '';
+          if (purgeBtn) purgeBtn.style.display = '';
+        }
+      });
     },
 
     _toggle: function(id, checked) {
@@ -191,16 +229,14 @@ tr.fps-bot-user td:first-child::before{content:'\\f544';font-family:'Font Awesom
       var status = document.getElementById('fps-ustatus');
       if (status) status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Purging...';
 
-      var url = moduleLink + '&ajax=1&a=purge_orphan_users';
-      var body = 'ids=' + ids.join(',');
-      fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, credentials:'same-origin', body:body})
-        .then(function(r){return r.json();})
-        .then(function(data){
-          if (data.error) { if (status) status.textContent = 'Error: ' + data.error; return; }
-          if (status) status.innerHTML = '<span class="fps-ubadge fps-ubadge-green">' + data.purged + ' users purged</span> Reloading...';
-          setTimeout(function(){ location.reload(); }, 1500);
-        })
-        .catch(function(err){ if (status) status.textContent = 'Purge failed: ' + err.message; });
+      ajaxPost('purge_orphan_users', 'ids=' + ids.join(','), function(err, data) {
+        if (err || (data && data.error)) {
+          if (status) status.textContent = 'Error: ' + (data ? data.error : err.message);
+          return;
+        }
+        if (status) status.innerHTML = '<span class="fps-ubadge fps-ubadge-green">' + data.purged + ' users purged</span> Reloading...';
+        setTimeout(function(){ location.reload(); }, 1500);
+      });
     }
   };
 })();
