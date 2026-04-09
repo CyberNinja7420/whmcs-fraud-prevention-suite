@@ -2866,17 +2866,48 @@ function fraud_prevention_suite_clientarea(array $vars): array
     if ($page === 'topology') {
         $tplPath = __DIR__ . '/templates/topology.tpl';
         if (file_exists($tplPath)) {
-            // Use geo_events for topology stats (same source as API /v1/stats/global)
+            // Platform-wide stats: use mod_fps_stats (daily aggregates, persistent)
+            // combined with global intel hub totals for the full platform picture.
+            // This survives "Clear All Checks" since daily stats are never truncated.
             $totalChecks = 0; $activeCountries = 0; $totalBlocks = 0;
             try {
-                $totalChecks = Capsule::table('mod_fps_geo_events')->count();
-                $activeCountries = Capsule::table('mod_fps_geo_events')
-                    ->whereNotNull('country_code')->where('country_code', '!=', '')
-                    ->distinct()->count('country_code');
-                $totalBlocks = Capsule::table('mod_fps_geo_events')
-                    ->whereIn('risk_level', ['high', 'critical'])->count();
+                // Local all-time totals from daily aggregate table
+                $localChecks  = (int)(Capsule::table('mod_fps_stats')->sum('checks_total') ?? 0);
+                $localBlocked = (int)(Capsule::table('mod_fps_stats')->sum('checks_blocked') ?? 0);
+
+                // Hub community intel (shared across all FPS instances)
+                $hubRecords = 0;
+                try {
+                    if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
+                        $hubRecords = (int)Capsule::table('mod_fps_global_intel')->count();
+                    }
+                } catch (\Throwable $e) {}
+
+                $totalChecks = $localChecks + $hubRecords;
+                $totalBlocks = $localBlocked;
+
+                // Countries: merge geo_events + checks + global intel for broadest coverage
+                $countries = [];
+                try {
+                    $countries = array_merge($countries,
+                        Capsule::table('mod_fps_geo_events')
+                            ->whereNotNull('country_code')->where('country_code', '!=', '')
+                            ->distinct()->pluck('country_code')->toArray());
+                } catch (\Throwable $e) {}
+                try {
+                    $countries = array_merge($countries,
+                        Capsule::table('mod_fps_checks')
+                            ->whereNotNull('country')->where('country', '!=', '')
+                            ->distinct()->pluck('country')->toArray());
+                } catch (\Throwable $e) {}
+                try {
+                    $countries = array_merge($countries,
+                        Capsule::table('mod_fps_global_intel')
+                            ->whereNotNull('country')->where('country', '!=', '')
+                            ->distinct()->pluck('country')->toArray());
+                } catch (\Throwable $e) {}
+                $activeCountries = count(array_unique($countries));
             } catch (\Throwable $e) {
-                // Fallback to mod_fps_checks if geo_events fails
                 $stats = fps_getPublicStats();
                 $totalChecks = $stats['total_checks'] ?? 0;
                 $activeCountries = $stats['countries_monitored'] ?? 0;
@@ -3932,21 +3963,31 @@ function fps_validateFraudRecordKey(string $apiKey): array
 function fps_getPublicStats(): array
 {
     try {
-        $monthAgo = date('Y-m-d', strtotime('-30 days'));
-        $totalChecks = (int)Capsule::table('mod_fps_checks')->count();
-        $threatsBlocked = (int)Capsule::table('mod_fps_checks')->whereIn('risk_level', ['high', 'critical'])->count();
-        $uniqueIps = (int)Capsule::table('mod_fps_checks')->whereNotNull('ip_address')->distinct()->count('ip_address');
-        // Countries: combine checks table + geo_events for broader coverage
-        $checkCountries = Capsule::table('mod_fps_checks')
-            ->whereNotNull('country')->where('country', '!=', '')
-            ->distinct()->pluck('country')->toArray();
-        $geoCountries = [];
+        // Use mod_fps_stats (daily aggregates) for all-time totals -- these persist
+        // even after "Clear All Checks" truncates mod_fps_checks.
+        // Add hub community intel for the combined platform total.
+        $localChecks  = (int)(Capsule::table('mod_fps_stats')->sum('checks_total') ?? 0);
+        $localBlocked = (int)(Capsule::table('mod_fps_stats')->sum('checks_blocked') ?? 0);
+        $hubRecords   = 0;
         try {
-            $geoCountries = Capsule::table('mod_fps_geo_events')
-                ->whereNotNull('country_code')->where('country_code', '!=', '')
-                ->distinct()->pluck('country_code')->toArray();
+            if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
+                $hubRecords = (int)Capsule::table('mod_fps_global_intel')->count();
+            }
         } catch (\Throwable $e) {}
-        $countriesMonitored = count(array_unique(array_merge($checkCountries, $geoCountries)));
+
+        $totalChecks    = $localChecks + $hubRecords;
+        $threatsBlocked = $localBlocked;
+        $uniqueIps = (int)Capsule::table('mod_fps_checks')->whereNotNull('ip_address')->distinct()->count('ip_address');
+
+        // Countries: merge checks + geo_events + global intel for broadest coverage
+        $countries = [];
+        try { $countries = array_merge($countries, Capsule::table('mod_fps_checks')
+            ->whereNotNull('country')->where('country', '!=', '')->distinct()->pluck('country')->toArray()); } catch (\Throwable $e) {}
+        try { $countries = array_merge($countries, Capsule::table('mod_fps_geo_events')
+            ->whereNotNull('country_code')->where('country_code', '!=', '')->distinct()->pluck('country_code')->toArray()); } catch (\Throwable $e) {}
+        try { $countries = array_merge($countries, Capsule::table('mod_fps_global_intel')
+            ->whereNotNull('country')->where('country', '!=', '')->distinct()->pluck('country')->toArray()); } catch (\Throwable $e) {}
+        $countriesMonitored = count(array_unique($countries));
         // Count bots: check_type=bot_* OR bot_detection provider scored > 0
         $botsDetected = (int)Capsule::table('mod_fps_checks')
             ->where(function($q) {
