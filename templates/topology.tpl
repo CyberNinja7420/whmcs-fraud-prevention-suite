@@ -44,7 +44,7 @@
             </div>
             <div>
                 <div class="topo-brand-name">Global Fraud Threat Topology</div>
-                <div class="topo-brand-sub">Real-time fraud intelligence powered by FPS v4.2.2</div>
+                <div class="topo-brand-sub">Real-time fraud intelligence powered by FPS v{$module_version}</div>
             </div>
         </div>
         <div class="topo-header-right">
@@ -112,7 +112,7 @@
     </div>
 
     <div class="topo-footer">
-        <span>Fraud Prevention Suite v4.2.2 by EnterpriseVPS</span>
+        <span>Fraud Prevention Suite v{$module_version} by EnterpriseVPS</span>
         <span>Data updated every 60 seconds</span>
         <a href="?m=fraud_prevention_suite" style="color:var(--topo-cyan);text-decoration:none;">
             <i class="fas fa-arrow-left"></i> Back to Overview
@@ -121,7 +121,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.31.0/dist/globe.gl.min.js"></script>
-    <script src="/modules/addons/fraud_prevention_suite/assets/js/fps-topology.js?v=4.2.10"></script>
+    <script src="/modules/addons/fraud_prevention_suite/assets/js/fps-topology.js?v={$module_version}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof FpsTopology !== 'undefined') {
