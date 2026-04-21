@@ -23,6 +23,23 @@ if (file_exists($autoloaderPath)) {
     require_once $autoloaderPath;
 }
 
+// Ensure the FPS_MODULE_VERSION constant is available in this entry point.
+// The constant is normally defined at the top of fraud_prevention_suite.php,
+// which WHMCS loads on admin requests - but this public/api.php bootstrap
+// doesn't pull in that file. Read the version.json manifest so X-FPS-Version
+// is accurate without re-including the full module.
+if (!defined('FPS_MODULE_VERSION')) {
+    $versionManifest = dirname(__DIR__) . '/version.json';
+    $ver = 'unknown';
+    if (file_exists($versionManifest)) {
+        $decoded = json_decode((string) file_get_contents($versionManifest), true);
+        if (is_array($decoded) && !empty($decoded['version'])) {
+            $ver = (string) $decoded['version'];
+        }
+    }
+    define('FPS_MODULE_VERSION', $ver);
+}
+
 // Route to API
 if (class_exists('\\FraudPreventionSuite\\Lib\\Api\\FpsApiRouter')) {
     $router = new \FraudPreventionSuite\Lib\Api\FpsApiRouter();
