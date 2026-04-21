@@ -63,13 +63,12 @@ add_hook('AdminAreaHeaderOutput', 1, function ($vars) {
 add_hook('AdminAreaFooterOutput', 2, function ($vars) {
     try {
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        // Only inject on the WHMCS Users list page (/admin/user/list or /dj28hds/user/list)
-        if (strpos($uri, '/user/list') === false && strpos($uri, 'user') === false) {
-            return '';
-        }
-        // Check page more precisely -- the Users page has 'user' in the filename context
-        $filename = $vars['filename'] ?? '';
-        if ($filename !== '' && strpos($filename, 'user') === false && strpos($uri, '/user/') === false) {
+        // Strict URL match: only the WHMCS Users list page (custom admin dirs
+        // supported). Previous broad strpos(uri, 'user') also matched unrelated
+        // admin pages like clientsummary?userid= or filenames containing 'user'.
+        // We require /<admindir>/user/list as a path segment, with optional
+        // query-string suffix.
+        if (!preg_match('#/[^/]+/user/list(\?|$)#', $uri)) {
             return '';
         }
 

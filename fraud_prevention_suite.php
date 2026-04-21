@@ -798,6 +798,20 @@ function fps_createDefaultProducts(): array
     $created = 0;
 
     try {
+        // Resolve the WHMCS default currency ID (do NOT hardcode to 1).
+        // Order of preference:
+        //   1. tblcurrencies row with default=1 (admin-chosen default currency)
+        //   2. lowest-id currency row (safe for pre-8.x)
+        //   3. integer 1 as last-resort fallback
+        try {
+            $defaultCurrency = (int) (Capsule::table('tblcurrencies')->where('default', 1)->value('id') ?? 0);
+            if ($defaultCurrency < 1) {
+                $defaultCurrency = (int) (Capsule::table('tblcurrencies')->orderBy('id')->value('id') ?? 1);
+            }
+        } catch (\Throwable $e) {
+            $defaultCurrency = 1;
+        }
+
         // Create product group
         $group = Capsule::table('tblproductgroups')->where('name', 'Fraud Intelligence API')->first();
         $groupId = $group->id ?? 0;
@@ -966,10 +980,11 @@ function fps_createDefaultProducts(): array
             ]);
 
             if ($pid > 0) {
-                // Set pricing (monthly only, other cycles disabled)
+                // Set pricing (monthly only, other cycles disabled).
+                // Currency ID resolved from tblcurrencies default above.
                 Capsule::table('tblpricing')->insertOrIgnore([
                     'type'           => 'product',
-                    'currency'       => 1,
+                    'currency'       => $defaultCurrency,
                     'relid'          => $pid,
                     'msetupfee'      => '0.00',
                     'qsetupfee'      => '0.00',
