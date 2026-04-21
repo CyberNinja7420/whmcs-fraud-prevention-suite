@@ -740,12 +740,21 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         // Turnstile load failed silently - CSS still loads below
     }
 
-    // Inject site-wide CSS from static file (cached by browser).
-    // Cache-bust string uses the module version so bumps auto-invalidate, and
-    // falls back to filemtime() for fine-grained dev iteration.
-    $cssPath = __DIR__ . '/assets/css/fps-site-theme.css';
-    $cssVer  = (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'v') . '-' . (file_exists($cssPath) ? (string) filemtime($cssPath) : '0');
-    $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-site-theme.css?v=' . $cssVer . '">';
+    // Inject site-wide CSS from static file (audit issue #13: fps-site-theme.css
+    // contains site-wide branding/merchandising overrides that are NOT core to
+    // fraud prevention - gated behind admin flag, default on for existing installs).
+    $themeEnabled = '1';
+    try {
+        $themeEnabled = Capsule::table('mod_fps_settings')
+            ->where('setting_key', 'enable_site_theme_overrides')
+            ->value('setting_value') ?? '1';
+    } catch (\Throwable $e) {}
+
+    if ($themeEnabled === '1') {
+        $cssPath = __DIR__ . '/assets/css/fps-site-theme.css';
+        $cssVer  = (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'v') . '-' . (file_exists($cssPath) ? (string) filemtime($cssPath) : '0');
+        $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-site-theme.css?v=' . $cssVer . '">';
+    }
 
     // Inject custom client theme color overrides from admin settings
     try {
@@ -1161,20 +1170,46 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         . '})();'
         . '</script>';
 
-    // Hide Invoice Extensions + redirect Chat Now via CSS + early JS (no flash)
-    $output .= '<style>'
-        . 'a[href*="invoiceextension"]{display:none!important}'
-        . 'li:has(>a[href*="invoiceextension"]){display:none!important}'
-        . '.nav-item-addon-invoiceextension{display:none!important}'
-        . '</style>';
-    $output .= '<script>'
-        . 'document.addEventListener("DOMContentLoaded",function(){'
-        . 'document.querySelectorAll("a").forEach(function(a){'
-        . 'if((a.textContent||"").trim()==="Invoice Extensions"){'
-        . 'var p=a.closest("li")||a.parentElement;if(p)p.style.display="none";}'
-        . 'if((a.textContent||"").trim()==="Chat Now"){a.href="/submitticket.php";a.removeAttribute("onclick");}'
-        . '});});'
-        . '</script>';
+    // Optional site-wide UI tweaks (audit issue #13: these are unrelated to the
+    // core fraud-prevention mission and are gated behind admin-visible feature
+    // flags so operators can opt out without code changes).
+    //
+    // Defaults: currently 'on' to preserve behaviour of the live install that
+    // already relies on these. Operators can toggle them under Settings ->
+    // Site Theme Extras once Batch 8 of the TabSettings work is rolled out.
+    try {
+        $flags = Capsule::table('mod_fps_settings')
+            ->whereIn('setting_key', ['hide_invoice_extensions', 'redirect_chat_now'])
+            ->pluck('setting_value', 'setting_key')
+            ->toArray();
+        $hideInvExt    = ($flags['hide_invoice_extensions'] ?? '1') === '1';
+        $redirectChat  = ($flags['redirect_chat_now']       ?? '1') === '1';
+    } catch (\Throwable $e) {
+        $hideInvExt = $redirectChat = true; // safe defaults preserve behaviour
+    }
+
+    if ($hideInvExt) {
+        $output .= '<style>'
+            . 'a[href*="invoiceextension"]{display:none!important}'
+            . 'li:has(>a[href*="invoiceextension"]){display:none!important}'
+            . '.nav-item-addon-invoiceextension{display:none!important}'
+            . '</style>';
+    }
+
+    if ($hideInvExt || $redirectChat) {
+        $js = '<script>document.addEventListener("DOMContentLoaded",function(){'
+            . 'document.querySelectorAll("a").forEach(function(a){';
+        if ($hideInvExt) {
+            $js .= 'if((a.textContent||"").trim()==="Invoice Extensions"){'
+                .   'var p=a.closest("li")||a.parentElement;if(p)p.style.display="none";}';
+        }
+        if ($redirectChat) {
+            $js .= 'if((a.textContent||"").trim()==="Chat Now"){'
+                .   'a.href="/submitticket.php";a.removeAttribute("onclick");}';
+        }
+        $js .= '});});</script>';
+        $output .= $js;
+    }
 
     return $output;
     } catch (\Throwable $e) {
@@ -1242,6 +1277,17 @@ add_hook('ClientAreaFooterOutput', 2, function ($vars) {
 // ---------------------------------------------------------------------------
 add_hook('ClientAreaFooterOutput', 3, function ($vars) {
     try {
+        // Feature flag (audit issue #13): this is site-merchandising content,
+        // not fraud prevention. Gated behind an admin-visible toggle so operators
+        // can disable without code changes. Default 'on' to preserve behaviour
+        // of the existing live install.
+        $enabled = Capsule::table('mod_fps_settings')
+            ->where('setting_key', 'enable_featured_products')
+            ->value('setting_value') ?? '1';
+        if ($enabled !== '1') {
+            return '';
+        }
+
         // Only inject on homepage
         // WHMCS passes 'filename' without extension, Lagom2 homepage = 'homepage'
         $filename = $vars['filename'] ?? '';
