@@ -208,20 +208,9 @@ class FpsApiRouter
                 'created_at'      => date('Y-m-d H:i:s'),
             ]);
 
-            // Update daily stats -- upsert to avoid race condition when the
-            // first activity of the day is an API call (no stats row yet).
-            $today = date('Y-m-d');
-            $row = Capsule::table('mod_fps_stats')->where('date', $today)->first();
-            if ($row) {
-                Capsule::table('mod_fps_stats')->where('date', $today)->increment('api_requests');
-            } else {
-                Capsule::table('mod_fps_stats')->insert([
-                    'date' => $today, 'checks_total' => 0, 'checks_flagged' => 0,
-                    'checks_blocked' => 0, 'orders_locked' => 0,
-                    'reports_submitted' => 0, 'false_positives' => 0,
-                    'api_requests' => 1,
-                ]);
-            }
+            // Record via shared stats collector - handles the day-row upsert
+            // consistently with the hook-based stats paths.
+            (new \FraudPreventionSuite\Lib\FpsStatsCollector())->recordEvent('api_request');
 
             // Update per-key usage counters
             if ($keyId) {

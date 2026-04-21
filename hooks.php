@@ -329,21 +329,10 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                                 ]),
                                 'created_at'   => date('Y-m-d H:i:s'),
                             ]);
-                            // Also increment daily stats counters
-                            $statsDate = date('Y-m-d');
-                            $statsRow = Capsule::table('mod_fps_stats')->where('date', $statsDate)->first();
-                            if ($statsRow) {
-                                Capsule::table('mod_fps_stats')->where('date', $statsDate)->increment('checks_total');
-                                Capsule::table('mod_fps_stats')->where('date', $statsDate)->increment('checks_blocked');
-                                if (Capsule::schema()->hasColumn('mod_fps_stats', 'pre_checkout_blocks')) {
-                                    Capsule::table('mod_fps_stats')->where('date', $statsDate)->increment('pre_checkout_blocks');
-                                }
-                            } else {
-                                Capsule::table('mod_fps_stats')->insert([
-                                    'date' => $statsDate, 'checks_total' => 1, 'checks_flagged' => 1,
-                                    'checks_blocked' => 1, 'orders_locked' => 0,
-                                    'reports_submitted' => 0, 'false_positives' => 0,
-                                ]);
+                            // Record daily counters via the shared recorder so this path
+                            // stays consistent with the normal-check and API-request paths.
+                            if (class_exists('\\FraudPreventionSuite\\Lib\\FpsStatsCollector')) {
+                                (new \FraudPreventionSuite\Lib\FpsStatsCollector())->recordEvent('turnstile_block');
                             }
                         } catch (\Throwable $e) {
                             // Non-fatal -- don't let logging failure unblock the bot
@@ -514,7 +503,15 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
 
         $score = min($score, 100);
 
-        // Get default thresholds
+        // Resolve pre-checkout thresholds.
+        //
+        // Design note on duplicate engines (see audit issue #5): The inline
+        // scoring above is retained for performance - the checkout hook runs
+        // in a user-facing path with a <2s budget, and calling the full
+        // FpsCheckRunner::runPreCheckout() would pull in too many dependencies.
+        // We keep the inline provider orchestration but UNIFY the threshold
+        // resolution + persistence + stats via shared helpers (below) so that
+        // changes to admin settings affect this path consistently.
         $blockThreshold = (float)(Capsule::table('tbladdonmodules')
             ->where('module', 'fraud_prevention_suite')
             ->where('setting', 'pre_checkout_block_threshold')
@@ -522,7 +519,10 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
 
         $captchaThreshold = 60;
 
-        // Per-gateway threshold override
+        // Per-gateway threshold override (mod_fps_gateway_thresholds keeps its
+        // own block_threshold/flag_threshold columns - that's its own scope and
+        // is a valid use; this is NOT the global action-threshold drift from
+        // audit issue #4).
         $selectedGateway = $_SESSION['paymentmethod'] ?? '';
         if ($selectedGateway !== '') {
             $gwRow = Capsule::table('mod_fps_gateway_thresholds')
@@ -590,13 +590,11 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             'created_at' => date('Y-m-d H:i:s'),
         ]);
 
-        // Update stats
-        $today = date('Y-m-d');
-        if (Capsule::table('mod_fps_stats')->where('date', $today)->exists()) {
-            Capsule::table('mod_fps_stats')->where('date', $today)->increment('checks_total');
-            if ($score >= $blockThreshold) {
-                Capsule::table('mod_fps_stats')->where('date', $today)->increment('pre_checkout_blocks');
-            }
+        // Record via shared stats collector (same path as turnstile_block and api_request).
+        // Distinguishes blocks from allows so dashboard counters stay accurate.
+        if (class_exists('\\FraudPreventionSuite\\Lib\\FpsStatsCollector')) {
+            $stats = new \FraudPreventionSuite\Lib\FpsStatsCollector();
+            $stats->recordEvent($score >= $blockThreshold ? 'pre_checkout_block' : 'pre_checkout_allow');
         }
 
         // Block if score exceeds threshold
