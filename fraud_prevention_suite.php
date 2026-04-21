@@ -12,6 +12,16 @@ use WHMCS\Database\Capsule;
 require_once __DIR__ . '/lib/Autoloader.php';
 
 // ---------------------------------------------------------------------------
+// VERSION (single source of truth)
+// ---------------------------------------------------------------------------
+// All user-visible, webhook-emitted, API-header, and DB-seeded version strings
+// derive from this constant. Bump it here when releasing a new version.
+
+if (!defined('FPS_MODULE_VERSION')) {
+    define('FPS_MODULE_VERSION', '4.2.3');
+}
+
+// ---------------------------------------------------------------------------
 // MODULE METADATA
 // ---------------------------------------------------------------------------
 
@@ -20,7 +30,7 @@ function fraud_prevention_suite_config(): array
     return [
         'name'        => 'Fraud Prevention Suite',
         'description' => 'Enterprise-grade fraud intelligence platform with 15+ detection engines, adaptive ML scoring, Tor/datacenter detection, velocity analysis, behavioral fingerprinting, webhook alerts, and 1000X admin dashboard.',
-        'version'     => '4.2.3',
+        'version'     => FPS_MODULE_VERSION,
         'author'      => 'EnterpriseVPS',
         'language'    => 'english',
         'fields'      => [
@@ -607,9 +617,12 @@ function fraud_prevention_suite_activate(): array
             });
         }
 
-        // Seed default settings (wrapped in try/catch for v1.0 compat)
+        // Seed default settings (wrapped in try/catch for v1.0 compat).
+        // module_version seed uses the current FPS_MODULE_VERSION so fresh installs
+        // match what the config() metadata advertises; existing installs retain
+        // whatever value they had and upgrade paths update it at the bottom of _upgrade().
         $defaults = [
-            'module_version' => '3.0.0',
+            'module_version' => FPS_MODULE_VERSION,
             'fingerprint_enabled' => '1',
             'ip_intel_enabled' => '1',
             'email_validation_enabled' => '1',
@@ -747,7 +760,7 @@ function fraud_prevention_suite_activate(): array
         // Auto-create API products
         $productResult = fps_createDefaultProducts();
 
-        $desc = 'Fraud Prevention Suite v4.2.3 activated successfully. All tables ready.';
+        $desc = 'Fraud Prevention Suite v' . FPS_MODULE_VERSION . ' activated successfully. All tables ready.';
         if (!empty($productResult['created'])) {
             $desc .= ' Created ' . $productResult['created'] . ' API products.';
         }
@@ -1189,13 +1202,19 @@ function fraud_prevention_suite_output(array $vars): void
         return;
     }
 
-    // Load admin CSS/JS (cache bust with version)
-    $assetsUrl = '../modules/addons/fraud_prevention_suite/assets';
-    $cacheBust = '?v=' . time();
-    echo '<link rel="stylesheet" href="' . $assetsUrl . '/css/fps-1000x.css' . $cacheBust . '">';
+    // Load admin CSS/JS. Cache-bust string combines module version with asset
+    // filemtime so browsers cache within a release but pick up hotfixes.
+    $assetsUrl  = '../modules/addons/fraud_prevention_suite/assets';
+    $assetsRoot = __DIR__ . '/assets';
+    $bust = static function (string $rel) use ($assetsRoot): string {
+        $p = $assetsRoot . '/' . ltrim($rel, '/');
+        $mt = file_exists($p) ? (string) filemtime($p) : '0';
+        return '?v=' . FPS_MODULE_VERSION . '-' . $mt;
+    };
+    echo '<link rel="stylesheet" href="' . $assetsUrl . '/css/fps-1000x.css' . $bust('css/fps-1000x.css') . '">';
     echo '<script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>';
-    echo '<script src="' . $assetsUrl . '/js/fps-admin.js' . $cacheBust . '"></script>';
-    echo '<script src="' . $assetsUrl . '/js/fps-charts.js' . $cacheBust . '"></script>';
+    echo '<script src="' . $assetsUrl . '/js/fps-admin.js' . $bust('js/fps-admin.js') . '"></script>';
+    echo '<script src="' . $assetsUrl . '/js/fps-charts.js' . $bust('js/fps-charts.js') . '"></script>';
     // WHMCS CSRF token (available globally for all AJAX calls)
     // WHMCS 8.x uses generate_token() for CSRF -- $_SESSION['token'] is empty
     $csrfToken = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
@@ -1417,7 +1436,7 @@ function fraud_prevention_suite_output(array $vars): void
     echo '<div class="fps-module-wrapper' . $darkClass . '"' . $zoomStyle . '>';
     echo '<div class="fps-header">';
     echo '  <div class="fps-header-content">';
-    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v4.2.3</span></h2>';
+    echo '    <h2><i class="fas fa-shield-halved"></i> Fraud Prevention Suite <span class="fps-version">v' . FPS_MODULE_VERSION . '</span></h2>';
     echo '    <div class="fps-header-actions">';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAdmin.toggleTheme()" title="Toggle Dark/Light Mode"><i class="fas fa-moon"></i></button>';
     echo '      <button class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsAdmin.refreshDashboard()"><i class="fas fa-sync-alt"></i> Refresh</button>';
@@ -2994,7 +3013,7 @@ function fraud_prevention_suite_clientarea(array $vars): array
     $gdprUrl = 'index.php?m=fraud_prevention_suite&page=gdpr-request';
     $commonVars = [
         'stats'          => $liveStats,
-        'module_version' => '4.2.3',
+        'module_version' => FPS_MODULE_VERSION,
         'topology_url'   => 'index.php?m=fraud_prevention_suite&page=topology',
         'global_url'     => 'index.php?m=fraud_prevention_suite&page=global',
         'api_docs_url'   => 'index.php?m=fraud_prevention_suite&page=api-docs',

@@ -40,7 +40,7 @@ class FpsApiRouter
         header('Access-Control-Allow-Origin: ' . ($originAllowed ? $origin : '*'));
         header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
         header('Access-Control-Allow-Headers: X-FPS-API-Key, Content-Type');
-        header('X-FPS-Version: 2.0.0');
+        header('X-FPS-Version: ' . (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown'));
 
         if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
             http_response_code(204);
