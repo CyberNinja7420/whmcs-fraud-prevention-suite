@@ -652,6 +652,13 @@ function fraud_prevention_suite_activate(): array
             'geo_events_retention_days' => '90',
             'api_logs_retention_days' => '30',
             'ofac_screening_enabled' => '1',
+            // Optional site branding / merchandising toggles (audit issue #13).
+            // Default 'on' to preserve behaviour of existing installs; admin can
+            // disable these from the Settings tab -> Site Theme Extras panel.
+            'enable_site_theme_overrides' => '1',
+            'enable_featured_products'    => '1',
+            'hide_invoice_extensions'     => '1',
+            'redirect_chat_now'           => '1',
             'refund_abuse_threshold' => '3',
             'refund_abuse_window_days' => '90',
             'chargeback_tracking_enabled' => '1',
@@ -2419,6 +2426,19 @@ function fps_ajaxSaveSettings(): array
     // because their providers read from tbladdonmodules, not mod_fps_settings.
     // Always also written to mod_fps_settings so the Settings UI can read them back.
     $addonModuleKeys = ['fraudrecord_api_key', 'ipinfo_api_key', 'hibp_api_key'];
+
+    // Checkbox flags that need "0" when unchecked (HTML forms omit unchecked boxes).
+    // If the POST payload doesn't contain one of these keys, explicitly set '0'
+    // so unticking a box actually saves.
+    $booleanFlagKeys = [
+        'enable_site_theme_overrides', 'enable_featured_products',
+        'hide_invoice_extensions', 'redirect_chat_now',
+    ];
+    foreach ($booleanFlagKeys as $bk) {
+        if (!array_key_exists($bk, $settings)) {
+            $settings[$bk] = '0';
+        }
+    }
 
     foreach ($settings as $key => $value) {
         $key = preg_replace('/[^a-z0-9_]/', '', $key);
