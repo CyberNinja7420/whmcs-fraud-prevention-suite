@@ -742,9 +742,11 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         // Turnstile load failed silently - CSS still loads below
     }
 
-    // Inject site-wide CSS from static file (cached by browser)
-    // Contains: EVPS 1000X light palette, colorblind mode, accessibility overrides
-    $cssVer = '4.2.10';
+    // Inject site-wide CSS from static file (cached by browser).
+    // Cache-bust string uses the module version so bumps auto-invalidate, and
+    // falls back to filemtime() for fine-grained dev iteration.
+    $cssPath = __DIR__ . '/assets/css/fps-site-theme.css';
+    $cssVer  = (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'v') . '-' . (file_exists($cssPath) ? (string) filemtime($cssPath) : '0');
     $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-site-theme.css?v=' . $cssVer . '">';
 
     // Inject custom client theme color overrides from admin settings
@@ -1003,9 +1005,11 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         . '</style>';
     } // END first CSS block
 
-    // Inject FPS-specific CSS on FPS module pages
+    // Inject FPS-specific CSS on FPS module pages (deterministic cache bust).
     if (isset($_GET['m']) && $_GET['m'] === 'fraud_prevention_suite') {
-        $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-lagom2.css?v=' . time() . '">';
+        $lagomPath = __DIR__ . '/assets/css/fps-lagom2.css';
+        $lagomVer  = (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'v') . '-' . (file_exists($lagomPath) ? (string) filemtime($lagomPath) : '0');
+        $output .= '<link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-lagom2.css?v=' . $lagomVer . '">';
     }
 
     if (false) { // START colorblind CSS block (now in fps-site-theme.css)

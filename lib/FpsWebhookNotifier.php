@@ -28,8 +28,18 @@ use WHMCS\Database\Capsule;
 class FpsWebhookNotifier
 {
     private const MODULE_NAME    = 'fraud_prevention_suite';
-    private const MODULE_VERSION = '3.0';
     private const CURL_TIMEOUT   = 3;
+
+    /**
+     * Resolve module version from the global FPS_MODULE_VERSION constant so this
+     * class stays in sync with the single source of truth. Falls back to 'unknown'
+     * if the constant is somehow not defined (defensive; should never happen on a
+     * properly-loaded module).
+     */
+    private static function version(): string
+    {
+        return defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown';
+    }
 
     /** Map risk level to hex colour for Slack attachments */
     private const SLACK_COLOURS = [
@@ -215,7 +225,7 @@ class FpsWebhookNotifier
             'pretext'     => ':rotating_light: *Fraud Prevention Suite Alert*',
             'title'       => "Risk Level: {$levelText}",
             'ts'          => time(),
-            'footer'      => 'Fraud Prevention Suite v' . self::MODULE_VERSION,
+            'footer'      => 'Fraud Prevention Suite v' . self::version(),
             'footer_icon' => 'https://whmcs.com/favicon.ico',
             'fields'      => [
                 [
@@ -289,7 +299,7 @@ class FpsWebhookNotifier
             'sections'    => [
                 [
                     'activityTitle'    => ":rotating_light: {$levelText} Risk Detected",
-                    'activitySubtitle' => 'Fraud Prevention Suite v' . self::MODULE_VERSION,
+                    'activitySubtitle' => 'Fraud Prevention Suite v' . self::version(),
                     'facts'            => [
                         ['name' => 'Risk Level', 'value' => $levelText],
                         ['name' => 'Score',      'value' => $scoreText],
@@ -355,7 +365,7 @@ class FpsWebhookNotifier
                 ['name' => 'Top Risk Factors', 'value' => $factorsText, 'inline' => false],
             ],
             'footer' => [
-                'text' => 'Fraud Prevention Suite v' . self::MODULE_VERSION,
+                'text' => 'Fraud Prevention Suite v' . self::version(),
             ],
             'timestamp' => date('c'),
         ];
@@ -382,7 +392,7 @@ class FpsWebhookNotifier
         $payload = [
             'event'          => 'fraud_alert',
             'timestamp'      => date('c'),
-            'module_version' => self::MODULE_VERSION,
+            'module_version' => self::version(),
             'level'          => $level,
             'score'          => $score,
             'order_id'       => $orderId,
@@ -428,7 +438,7 @@ class FpsWebhookNotifier
 
         $headers = [
             'Content-Type: application/json',
-            'User-Agent: WHMCS-FPS/' . self::MODULE_VERSION,
+            'User-Agent: WHMCS-FPS/' . self::version(),
         ];
 
         if ($secret !== '') {
