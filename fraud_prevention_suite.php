@@ -176,6 +176,11 @@ function fraud_prevention_suite_activate(): array
                 $table->timestamp('submitted_at')->useCurrent();
                 $table->text('response')->nullable();
                 $table->string('status', 30)->default('pending');
+                // Admin review audit trail (required by fps_ajaxUpdateReportStatus).
+                // Previously added only via upgrade path; now in create() so fresh
+                // installs don't crash on the first report status update.
+                $table->integer('reviewed_by')->nullable();
+                $table->timestamp('reviewed_at')->nullable();
             });
         }
 
@@ -305,6 +310,12 @@ function fraud_prevention_suite_activate(): array
                 $table->string('name', 255);
                 $table->string('tier', 20)->default('free');
                 $table->string('owner_email', 255)->nullable();
+                // client_id and service_id link the key to a WHMCS product/client so
+                // the auto-provision module can suspend/terminate the key when the
+                // corresponding service is cancelled. Added to the create() call
+                // (previously only added via upgrade path) so fresh installs work.
+                $table->integer('client_id')->nullable()->index();
+                $table->integer('service_id')->nullable()->unique();
                 $table->integer('rate_limit_per_minute')->default(10);
                 $table->integer('rate_limit_per_day')->default(1000);
                 $table->text('allowed_endpoints')->nullable();
@@ -1044,7 +1055,8 @@ function fraud_prevention_suite_upgrade($vars): void
                 $table->timestamp('updated_at')->nullable();
             });
         }
-        // v4.2: Add client_id/service_id to API keys for product provisioning
+        // v4.2: Add client_id/service_id to API keys for product provisioning.
+        // (Fresh installs get these via create() above; upgrade path preserved.)
         if (Capsule::schema()->hasTable('mod_fps_api_keys')) {
             if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'client_id')) {
                 Capsule::schema()->table('mod_fps_api_keys', function ($table) {
@@ -1054,6 +1066,22 @@ function fraud_prevention_suite_upgrade($vars): void
             if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'service_id')) {
                 Capsule::schema()->table('mod_fps_api_keys', function ($table) {
                     $table->integer('service_id')->nullable()->unique()->after('client_id');
+                });
+            }
+        }
+
+        // v4.2.4: Add reviewed_by/reviewed_at to mod_fps_reports so existing
+        // installs can run fps_ajaxUpdateReportStatus without "Unknown column".
+        // (Fresh installs get these via create() above.)
+        if (Capsule::schema()->hasTable('mod_fps_reports')) {
+            if (!Capsule::schema()->hasColumn('mod_fps_reports', 'reviewed_by')) {
+                Capsule::schema()->table('mod_fps_reports', function ($table) {
+                    $table->integer('reviewed_by')->nullable()->after('status');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_reports', 'reviewed_at')) {
+                Capsule::schema()->table('mod_fps_reports', function ($table) {
+                    $table->timestamp('reviewed_at')->nullable()->after('reviewed_by');
                 });
             }
         }
