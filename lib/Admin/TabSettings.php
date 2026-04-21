@@ -36,6 +36,7 @@ class TabSettings
         $this->fpsRenderOfacSettings($config);
         $this->fpsRenderRefundAbuseSettings($config);
         $this->fpsRenderBotCleanupSettings($config);
+        $this->fpsRenderSiteThemeExtras($config);
 
         echo '</form>';
 
@@ -918,5 +919,56 @@ HTML;
 HTML;
 
         echo FpsAdminRenderer::renderCard('Bot & User Cleanup', 'fa-user-slash', $content);
+    }
+
+    /**
+     * Site Theme Extras - optional site-wide UI tweaks.
+     *
+     * These are NOT core to fraud prevention; they were historically injected
+     * unconditionally from hooks.php (site-wide CSS overrides, Invoice
+     * Extensions hiding, Chat Now redirect, homepage featured products).
+     * Audit issue #13 gates them behind admin-visible flags so operators can
+     * opt out without code changes.
+     */
+    private function fpsRenderSiteThemeExtras(FpsConfig $config): void
+    {
+        $flags = [
+            ['enable_site_theme_overrides', 'Site-wide CSS theme overrides', 'Load fps-site-theme.css on every page (50+ variable overrides for 1000X palette, colorblind mode, accessibility). Disable if another theme module owns site branding.'],
+            ['enable_featured_products',    'Homepage featured products',     'Inject product group cards into the client portal homepage. Disable if you have another homepage/widget strategy.'],
+            ['hide_invoice_extensions',     'Hide Invoice Extensions link',   'Remove the "Invoice Extensions" navigation item (hides a legacy WHMCS addon link). Disable if you actually use that addon.'],
+            ['redirect_chat_now',           'Redirect Chat Now to tickets',   'Rewrite any "Chat Now" link on the client portal to /submitticket.php. Disable if you use a third-party live-chat integration.'],
+        ];
+
+        $rows = '';
+        foreach ($flags as [$key, $label, $help]) {
+            $val = $config->get($key, '1');
+            $checked = $val === '1' ? ' checked' : '';
+            $safeKey   = htmlspecialchars($key,   ENT_QUOTES, 'UTF-8');
+            $safeLabel = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+            $safeHelp  = htmlspecialchars($help,  ENT_QUOTES, 'UTF-8');
+            $rows .= <<<HTML
+<div class="fps-form-group fps-flag-row">
+  <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+    <input type="checkbox" name="{$safeKey}" value="1"{$checked} style="margin-top:3px;">
+    <span>
+      <strong>{$safeLabel}</strong>
+      <small style="display:block;color:var(--fps-text-muted);margin-top:2px;">{$safeHelp}</small>
+    </span>
+  </label>
+</div>
+HTML;
+        }
+
+        $content = <<<HTML
+<p class="fps-text-muted" style="margin-bottom:16px;">
+  These toggles control optional site-wide UI tweaks that are injected from
+  this module's hooks. They are <em>not</em> part of fraud prevention - if
+  another theme/extension module already owns this behaviour, turn the
+  corresponding toggle off.
+</p>
+{$rows}
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Site Theme Extras', 'fa-palette', $content);
     }
 }
