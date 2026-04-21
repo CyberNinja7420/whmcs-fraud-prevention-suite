@@ -30,14 +30,45 @@ class FpsApiRouter
     public function handle(): void
     {
         header('Content-Type: application/json');
-        // CORS: restrict to known origins for authenticated endpoints
-        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-        $allowedPatterns = ['enterprisevpssolutions.com', 'localhost'];
-        $originAllowed = false;
+
+        // CORS policy.
+        //
+        // Intent (documented): the public read-only endpoints (/v1/stats/global,
+        // /v1/topology/*) may be called from browsers on any origin. Authenticated
+        // endpoints (/v1/lookup/*, /v1/reports/*) require an X-FPS-API-Key header
+        // and should NOT be CORS-enabled for credentialed requests from unknown
+        // origins.
+        //
+        // Browser requests are distinguishable by the Origin header. If origin is
+        // in our allowlist, echo it back (enables credentialed requests from our
+        // own pages). Otherwise:
+        //   - For OPTIONS (preflight) and GET to public endpoints: serve * so
+        //     third-party dashboards can embed threat data.
+        //   - For requests carrying an API key: do NOT emit * (browsers reject
+        //     credentialed requests with Access-Control-Allow-Origin: *, and we
+        //     want them to go server-to-server, not browser-to-FPS).
+        $origin            = $_SERVER['HTTP_ORIGIN'] ?? '';
+        $allowedPatterns   = ['enterprisevpssolutions.com', 'localhost'];
+        $originAllowed     = false;
         foreach ($allowedPatterns as $pattern) {
-            if (str_contains($origin, $pattern)) { $originAllowed = true; break; }
+            if ($origin !== '' && str_contains($origin, $pattern)) { $originAllowed = true; break; }
         }
-        header('Access-Control-Allow-Origin: ' . ($originAllowed ? $origin : '*'));
+
+        $hasApiKey = !empty($_SERVER['HTTP_X_FPS_API_KEY']) || !empty($_GET['api_key']);
+
+        if ($originAllowed) {
+            header('Access-Control-Allow-Origin: ' . $origin);
+            header('Vary: Origin');
+            header('Access-Control-Allow-Credentials: true');
+        } elseif (!$hasApiKey) {
+            // Public/anonymous request from an unknown origin - safe to serve *
+            // because no credentials are involved.
+            header('Access-Control-Allow-Origin: *');
+        }
+        // else: API-key request from an unknown origin - emit NO CORS header.
+        // A browser client attempting credentialed access from an unknown origin
+        // will be blocked by the browser's CORS enforcement, which is what we want.
+
         header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
         header('Access-Control-Allow-Headers: X-FPS-API-Key, Content-Type');
         header('X-FPS-Version: ' . (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown'));
