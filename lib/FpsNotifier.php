@@ -221,11 +221,14 @@ class FpsNotifier
             } catch (\Throwable $e) {
                 $hostname = $_SERVER['HTTP_HOST'] ?? 'localhost';
             }
-            $headers  = "From: noreply@{$hostname}\r\n"
-                . "X-Mailer: WHMCS-FPS/4.1\r\n"
-                . "Content-Type: text/plain; charset=UTF-8\r\n";
-
-            $sent = @mail($to, $subject, $body, $headers);
+            // Route through fps_sendMail so errors are logged rather than @suppressed.
+            // Falls back to localAPI SendEmail first (WHMCS mail config), then mail().
+            $modVer = defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown';
+            $sent = function_exists('fps_sendMail') ? fps_sendMail($to, $subject, $body, [
+                'From'         => 'noreply@' . $hostname,
+                'X-Mailer'     => 'WHMCS-FPS/' . $modVer,
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]) : false;
 
             logModuleCall(
                 self::MODULE_NAME,

@@ -4385,6 +4385,192 @@ function fps_ajaxGlobalIntelSaveSettings(): array
 }
 
 /**
+ * GDPR-scoped purge: delete/anonymise this subject's data across ALL FPS tables.
+ *
+ * Scope (documented):
+ *   - mod_fps_global_intel : DELETE rows matching email_hash
+ *   - mod_fps_ip_intel     : DELETE rows matching ip_address (if provided)
+ *   - mod_fps_email_intel  : DELETE rows matching email_hash
+ *   - mod_fps_fingerprints : DELETE rows referencing matching email (if table exists)
+ *   - mod_fps_checks       : ANONYMISE (strip email/ip/phone/details but keep the
+ *                            risk_score and timestamps for fraud analytics - this is
+ *                            lawful under GDPR Article 17(3)(e) public interest
+ *                            exemption for anti-fraud defence, AND keeps stats
+ *                            accurate for the admin).
+ *   - mod_fps_bin_cache    : UNTOUCHED - card BIN data is not PII that identifies
+ *                            a natural person.
+ *   - mod_fps_api_logs     : ANONYMISE ip_address on rows matching ip
+ *   - mod_fps_gdpr_requests: UNTOUCHED (this IS the requester's audit trail)
+ *
+ * Returns an audit report describing what was purged per-table.
+ *
+ * @param string      $emailHash SHA-256 hash of the requester's email (canonical).
+ * @param string|null $email     Raw email if available (used for fingerprints lookup).
+ * @param string|null $ip        IP address if the request is also tied to one.
+ * @return array{subject: array, tables: array<string, array{deleted:int, anonymised:int}>}
+ */
+function fps_gdprPurgeByEmail(string $emailHash, ?string $email = null, ?string $ip = null): array
+{
+    $report = [
+        'subject' => [
+            'email_hash' => $emailHash,
+            'email'      => $email,
+            'ip'         => $ip,
+            'purged_at'  => date('Y-m-d H:i:s'),
+        ],
+        'tables' => [],
+    ];
+
+    $record = function (string $table, int $deleted, int $anonymised) use (&$report) {
+        $report['tables'][$table] = ['deleted' => $deleted, 'anonymised' => $anonymised];
+    };
+
+    // 1. mod_fps_global_intel - full delete by email_hash (strongest identifier)
+    try {
+        $count = Capsule::table('mod_fps_global_intel')
+            ->where('email_hash', $emailHash)->delete();
+        $record('mod_fps_global_intel', $count, 0);
+    } catch (\Throwable $e) {
+        $record('mod_fps_global_intel', 0, 0);
+    }
+
+    // 2. mod_fps_email_intel - cache of email reputation lookups
+    try {
+        if (Capsule::schema()->hasTable('mod_fps_email_intel')) {
+            $count = Capsule::table('mod_fps_email_intel')
+                ->where('email_hash', $emailHash)->delete();
+            $record('mod_fps_email_intel', $count, 0);
+        }
+    } catch (\Throwable $e) {
+        $record('mod_fps_email_intel', 0, 0);
+    }
+
+    // 3. mod_fps_ip_intel - IP reputation cache (only if IP provided)
+    if ($ip !== null && $ip !== '') {
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_ip_intel')) {
+                $count = Capsule::table('mod_fps_ip_intel')
+                    ->where('ip_address', $ip)->delete();
+                $record('mod_fps_ip_intel', $count, 0);
+            }
+        } catch (\Throwable $e) {
+            $record('mod_fps_ip_intel', 0, 0);
+        }
+    }
+
+    // 4. mod_fps_fingerprints - delete matching rows (schema varies by install)
+    try {
+        if (Capsule::schema()->hasTable('mod_fps_fingerprints')) {
+            $q = Capsule::table('mod_fps_fingerprints');
+            if ($email !== null && $email !== '' && Capsule::schema()->hasColumn('mod_fps_fingerprints', 'email')) {
+                $count = $q->where('email', $email)->delete();
+                $record('mod_fps_fingerprints', $count, 0);
+            } elseif ($ip !== null && $ip !== '' && Capsule::schema()->hasColumn('mod_fps_fingerprints', 'ip_address')) {
+                $count = $q->where('ip_address', $ip)->delete();
+                $record('mod_fps_fingerprints', $count, 0);
+            }
+        }
+    } catch (\Throwable $e) {
+        $record('mod_fps_fingerprints', 0, 0);
+    }
+
+    // 5. mod_fps_checks - ANONYMISE rather than delete. Lawful basis for retention
+    //    of fraud-defence evidence under GDPR Article 17(3)(e); but PII must be
+    //    redacted on request.
+    try {
+        $q = Capsule::table('mod_fps_checks');
+        if ($email !== null && $email !== '') {
+            $emailRows = (clone $q)->where('email', $email)->update([
+                'email'         => null,
+                'phone'         => null,
+                'ip_address'    => null,
+                'details'       => null,
+                'check_context' => json_encode(['anonymised' => true, 'at' => date('c')]),
+            ]);
+        } else {
+            $emailRows = 0;
+        }
+        if ($ip !== null && $ip !== '') {
+            $ipRows = (clone $q)->where('ip_address', $ip)->update([
+                'email'         => null,
+                'phone'         => null,
+                'ip_address'    => null,
+                'details'       => null,
+                'check_context' => json_encode(['anonymised' => true, 'at' => date('c')]),
+            ]);
+        } else {
+            $ipRows = 0;
+        }
+        $record('mod_fps_checks', 0, $emailRows + $ipRows);
+    } catch (\Throwable $e) {
+        $record('mod_fps_checks', 0, 0);
+    }
+
+    // 6. mod_fps_api_logs - only relevant if IP was tied to API calls
+    if ($ip !== null && $ip !== '') {
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_api_logs')) {
+                $count = Capsule::table('mod_fps_api_logs')
+                    ->where('ip_address', $ip)
+                    ->update(['ip_address' => null]);
+                $record('mod_fps_api_logs', 0, $count);
+            }
+        } catch (\Throwable $e) {
+            $record('mod_fps_api_logs', 0, 0);
+        }
+    }
+
+    return $report;
+}
+
+/**
+ * Module-safe mail sender wrapper.
+ *
+ * Replaces scattered raw @mail() calls. Tries WHMCS's localAPI SendEmail
+ * (so admin mail config, SMTP, templates apply) and falls back to a
+ * non-suppressed mail() that actually logs failures.
+ *
+ * @return bool true on apparent success, false otherwise (and logs why).
+ */
+function fps_sendMail(string $to, string $subject, string $body, array $headers = []): bool
+{
+    // Try WHMCS's SendEmail API first (respects admin mail config).
+    try {
+        if (function_exists('localAPI')) {
+            $result = localAPI('SendEmail', [
+                'customtype'    => 'product',
+                'customsubject' => $subject,
+                'custommessage' => $body,
+                'id'            => 0,
+                'customvars'    => base64_encode(serialize(['to' => $to])),
+            ], 'admin');
+            if (($result['result'] ?? '') === 'success') {
+                return true;
+            }
+        }
+    } catch (\Throwable $e) {
+        // Fall through to mail() fallback
+    }
+
+    // Fallback: PHP mail() WITHOUT @ suppression so errors are visible.
+    $headerLines = [];
+    foreach ($headers as $k => $v) {
+        $headerLines[] = $k . ': ' . $v;
+    }
+    $sent = mail($to, $subject, $body, implode("\r\n", $headerLines));
+    if (!$sent) {
+        $err = error_get_last();
+        logModuleCall(
+            'fraud_prevention_suite',
+            'fps_sendMail::fail',
+            json_encode(['to' => $to, 'subject' => $subject]),
+            $err['message'] ?? 'mail() returned false'
+        );
+    }
+    return $sent;
+}
+
+/**
  * Purge local intel and/or hub contributions (GDPR).
  */
 function fps_ajaxGlobalIntelPurge(): array
@@ -4515,8 +4701,11 @@ function fps_ajaxGdprSubmitRequest(): array
                 . "Reference: #" . $requestId . "\n"
                 . "This link expires in 72 hours.\n";
 
-            $headers = "From: noreply@{$hostname}\r\nContent-Type: text/plain; charset=UTF-8\r\n";
-            @mail($email, $subject, $body, $headers);
+            // Route through fps_sendMail so failures are logged instead of @suppressed.
+            fps_sendMail($email, $subject, $body, [
+                'From'         => 'noreply@' . $hostname,
+                'Content-Type' => 'text/plain; charset=UTF-8',
+            ]);
         } catch (\Throwable $e) {
             // Email send failure is non-fatal -- admin can verify manually
         }
@@ -4646,17 +4835,22 @@ function fps_ajaxGdprReviewRequest(): array
             return ['success' => true, 'message' => 'Request #' . $requestId . ' denied.'];
         }
 
-        // APPROVE: Delete all matching intel records
-        $deleted = Capsule::table('mod_fps_global_intel')
-            ->where('email_hash', $request->email_hash)
-            ->delete();
+        // APPROVE: comprehensive purge across ALL FPS tables (see fps_gdprPurgeByEmail).
+        // Previously only mod_fps_global_intel was touched; this left caches, fingerprints,
+        // and check records referencing the requester untouched, which didn't meet GDPR
+        // Article 17 scope expectations.
+        $purgeReport = fps_gdprPurgeByEmail(
+            $request->email_hash,
+            $request->email ?? null,
+            $request->ip_address ?? null
+        );
+        $deleted = (int) array_sum(array_column($purgeReport['tables'], 'deleted'));
 
-        // Also try to purge from hub
+        // Also try to purge this instance's contributions from the hub
         $hubPurged = false;
         try {
             $client = new \FraudPreventionSuite\Lib\FpsGlobalIntelClient();
             if ($client->isConfigured()) {
-                // Hub purge removes all records matching this email hash
                 $hubResult = $client->purgeContributions();
                 $hubPurged = $hubResult['success'] ?? false;
             }
@@ -4668,18 +4862,19 @@ function fps_ajaxGdprReviewRequest(): array
             'status' => 'completed',
             'reviewed_by' => (int)$_SESSION['adminid'],
             'reviewed_at' => date('Y-m-d H:i:s'),
-            'admin_notes' => $notes,
+            'admin_notes' => $notes . "\n\n--- Purge report ---\n" . json_encode($purgeReport, JSON_PRETTY_PRINT),
             'records_purged' => $deleted,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        logActivity("FPS GDPR: Request #{$requestId} approved by admin #{$_SESSION['adminid']}. {$deleted} local records purged. Hub purge: " . ($hubPurged ? 'yes' : 'no'));
+        logActivity("FPS GDPR: Request #{$requestId} approved by admin #{$_SESSION['adminid']}. Tables touched: " . implode(',', array_keys($purgeReport['tables'])) . " ({$deleted} rows affected). Hub purge: " . ($hubPurged ? 'yes' : 'no'));
 
         return [
             'success' => true,
-            'message' => "Request #{$requestId} approved. {$deleted} local records purged." . ($hubPurged ? ' Hub data also purged.' : ''),
+            'message' => "Request #{$requestId} approved. {$deleted} records purged across " . count($purgeReport['tables']) . " tables." . ($hubPurged ? ' Hub data also purged.' : ''),
             'records_purged' => $deleted,
             'hub_purged' => $hubPurged,
+            'purge_report' => $purgeReport,
         ];
     } catch (\Throwable $e) {
         return ['error' => $e->getMessage()];
