@@ -59,6 +59,59 @@ class FpsStatsCollector
     }
 
     /**
+     * Record a fraud event by name - single entry point for ALL stats updates.
+     *
+     * Replaces the ad-hoc inserts/increments that were scattered across hooks.php
+     * (turnstile block, pre-checkout block) and FpsApiRouter.php (api_request).
+     * Every path that wants to bump a daily counter should call this method.
+     *
+     * Event types and what they increment:
+     *   - 'turnstile_block'     : checks_total + checks_flagged + checks_blocked + pre_checkout_blocks
+     *   - 'pre_checkout_block'  : checks_total + checks_flagged + checks_blocked + pre_checkout_blocks
+     *   - 'pre_checkout_allow'  : checks_total only
+     *   - 'api_request'         : api_requests only
+     *   - 'manual_check'        : checks_total only (risk level determines extras via recordCheck)
+     *
+     * Any event type not matched here still safely upserts a row with zeros,
+     * which is better than silently dropping the event.
+     *
+     * @param string $event One of the documented event types.
+     * @param array<string,int> $extras Optional additional increments to merge in.
+     */
+    public function recordEvent(string $event, array $extras = []): void
+    {
+        try {
+            $today = date('Y-m-d');
+
+            $map = [
+                'turnstile_block'    => ['checks_total' => 1, 'checks_flagged' => 1, 'checks_blocked' => 1, 'pre_checkout_blocks' => 1],
+                'pre_checkout_block' => ['checks_total' => 1, 'checks_flagged' => 1, 'checks_blocked' => 1, 'pre_checkout_blocks' => 1],
+                'pre_checkout_allow' => ['checks_total' => 1],
+                'api_request'        => ['api_requests' => 1],
+                'manual_check'       => ['checks_total' => 1],
+            ];
+
+            $increments = $map[$event] ?? [];
+            foreach ($extras as $col => $amount) {
+                $increments[$col] = ($increments[$col] ?? 0) + (int) $amount;
+            }
+
+            if (empty($increments)) {
+                return;
+            }
+
+            $this->fps_upsertDayStats($today, $increments);
+        } catch (\Throwable $e) {
+            logModuleCall(
+                self::MODULE_NAME,
+                'FpsStatsCollector::recordEvent',
+                json_encode(['event' => $event, 'extras' => $extras]),
+                $e->getMessage()
+            );
+        }
+    }
+
+    /**
      * Get today's statistics.
      *
      * @return array{checks_total: int, checks_flagged: int, checks_blocked: int, orders_locked: int, reports_submitted: int, false_positives: int}
@@ -280,19 +333,32 @@ class FpsStatsCollector
             ->where('date', $date)
             ->first();
 
+        // Only touch columns that actually exist in the current schema; an install
+        // that hasn't run a recent upgrade might lack pre_checkout_blocks, api_requests,
+        // etc. Silently dropping unknown columns is better than an SQLException breaking
+        // the checkout/API request path.
+        $existingCols = [];
+        try {
+            foreach (array_keys($increments) as $col) {
+                if (Capsule::schema()->hasColumn('mod_fps_stats', $col)) {
+                    $existingCols[$col] = $increments[$col];
+                }
+            }
+        } catch (\Throwable $e) {
+            $existingCols = $increments; // fallback: trust caller
+        }
+
         if ($row === null) {
-            // Insert new row with the given increments
             $insert = $this->fps_emptyStats();
             $insert['date'] = $date;
-            foreach ($increments as $col => $val) {
+            foreach ($existingCols as $col => $val) {
                 if (isset($insert[$col])) {
                     $insert[$col] = $val;
                 }
             }
             Capsule::table('mod_fps_stats')->insert($insert);
         } else {
-            // Increment existing columns
-            foreach ($increments as $col => $val) {
+            foreach ($existingCols as $col => $val) {
                 if ($val > 0) {
                     Capsule::table('mod_fps_stats')
                         ->where('date', $date)
@@ -361,12 +427,18 @@ class FpsStatsCollector
     private function fps_emptyStats(): array
     {
         return [
-            'checks_total'     => 0,
-            'checks_flagged'   => 0,
-            'checks_blocked'   => 0,
-            'orders_locked'    => 0,
-            'reports_submitted' => 0,
-            'false_positives'  => 0,
+            'checks_total'       => 0,
+            'checks_flagged'     => 0,
+            'checks_blocked'     => 0,
+            'orders_locked'      => 0,
+            'reports_submitted'  => 0,
+            'false_positives'    => 0,
+            // Extended columns added by upgrade path; included here so the
+            // insert branch of fps_upsertDayStats can seed new rows for
+            // events like turnstile_block / api_request that touch them.
+            'pre_checkout_blocks' => 0,
+            'api_requests'        => 0,
+            'unique_ips'          => 0,
         ];
     }
 }
