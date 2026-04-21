@@ -1024,9 +1024,30 @@ class FpsCheckRunner
             return 'cancelled';
         }
 
-        // Check configured thresholds
-        $blockThreshold = $this->config->getFloat('block_threshold', 80.0, 0.0, 100.0);
-        $flagThreshold  = $this->config->getFloat('flag_threshold', 40.0, 0.0, 100.0);
+        // Resolve global action thresholds.
+        //
+        // Historically this function read `block_threshold` / `flag_threshold`
+        // settings keys, but no admin UI writes those keys at the global scope -
+        // the admin Settings tab only exposes the 4-tier classification keys
+        // (risk_*_threshold). Per-gateway overrides DO store `block_threshold` /
+        // `flag_threshold` in mod_fps_gateway_thresholds but that path is handled
+        // elsewhere.
+        //
+        // Resolution order (for global scope):
+        //   1. explicit block_threshold / flag_threshold setting if the admin
+        //      has set one via custom config (preserves backward compatibility)
+        //   2. derive from classification: block at risk_critical_threshold,
+        //      flag at risk_high_threshold (matches what the admin UI actually
+        //      controls)
+        //   3. hardcoded safe defaults (80 / 60)
+        $critical = $this->config->getFloat('risk_critical_threshold', 80.0, 0.0, 100.0);
+        $high     = $this->config->getFloat('risk_high_threshold',     60.0, 0.0, 100.0);
+
+        $blockOverride = $this->config->getFloat('block_threshold', 0.0, 0.0, 100.0);
+        $flagOverride  = $this->config->getFloat('flag_threshold',  0.0, 0.0, 100.0);
+
+        $blockThreshold = $blockOverride > 0 ? $blockOverride : $critical;
+        $flagThreshold  = $flagOverride  > 0 ? $flagOverride  : $high;
 
         if ($risk->score >= $blockThreshold) {
             $autoLock = $this->config->isEnabled('auto_lock_critical');
