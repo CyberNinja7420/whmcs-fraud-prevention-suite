@@ -433,6 +433,16 @@ HTML;
                     ['type' => 'toggle', 'name' => 'geo_impossibility_requires_history', 'label' => 'Require prior geo-located check before scoring (recommended)'],
                 ],
             ],
+            [
+                'key'     => 'pipeline_internals',
+                'title'   => 'Pipeline Internals (advanced)',
+                'icon'    => 'fa-microchip',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'Advanced toggles that change which code path runs the pre-checkout pipeline and how mod_fps_checks rows are written. Leave at defaults unless you have benchmarked the alternative.'],
+                    ['type' => 'toggle', 'name' => 'use_runner_fast_path', 'label' => 'Route pre-checkout through FpsCheckRunner::runPreCheckoutFast() (default: off, uses inline pipeline)'],
+                    ['type' => 'toggle', 'name' => 'write_legacy_details_column', 'label' => 'Continue writing legacy details/raw_response JSON columns (default: on; safe to disable after a 60-day soak with structured readers in place)'],
+                ],
+            ],
         ];
 
         $content = '<div class="fps-accordion" id="fps-provider-accordion">';
