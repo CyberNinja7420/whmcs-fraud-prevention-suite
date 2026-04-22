@@ -659,6 +659,11 @@ function fraud_prevention_suite_activate(): array
             'enable_featured_products'    => '1',
             'hide_invoice_extensions'     => '1',
             'redirect_chat_now'           => '1',
+            // Geo impossibility engine: when '1' (default), require at least
+            // one prior geo-located check for the client before the engine
+            // contributes a score. Set to '0' on installs that need first-
+            // check scoring for new clients (higher false-positive risk).
+            'geo_impossibility_requires_history' => '1',
             'refund_abuse_threshold' => '3',
             'refund_abuse_window_days' => '90',
             'chargeback_tracking_enabled' => '1',
@@ -2449,6 +2454,7 @@ function fps_ajaxSaveSettings(): array
     $booleanFlagKeys = [
         'enable_site_theme_overrides', 'enable_featured_products',
         'hide_invoice_extensions', 'redirect_chat_now',
+        'geo_impossibility_requires_history',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {

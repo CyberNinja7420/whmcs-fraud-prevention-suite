@@ -424,6 +424,15 @@ HTML;
                      'options' => ['checkout' => 'Checkout Only', 'all' => 'All Pages']],
                 ],
             ],
+            [
+                'key'     => 'geographic_analysis',
+                'title'   => 'Geographic Analysis',
+                'icon'    => 'fa-globe',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'The Geographic Impossibility engine cross-correlates IP-derived country, billing country, phone-prefix country, and BIN-derived country. It needs at least 2 independent signals to score; missing-data scenarios always score 0.'],
+                    ['type' => 'toggle', 'name' => 'geo_impossibility_requires_history', 'label' => 'Require prior geo-located check before scoring (recommended)'],
+                ],
+            ],
         ];
 
         $content = '<div class="fps-accordion" id="fps-provider-accordion">';

@@ -117,6 +117,28 @@ class FpsGeoImpossibilityEngine
             'success'  => true,
         ];
 
+        // --- Admin-visible enable gate ---
+        //
+        // Operators on very-low-volume installs (where most clients have
+        // <2 prior geo-located checks) can disable the engine entirely
+        // by setting `geo_impossibility_requires_history = '0'` is the
+        // permissive setting (engine always runs when signals available).
+        // Default is '1' (require history): the engine still runs the
+        // signal-count check below; this flag adds a SECOND gate that
+        // requires the client to have at least one prior geo-located
+        // check on file before the engine contributes a score.
+        $requiresHistory = '1';
+        try {
+            $val = \WHMCS\Database\Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'geo_impossibility_requires_history')
+                ->value('setting_value');
+            if ($val !== null) {
+                $requiresHistory = (string) $val;
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal -- fall through to default
+        }
+
         // --- Collect all geographic signals ---
         $signals = $this->fps_collectSignals($context);
 
@@ -130,6 +152,33 @@ class FpsGeoImpossibilityEngine
         // meaningfully cross-correlate. See class doc above.
         if (count($available) < 2) {
             return $emptyResult;
+        }
+
+        // Optional history gate: skip the engine when the client has
+        // no prior geo-located checks. Avoids penalising the very first
+        // check for a brand-new client on installs that opt in.
+        if ($requiresHistory === '1') {
+            $clientId = (int) ($context['client_id'] ?? 0);
+            if ($clientId > 0) {
+                try {
+                    $priorGeoCount = (int) \WHMCS\Database\Capsule::table('mod_fps_checks')
+                        ->where('client_id', $clientId)
+                        ->whereNotNull('country')
+                        ->where('country', '!=', '')
+                        ->count();
+                    if ($priorGeoCount < 1) {
+                        return [
+                            'provider' => $provider,
+                            'score'    => 0.0,
+                            'details'  => 'No prior geo-located checks for this client; engine gated by geo_impossibility_requires_history.',
+                            'factors'  => [],
+                            'success'  => true,
+                        ];
+                    }
+                } catch (\Throwable $e) {
+                    // Non-fatal -- fall through and let the engine run
+                }
+            }
         }
 
         // --- Base score from unique-country count ---
