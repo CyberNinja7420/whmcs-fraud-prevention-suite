@@ -119,8 +119,13 @@
         </a>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.31.0/dist/globe.gl.min.js"></script>
+    <!-- 3D vendor libs: prefer the vendored copies under assets/vendor/.
+         The PHP topology block substitutes the {THREE_SRC} / {GLOBE_SRC}
+         placeholders below before emission so we avoid a CDN runtime
+         dependency. Falls back to jsdelivr only if the vendor file is missing
+         on disk at the time the topology page is rendered. -->
+    <script src="{THREE_SRC}"></script>
+    <script src="{GLOBE_SRC}"></script>
     <script src="/modules/addons/fraud_prevention_suite/assets/js/fps-topology.js?v={$module_version}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
