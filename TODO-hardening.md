@@ -1,15 +1,21 @@
 # FPS Hardening TODO
 
-Items from the production-hardening audit that were **not** addressed in the v4.2.3 remediation session, with explanations. Each has a severity and a rough effort estimate.
+Items the production-hardening passes did NOT close. Each item lists a severity and a rough effort estimate. Items marked `Pass-2: closed` were carried over from the first pass and resolved in v4.2.4 (2026-04-21); their entries are kept for context.
+
+## Status legend
+
+- `Open` -- still outstanding.
+- `Pass-2: closed` -- resolved in 2026-04-21 second pass; see remediation-summary.md "Second pass" section.
 
 ## Deferred with rationale
 
 ### 1. Full pre-checkout engine unification  (#5)
 
-**Severity:** P1 → P2 after Batch 4/5 partial unification
+**Status:** Open (partially reduced)
+**Severity:** P3 after pass 2
 **Effort:** Medium (1-2 days, careful benchmarking)
 
-The inline provider orchestration in `hooks.php:ShoppingCartValidateCheckout` duplicates logic from `FpsCheckRunner::runPreCheckout()`. Batches 4 and 5 unified threshold resolution and stats recording so the two paths stay consistent on those dimensions, but the provider loop itself (velocity check, Tor/DC, rule engine, etc.) is still duplicated.
+The inline provider orchestration in `hooks.php:ShoppingCartValidateCheckout` duplicates logic from `FpsCheckRunner::runPreCheckout()`. Pass 1 unified threshold resolution and stats recording. Pass 2 unified persistence (structured columns) and pulled threshold resolution into `FpsHookHelpers::fps_resolvePreCheckoutThresholds()`. The remaining gap is the provider list itself.
 
 **Why deferred:** The checkout hook runs in a user-facing path with a <2s budget. `FpsCheckRunner::runPreCheckout()` loads more dependencies and could regress latency. A full unification requires:
 
@@ -29,12 +35,13 @@ The inline provider orchestration in `hooks.php:ShoppingCartValidateCheckout` du
 
 ### 2. Structured column migration  (#7)
 
-**Severity:** P2
+**Status:** Pass-2: writers closed; readers still open
+**Severity:** P3
 **Effort:** Low (half-day) but high upgrade risk
 
-`mod_fps_checks` has structured columns (`provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`) that are populated in some writer paths but not others. Legacy code writes everything into `details` JSON.
+Pass 2 closed the writer side: every insert path (`FpsCheckRunner::fps_persistCheck`, inline pre-checkout in hooks, Turnstile-block path) now populates `provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`, `updated_at` in addition to the legacy `details` blob.
 
-**Why deferred:** Migrating all writers is trivial. Migrating all readers (Client Profile tab, Statistics tab, webhook notifier, export, etc.) is a systematic sweep across ~15 files and introduces regression risk disproportionate to the benefit.
+**Still open:** reader migration. The Client Profile tab, Statistics tab, webhook notifier, and export still parse the legacy `details` JSON. Migrating them to read structured columns first (with JSON fallback) is mechanical but spans ~15 files.
 
 **To complete:**
 
@@ -47,12 +54,15 @@ The inline provider orchestration in `hooks.php:ShoppingCartValidateCheckout` du
 
 ### 3. Geo-impossibility engine activation  (#9)
 
-**Severity:** P2
+**Status:** Pass-2: comments + guards added; flag still open
+**Severity:** P3
 **Effort:** Low (half-day)
 
-`FpsGeoImpossibilityEngine` detects location jumps based on historical IP/country data per client. The engine works correctly when `mod_fps_checks` has at least 2 prior rows for a given client with geolocation populated - but most installs won't have that data for most clients.
+`FpsGeoImpossibilityEngine` detects location jumps based on historical IP/country data per client. The engine works correctly when at least 2 independent geo signals are available for a check.
 
-**Why deferred:** Not a regression; the engine just scores 0 when history is absent. Removing it would be a feature removal. Better to document the preconditions and gate it behind a "requires_history" config check.
+Pass 2 added explicit docblocks describing the data preconditions and ensured `analyze()` returns a clean `success=true` no-op when fewer than 2 signals exist. `FpsCheckRunner::fps_runGeoMismatchCheck()` likewise documents that it returns `success=false, score=0` when the IP-country cache is empty -- the aggregator already excludes such results.
+
+**Still open:** an admin-visible "geo_impossibility_requires_history" toggle so operators can disable the engine entirely on installs that won't accumulate the necessary history (e.g. very-low-volume installs).
 
 **To complete:**
 
@@ -94,6 +104,30 @@ The module has accumulated some stale comments, unused variables, and comments t
 - [ ] Run `phpstan --level=5` on the module and fix findings
 - [ ] Run `psalm --no-progress` and fix findings
 - [ ] Diff comments against code monthly and keep them aligned
+
+---
+
+---
+
+## Closed in pass 2 (2026-04-21, v4.2.4)
+
+### Currency=1 in featured-products injection
+
+**Status:** Closed.
+
+`hooks.php` featured-products homepage block previously hardcoded `where('currency', 1)` when reading `tblpricing`. This broke "starting at" prices on installs whose default currency is not id 1. Pass 2 introduced `FpsHookHelpers::fps_resolveDefaultCurrencyId()` (memoized) and rewrote the call site to use it. `fps_createDefaultProducts()` was refactored to use the same helper.
+
+### ApexCharts CDN dependency
+
+**Status:** Closed (vendored with safe fallback).
+
+Admin header now loads `assets/vendor/apexcharts.min.js` if present; falls back to the public CDN only when the vendored file is missing. Refresh instructions are inlined in `fraud_prevention_suite.php` near the include.
+
+### Asset cache busting normalised
+
+**Status:** Closed.
+
+`FpsHookHelpers::fps_assetCacheBust()` is now used by every in-module asset injection. Topology page (served raw via `file_get_contents`) substitutes the version + filemtime in the PHP block before emission. No remaining `time()`-based bust patterns.
 
 ---
 

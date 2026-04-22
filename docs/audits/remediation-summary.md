@@ -1,9 +1,10 @@
 # FPS Production Hardening - Remediation Summary
 
-**Date:** 2026-04-09
-**Module version:** 4.2.3
+**First pass date:** 2026-04-09 (v4.2.3)
+**Second pass date:** 2026-04-21 (v4.2.4)
 **Target environment:** WHMCS 8.13.1+ / PHP 8.3.x
-**Session scope:** 20-issue audit + 9-batch remediation, full-mission execution.
+**First pass scope:** 20-issue audit + 9-batch remediation.
+**Second pass scope:** finish deferred items, normalise persistence/assets, vendor ApexCharts.
 
 ## Commits in this remediation (chronological)
 
@@ -67,7 +68,48 @@ These were in scope but deferred after cost/benefit analysis:
 
 These are tracked in [TODO-hardening.md](./TODO-hardening.md).
 
-## Validation evidence
+---
+
+## Second pass (2026-04-21, v4.2.4)
+
+### Scope
+
+Finish work from `TODO-hardening.md` that the first pass deferred, plus
+clean up two issues we noticed afterwards (asset versioning gaps, the
+external ApexCharts CDN).
+
+### By work item
+
+| # | Status | Fix |
+|---|--------|-----|
+| Currency=1 in featured products | Done | Added `FpsHookHelpers::fps_resolveDefaultCurrencyId()` (memoized resolver mirroring `fps_createDefaultProducts()` logic). `hooks.php` featured-products injection now uses the resolved id. `fps_createDefaultProducts()` refactored to call the same helper. No remaining runtime `where('currency', 1)` outside of legitimate "WHMCS default = 1" lookups. |
+| Structured check columns populated | Done | `FpsCheckRunner::fps_persistCheck()` now writes `provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`, `updated_at` on every persist (in addition to the legacy `raw_response`/`details` JSON for backward compatibility). The 3 call sites in `runFullCheck()` / `runPreCheckout()` now thread `$executionMs` through. The inline pre-checkout insert in `hooks.php` now builds and writes the same structured columns; the Turnstile-block insert path was upgraded to parity. |
+| Pre-checkout duplication | Reduced | Extracted threshold resolution into `FpsHookHelpers::fps_resolvePreCheckoutThresholds(string $gateway = '')`. Both the inline hook and (transitively) `FpsCheckRunner` now resolve thresholds the same way: per-gateway override → legacy `pre_checkout_block_threshold` → modern `risk_critical_threshold` → safe default. Persistence and stats were already unified in pass 1. The remaining gap is the inline provider list itself (intentional, for the <2s checkout budget); see TODO. |
+| Asset cache busting normalised | Done | Added `FpsHookHelpers::fps_assetCacheBust(string $relativeAssetPath)`. All in-module asset injections now go through it: `hooks.php` `fps-1000x.css` admin header (was unversioned), both `fps-fingerprint.js` injection points (were unversioned), `templates/topology.tpl` CSS link (was unversioned). Topology TPL is served raw with `file_get_contents()`, so the PHP block now substitutes `{$module_version}` placeholders with the actual version + filemtime before emission. No remaining `time()`-based cache busting in the codebase. |
+| Geo / history-dependent logic | Done | `FpsCheckRunner::fps_runGeoMismatchCheck()` and `FpsGeoImpossibilityEngine::analyze()` now have explicit docblocks describing the required-data preconditions and the safe no-op behaviour when those preconditions fail (returns score=0 + success=false / "insufficient data" details). Comment in geo-mismatch was updated to accurately reflect that the IP→country cache is populated by upstream IP-intel providers, not magically. Added a guard so missing billing country also fails safely. |
+| Dead code / drift markers | Light pass | Bumped `FPS_MODULE_VERSION` to 4.2.4 and `version.json` to match. Old "v3.0:" / "v4.1:" inline comments left in place — they're useful historical context, not drift. No live drift markers found. |
+| ApexCharts CDN dependency | Vendored | Admin header now prefers `assets/vendor/apexcharts.min.js` if present, falls back to the public CDN (`cdn.jsdelivr.net/npm/apexcharts@3`) only if the vendor file is missing (e.g. partial deploy). The vendored file is pinned to a specific upstream release and refreshable via the documented `curl` one-liner in the source. |
+
+### New helpers introduced (second pass)
+
+| Name | File | Purpose |
+|------|------|---------|
+| `FpsHookHelpers::fps_resolveDefaultCurrencyId(bool $forceRefresh = false)` | `lib/FpsHookHelpers.php` | Single source for WHMCS default currency id resolution; memoized per request. |
+| `FpsHookHelpers::fps_resolvePreCheckoutThresholds(string $gateway = '')` | `lib/FpsHookHelpers.php` | Single source for pre-checkout block + captcha thresholds; per-gateway → legacy → modern → default. |
+| `FpsHookHelpers::fps_assetCacheBust(string $relativeAssetPath)` | `lib/FpsHookHelpers.php` | Deterministic `?v=<version>-<filemtime>` suffix for in-module assets. |
+
+### Validation performed (second pass)
+
+- `php -l` clean across all touched files (see commit messages).
+- `grep -rE "where\\('currency', 1\\)"` ⇒ zero hits in runtime code.
+- `grep -rE "time\\(\\)" lib/ hooks.php fraud_prevention_suite.php` ⇒ all remaining hits are time-of-day / cache-age / token-expiry computations, none asset-busting.
+- `grep -rn "provider_scores\\|check_context\\|is_pre_checkout\\|check_duration_ms\\|updated_at"` ⇒ all three insert paths (FpsCheckRunner, inline pre-checkout, Turnstile block) now populate them.
+- `grep -rn "ApexCharts\\|cdn.jsdelivr"` ⇒ only the documented fallback path remains; vendored copy is the primary.
+- Asset URL audit: every in-module CSS/JS `<link>` and `<script>` injection produces a deterministic `?v=` suffix.
+
+### Validation evidence
+
+
 
 - **PHP lint**: 63/63 files pass (`php -l` across the whole module tree on live server)
 - **Drift grep**: zero hits for `'3.0.0'`, `'4.2.2'`, `'4.2.10'`, `@mail(`, `currency => 1`, `time()`-based cache bust
