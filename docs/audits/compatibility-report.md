@@ -1,7 +1,7 @@
 # FPS Compatibility Report
 
-**Version:** 4.2.3
-**Date:** 2026-04-09
+**Version:** 4.2.4
+**Date:** 2026-04-21
 
 ## WHMCS assumptions
 
@@ -62,3 +62,12 @@
 - **Settings tab layout** adds one new panel (Site Theme Extras) at the bottom; existing panels unchanged.
 - **Public page URLs** (`index.php?m=fraud_prevention_suite&page=…`) unchanged.
 - **Global Intel wire format** unchanged.
+
+## Upgrade notes (4.2.3 → 4.2.4)
+
+- No schema changes. Activation is idempotent and additive only.
+- New helpers added to `FpsHookHelpers`: `fps_resolveDefaultCurrencyId()`, `fps_resolvePreCheckoutThresholds()`, `fps_assetCacheBust()`. All static, no breaking signature changes.
+- `FpsCheckRunner::fps_persistCheck()` gained an optional last parameter `?float $durationMs = null`. Backward-compatible; existing callers that don't pass it get `check_duration_ms = NULL`.
+- `mod_fps_checks` rows written on or after the upgrade will populate `provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`, `updated_at`. Pre-upgrade rows continue to expose the same `details` / `raw_response` JSON blobs as before.
+- Featured-products homepage injection now uses the WHMCS default currency rather than hardcoded id=1. On installs where the default currency happens to be id=1 there is no observable change. On installs whose default currency is *not* id=1, "starting at" prices will now appear correctly.
+- Admin loads ApexCharts from `assets/vendor/apexcharts.min.js` if present; falls back to the same public CDN as before. To enable the vendored copy, ensure that file is part of the deploy artifact.
