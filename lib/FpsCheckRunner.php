@@ -111,7 +111,7 @@ class FpsCheckRunner
                     if ($context->orderId > 0) {
                         $this->fps_lockOrder($context->orderId);
                     }
-                    $checkId = $this->fps_persistCheck($context, $riskResult, \FraudPreventionSuite\Lib\Models\FpsRuleResult::noMatch(), 'cancelled', true);
+                    $checkId = $this->fps_persistCheck($context, $riskResult, \FraudPreventionSuite\Lib\Models\FpsRuleResult::noMatch(), 'cancelled', true, $executionMs);
                     $result = new FpsCheckResult(
                         checkId:     $checkId,
                         risk:        $riskResult,
@@ -175,7 +175,7 @@ class FpsCheckRunner
             $executionMs = (microtime(true) - $startTime) * 1000;
 
             // Step 8: Persist
-            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, $locked);
+            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, $locked, $executionMs);
 
             $result = new FpsCheckResult(
                 checkId:     $checkId,
@@ -303,7 +303,7 @@ class FpsCheckRunner
             $executionMs = (microtime(true) - $startTime) * 1000;
 
             // Pre-checkout does NOT lock orders, only reports the risk
-            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, false);
+            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, false, $executionMs);
 
             $result = new FpsCheckResult(
                 checkId:     $checkId,
@@ -869,18 +869,35 @@ class FpsCheckRunner
 
     /**
      * Geo-mismatch check -- compares IP geolocation country to billing country.
+     *
+     * Required data:
+     *   - $context->ip non-empty
+     *   - cached IP->country mapping under FpsConfig key "ipcountry_<md5(ip)>".
+     *     This cache is populated by IP-intel-style providers when they look
+     *     up an IP. If no provider has cached the IP yet (typical for the
+     *     very first check on a fresh install) this method returns score=0
+     *     with success=false so the downstream aggregator excludes it
+     *     instead of penalising.
+     *
+     * Result: success=false + score=0 when geolocation history is missing.
      */
     private function fps_runGeoMismatchCheck(FpsCheckContext $context): array
     {
         try {
-            // Check cached IP-to-country mapping
+            // Read the cached IP->country mapping populated by upstream IP-intel
+            // providers. Returns '' (treated as "no history") when uncached.
             $ipCountry = $this->config->getCustom('ipcountry_' . md5($context->ip), '');
 
-            if ($ipCountry === '') {
+            if ($ipCountry === '' || $context->country === '') {
+                // Safe no-op: missing either side of the comparison means we
+                // can't make a reliable claim. Returning success=false makes
+                // the aggregator skip this signal entirely.
                 return [
                     'provider' => 'geo_mismatch',
                     'score'    => 0.0,
-                    'details'  => 'No IP geolocation data cached',
+                    'details'  => $ipCountry === ''
+                        ? 'No IP geolocation data cached for this IP yet'
+                        : 'Billing country missing from context',
                     'factors'  => [],
                     'success'  => false,
                 ];
@@ -1123,6 +1140,14 @@ class FpsCheckRunner
     /**
      * Persist a check result to mod_fps_checks.
      *
+     * Writes BOTH the legacy raw_response/details JSON blobs (for
+     * backward compatibility with older readers) AND the structured
+     * columns (provider_scores, check_context, is_pre_checkout,
+     * check_duration_ms, updated_at) introduced in v4.x so newer
+     * readers can avoid JSON-decoding the whole row.
+     *
+     * @param float|null $durationMs Measured pipeline duration in
+     *                               milliseconds; null = unknown.
      * @return int|null The inserted check ID
      */
     private function fps_persistCheck(
@@ -1130,34 +1155,72 @@ class FpsCheckRunner
         FpsRiskResult $risk,
         FpsRuleResult $rules,
         string $actionTaken,
-        bool $locked
+        bool $locked,
+        ?float $durationMs = null
     ): ?int {
         try {
+            $now = date('Y-m-d H:i:s');
+
+            // Normalised provider score map suitable for direct DB consumption.
+            // Strip non-scalar values so the JSON column stays small + scannable.
+            $providerScores = [];
+            foreach ($risk->providerScores as $name => $score) {
+                $providerScores[(string) $name] = is_numeric($score) ? (float) $score : 0.0;
+            }
+
+            // Normalised, lightweight context blob (no fingerprint payloads).
+            $checkContextArr = [
+                'check_type'  => $context->checkType,
+                'order_id'    => $context->orderId,
+                'client_id'   => $context->clientId,
+                'has_email'   => $context->email !== '',
+                'has_phone'   => $context->phone !== '',
+                'has_country' => $context->country !== '',
+                'has_fp'      => $context->fingerprintHash !== '',
+                'amount'      => $context->amount,
+                'domain'      => $context->domain,
+                'rules'       => [
+                    'matched' => count($rules->matchedRules ?? []),
+                    'action'  => $rules->action ?? 'none',
+                ],
+            ];
+
+            $isPreCheckout = ($context->checkType === 'pre_checkout') ? 1 : 0;
+
             $checkId = Capsule::table('mod_fps_checks')->insertGetId([
-                'order_id'       => $context->orderId,
-                'client_id'      => $context->clientId,
-                'check_type'     => $context->checkType,
-                'risk_score'     => $risk->score,
-                'risk_level'     => $risk->level,
-                'ip_address'     => $context->ip ?: null,
-                'email'          => $context->email ?: null,
-                'phone'          => $context->phone ?: null,
-                'country'        => $context->country ?: null,
-                'fraudrecord_id' => ($risk->providerScores['fraudrecord'] ?? 0) > 0
+                'order_id'          => $context->orderId,
+                'client_id'         => $context->clientId,
+                'check_type'        => $context->checkType,
+                'risk_score'        => $risk->score,
+                'risk_level'        => $risk->level,
+                'ip_address'        => $context->ip ?: null,
+                'email'             => $context->email ?: null,
+                'phone'             => $context->phone ?: null,
+                'country'           => $context->country ?: null,
+                'fraudrecord_id'    => ($risk->providerScores['fraudrecord'] ?? 0) > 0
                     ? 'checked'
                     : null,
-                'raw_response'   => json_encode($risk->toArray()),
-                'details'        => json_encode([
+                // Legacy JSON columns -- retained for backward compatibility
+                // with readers that haven't been migrated yet (Client Profile
+                // tab, Statistics, webhook notifier, export). See TODO-hardening.
+                'raw_response'      => json_encode($risk->toArray()),
+                'details'           => json_encode([
                     'risk'    => $risk->toArray(),
                     'rules'   => $rules->toArray(),
                     'context' => $context->toArray(),
                 ]),
-                'action_taken'   => $actionTaken,
-                'locked'         => $locked ? 1 : 0,
-                'reported'       => 0,
-                'reviewed_by'    => null,
-                'reviewed_at'    => null,
-                'created_at'     => date('Y-m-d H:i:s'),
+                // Structured columns (v4.x) -- preferred path for new readers.
+                'provider_scores'   => json_encode($providerScores),
+                'check_context'     => json_encode($checkContextArr),
+                'is_pre_checkout'   => $isPreCheckout,
+                'check_duration_ms' => $durationMs !== null ? (int) round($durationMs) : null,
+                'action_taken'      => $actionTaken,
+                'locked'            => $locked ? 1 : 0,
+                'reported'          => 0,
+                'reviewed_by'       => null,
+                'reviewed_at'       => null,
+                'created_at'        => $now,
+                'updated_at'        => $now,
             ]);
 
             return (int) $checkId;
