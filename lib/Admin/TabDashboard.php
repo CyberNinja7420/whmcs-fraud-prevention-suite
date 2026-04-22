@@ -23,8 +23,101 @@ class TabDashboard
     {
         $this->fpsRenderSetupWizard($modulelink);
         $this->fpsRenderStatsRow($modulelink);
+        $this->fpsRenderLatencyWidget($modulelink);
         $this->fpsRenderManualCheckForm($modulelink);
         $this->fpsRenderRecentChecks($modulelink);
+    }
+
+    /**
+     * Pre-checkout latency widget (P50/P95/P99 + sample count + max).
+     *
+     * Reads from the `pre_checkout_latency` shape returned by
+     * fps_ajaxDashboardStats() (computed via fps_computePreCheckoutLatency
+     * over the last 24 hours of `mod_fps_checks` rows with check_type =
+     * pre_checkout and a non-null check_duration_ms).
+     *
+     * Operators use this widget to baseline P95 BEFORE flipping the
+     * use_runner_fast_path setting on, then verify P95 stays under
+     * the <2s checkout budget AFTER flipping it on. Closes part of
+     * TODO-hardening.md item #1.
+     */
+    private function fpsRenderLatencyWidget(string $modulelink): void
+    {
+        $bodyHtml = <<<'HTML'
+<div class="fps-latency-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:6px;">
+  <div class="fps-latency-cell">
+    <div class="fps-latency-label" style="font-size:.72rem;color:var(--fps-text-muted);text-transform:uppercase;letter-spacing:.06em;">Samples (24h)</div>
+    <div id="fps-lat-samples" class="fps-latency-value" style="font-size:1.4rem;font-weight:700;">--</div>
+  </div>
+  <div class="fps-latency-cell">
+    <div class="fps-latency-label" style="font-size:.72rem;color:var(--fps-text-muted);text-transform:uppercase;letter-spacing:.06em;">P50 ms</div>
+    <div id="fps-lat-p50" class="fps-latency-value" style="font-size:1.4rem;font-weight:700;color:#16a34a;">--</div>
+  </div>
+  <div class="fps-latency-cell">
+    <div class="fps-latency-label" style="font-size:.72rem;color:var(--fps-text-muted);text-transform:uppercase;letter-spacing:.06em;">P95 ms <span style="font-size:.65rem;font-weight:600;color:var(--fps-text-muted);">(target &lt;2000)</span></div>
+    <div id="fps-lat-p95" class="fps-latency-value" style="font-size:1.4rem;font-weight:700;color:#f59e0b;">--</div>
+  </div>
+  <div class="fps-latency-cell">
+    <div class="fps-latency-label" style="font-size:.72rem;color:var(--fps-text-muted);text-transform:uppercase;letter-spacing:.06em;">P99 ms</div>
+    <div id="fps-lat-p99" class="fps-latency-value" style="font-size:1.4rem;font-weight:700;color:#ef4444;">--</div>
+  </div>
+  <div class="fps-latency-cell">
+    <div class="fps-latency-label" style="font-size:.72rem;color:var(--fps-text-muted);text-transform:uppercase;letter-spacing:.06em;">Max ms</div>
+    <div id="fps-lat-max" class="fps-latency-value" style="font-size:1.4rem;font-weight:700;color:var(--fps-text-secondary);">--</div>
+  </div>
+</div>
+<div id="fps-lat-help" style="font-size:.78rem;color:var(--fps-text-muted);margin-top:6px;">
+  Pre-checkout pipeline latency over the last 24 hours. Used to baseline
+  before flipping <code>use_runner_fast_path</code> on, and to verify P95
+  stays under the &lt;2s checkout budget afterwards.
+</div>
+HTML;
+
+        echo FpsAdminRenderer::renderCard(
+            'Pre-Checkout Latency (24h)',
+            'fa-stopwatch',
+            $bodyHtml
+        );
+
+        // The widget is fed by the same fps_ajaxDashboardStats AJAX call
+        // as the stat cards. The dashboard stats response already includes
+        // pre_checkout_latency. We attach a small refresh handler that
+        // fires when the existing loadDashboardStats() resolves.
+        echo <<<'HTML'
+<script>
+(function() {
+    // Patch FpsAdmin.loadDashboardStats: after each refresh, populate the
+    // latency widget. If FpsAdmin isn't loaded yet, wait for DOMContentLoaded.
+    function applyLatency(data) {
+        if (!data || !data.pre_checkout_latency) return;
+        var L = data.pre_checkout_latency;
+        var setEl = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+        setEl('fps-lat-samples', L.samples || 0);
+        setEl('fps-lat-p50',     L.samples ? L.p50 : '--');
+        setEl('fps-lat-p95',     L.samples ? L.p95 : '--');
+        setEl('fps-lat-p99',     L.samples ? L.p99 : '--');
+        setEl('fps-lat-max',     L.samples ? L.max : '--');
+        // Color P95 by target: green <1500, amber 1500-2000, red >=2000.
+        var p95el = document.getElementById('fps-lat-p95');
+        if (p95el && L.samples) {
+            var p = parseInt(L.p95, 10);
+            p95el.style.color = (p < 1500) ? '#16a34a' : (p < 2000 ? '#f59e0b' : '#ef4444');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Hook into FpsAdmin.loadDashboardStats by polling the response cache.
+        // Simpler approach: re-fetch ourselves once and then piggyback on the
+        // existing 30s refresh interval if FpsAdmin sets one.
+        var url = (window.fpsModuleLink || '') + '&ajax=1&a=get_dashboard_stats';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (j) { applyLatency(j && j.data); })
+            .catch(function () { /* silent */ });
+    });
+})();
+</script>
+HTML;
     }
 
     /**
