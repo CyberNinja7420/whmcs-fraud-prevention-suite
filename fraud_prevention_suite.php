@@ -18,7 +18,7 @@ require_once __DIR__ . '/lib/Autoloader.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '4.2.3');
+    define('FPS_MODULE_VERSION', '4.2.4');
 }
 
 // ---------------------------------------------------------------------------
@@ -799,18 +799,9 @@ function fps_createDefaultProducts(): array
 
     try {
         // Resolve the WHMCS default currency ID (do NOT hardcode to 1).
-        // Order of preference:
-        //   1. tblcurrencies row with default=1 (admin-chosen default currency)
-        //   2. lowest-id currency row (safe for pre-8.x)
-        //   3. integer 1 as last-resort fallback
-        try {
-            $defaultCurrency = (int) (Capsule::table('tblcurrencies')->where('default', 1)->value('id') ?? 0);
-            if ($defaultCurrency < 1) {
-                $defaultCurrency = (int) (Capsule::table('tblcurrencies')->orderBy('id')->value('id') ?? 1);
-            }
-        } catch (\Throwable $e) {
-            $defaultCurrency = 1;
-        }
+        // Resolution is centralised in FpsHookHelpers::fps_resolveDefaultCurrencyId()
+        // so all callers share one canonical implementation.
+        $defaultCurrency = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_resolveDefaultCurrencyId();
 
         // Create product group
         $group = Capsule::table('tblproductgroups')->where('name', 'Fraud Intelligence API')->first();
@@ -1262,7 +1253,17 @@ function fraud_prevention_suite_output(array $vars): void
         return '?v=' . FPS_MODULE_VERSION . '-' . $mt;
     };
     echo '<link rel="stylesheet" href="' . $assetsUrl . '/css/fps-1000x.css' . $bust('css/fps-1000x.css') . '">';
-    echo '<script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>';
+    // ApexCharts: prefer the vendored copy at assets/vendor/apexcharts.min.js
+    // (pinned, no third-party CDN dependency). Falls back to the public CDN
+    // if the vendor file isn't present (eg. partial deployments). To refresh:
+    //   curl -sSL https://cdn.jsdelivr.net/npm/apexcharts@3/dist/apexcharts.min.js \
+    //     -o assets/vendor/apexcharts.min.js
+    $apexLocal = $assetsRoot . '/vendor/apexcharts.min.js';
+    if (file_exists($apexLocal)) {
+        echo '<script src="' . $assetsUrl . '/vendor/apexcharts.min.js' . $bust('vendor/apexcharts.min.js') . '"></script>';
+    } else {
+        echo '<script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>';
+    }
     echo '<script src="' . $assetsUrl . '/js/fps-admin.js' . $bust('js/fps-admin.js') . '"></script>';
     echo '<script src="' . $assetsUrl . '/js/fps-charts.js' . $bust('js/fps-charts.js') . '"></script>';
     // WHMCS CSRF token (available globally for all AJAX calls)
@@ -3064,6 +3065,20 @@ function fraud_prevention_suite_clientarea(array $vars): array
             ]);
             $apiBase = 'index.php?m=fraud_prevention_suite&api=1';
             $html = file_get_contents($tplPath);
+            // topology.tpl is served raw (no Smarty pass), so any {$module_version}
+            // placeholders need substituting here before emission. Combined
+            // with filemtime to give deterministic per-deploy cache busting.
+            $topoCssMt = (string) (@filemtime(__DIR__ . '/assets/css/fps-topology.css') ?: 0);
+            $topoJsMt  = (string) (@filemtime(__DIR__ . '/assets/js/fps-topology.js') ?: 0);
+            $html = str_replace(
+                ['fps-topology.css?v={$module_version}', 'fps-topology.js?v={$module_version}', '{$module_version}'],
+                [
+                    'fps-topology.css?v=' . FPS_MODULE_VERSION . '-' . $topoCssMt,
+                    'fps-topology.js?v='  . FPS_MODULE_VERSION . '-' . $topoJsMt,
+                    FPS_MODULE_VERSION,
+                ],
+                $html
+            );
             // Inject data before closing </head>
             $inject = '<script>window.FPS_INITIAL_STATS=' . $initialData . ';window.FPS_API_BASE="' . $apiBase . '";</script>';
             $html = str_replace('</head>', $inject . "\n</head>", $html);
