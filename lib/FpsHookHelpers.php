@@ -52,6 +52,101 @@ class FpsHookHelpers
     }
 
     /**
+     * Read provider scores from a mod_fps_checks row, preferring the
+     * structured `provider_scores` JSON column and falling back to
+     * extracting them from the legacy `details` blob's risk.providerScores
+     * tree. Returns an empty array when neither path yields data.
+     *
+     * Use from any reader that needs per-provider score data; this is
+     * the canonical pattern for the v4.2.4+ reader migration so that
+     * pre-migration rows still resolve correctly.
+     *
+     * @param object|array|null $checkRow A row fetched from mod_fps_checks
+     *                                    (object via Capsule, array via raw query, or null).
+     * @return array<string, float>
+     */
+    public static function fps_readProviderScores($checkRow): array
+    {
+        if ($checkRow === null) {
+            return [];
+        }
+        $get = static function ($key) use ($checkRow) {
+            if (is_array($checkRow))   { return $checkRow[$key] ?? null; }
+            if (is_object($checkRow))  { return $checkRow->{$key} ?? null; }
+            return null;
+        };
+
+        // Preferred structured path.
+        $structured = $get('provider_scores');
+        if (is_string($structured) && $structured !== '') {
+            $decoded = json_decode($structured, true);
+            if (is_array($decoded)) {
+                $out = [];
+                foreach ($decoded as $name => $score) {
+                    $out[(string) $name] = (float) $score;
+                }
+                if ($out !== []) {
+                    return $out;
+                }
+            }
+        }
+
+        // Legacy fallback: pull from details.risk.providerScores.
+        $details = $get('details');
+        if (is_string($details) && $details !== '') {
+            $decoded = json_decode($details, true);
+            $providerScores = $decoded['risk']['providerScores'] ?? null;
+            if (is_array($providerScores)) {
+                $out = [];
+                foreach ($providerScores as $name => $score) {
+                    $out[(string) $name] = (float) $score;
+                }
+                return $out;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Read the normalised check_context from a mod_fps_checks row,
+     * preferring the structured `check_context` JSON column and falling
+     * back to the legacy details.context tree.
+     *
+     * @param object|array|null $checkRow
+     * @return array<string, mixed>
+     */
+    public static function fps_readCheckContext($checkRow): array
+    {
+        if ($checkRow === null) {
+            return [];
+        }
+        $get = static function ($key) use ($checkRow) {
+            if (is_array($checkRow))   { return $checkRow[$key] ?? null; }
+            if (is_object($checkRow))  { return $checkRow->{$key} ?? null; }
+            return null;
+        };
+
+        $structured = $get('check_context');
+        if (is_string($structured) && $structured !== '') {
+            $decoded = json_decode($structured, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        $details = $get('details');
+        if (is_string($details) && $details !== '') {
+            $decoded = json_decode($details, true);
+            if (is_array($decoded['context'] ?? null)) {
+                return $decoded['context'];
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * Build a deterministic ?v=... cache-bust suffix for an in-module
      * asset. Combines FPS_MODULE_VERSION (release boundary) with the
      * file's filemtime (hotfix boundary) so browsers cache within a

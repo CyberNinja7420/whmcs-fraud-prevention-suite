@@ -360,18 +360,43 @@ class FpsGlobalIntelCollector
             // Non-fatal
         }
 
-        // Extract evidence from check details JSON if available
-        if ($check && !empty($check->details)) {
+        // Extract evidence from the check row.
+        //
+        // Reader migration (v4.2.4 second pass): use FpsHookHelpers
+        // canonical reader, which prefers the structured provider_scores
+        // column and falls back to the legacy details.risk.providerScores
+        // tree for pre-v4.2.4 rows. We also keep the textual
+        // details.risk.factors[] sweep as a secondary fallback because
+        // very-old rows didn't even have providerScores in the JSON.
+        if ($check) {
             try {
-                $details = json_decode($check->details, true);
-                if (isset($details['risk']['factors'])) {
-                    foreach ($details['risk']['factors'] as $factor) {
-                        $factorLower = strtolower(is_string($factor) ? $factor : ($factor['factor'] ?? ''));
-                        if (str_contains($factorLower, 'geo') && str_contains($factorLower, 'mismatch')) {
+                $providerScores = FpsHookHelpers::fps_readProviderScores($check);
+                $sourcedFromStructured = ($providerScores !== []);
+
+                foreach ($providerScores as $providerName => $score) {
+                    $name = strtolower((string) $providerName);
+                    if ($score > 0) {
+                        if (str_contains($name, 'geo')) {
                             $flags['geo_mismatch'] = true;
                         }
-                        if (str_contains($factorLower, 'velocity') || str_contains($factorLower, 'rate')) {
+                        if (str_contains($name, 'velocity')) {
                             $flags['high_velocity'] = true;
+                        }
+                    }
+                }
+
+                // Very-old rows: scan the textual factors[] list as a last resort.
+                if (!$sourcedFromStructured && !empty($check->details)) {
+                    $details = json_decode((string) $check->details, true);
+                    if (isset($details['risk']['factors']) && is_array($details['risk']['factors'])) {
+                        foreach ($details['risk']['factors'] as $factor) {
+                            $factorLower = strtolower(is_string($factor) ? $factor : ($factor['factor'] ?? ''));
+                            if (str_contains($factorLower, 'geo') && str_contains($factorLower, 'mismatch')) {
+                                $flags['geo_mismatch'] = true;
+                            }
+                            if (str_contains($factorLower, 'velocity') || str_contains($factorLower, 'rate')) {
+                                $flags['high_velocity'] = true;
+                            }
                         }
                     }
                 }
