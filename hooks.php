@@ -390,11 +390,12 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
         }
 
         // Feature flag: route through FpsCheckRunner::runPreCheckoutFast()
-        // instead of the inline pipeline below. Default '0' = inline (current
-        // behaviour). When operators want to converge the two engines they
-        // flip this to '1' from the Settings tab and the inline path becomes
-        // dead code on this hook. Closes TODO-hardening.md item #1.
-        $useRunnerFastPath = '0';
+        // instead of the inline pipeline below. **Default '1' as of v4.2.4 PM**
+        // -- the runner is now the canonical path; the inline pipeline is kept
+        // ONLY as automatic fallback (when the runner throws). To roll back
+        // to the historical inline-first behaviour an operator can flip this
+        // to '0' from the Settings tab "Pipeline Internals" card.
+        $useRunnerFastPath = '1';
         try {
             $val = Capsule::table('mod_fps_settings')
                 ->where('setting_key', 'use_runner_fast_path')
@@ -402,7 +403,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             if ($val !== null) {
                 $useRunnerFastPath = (string) $val;
             }
-        } catch (\Throwable $e) { /* non-fatal -- default off */ }
+        } catch (\Throwable $e) { /* non-fatal -- default to runner */ }
 
         if ($useRunnerFastPath === '1'
             && class_exists('\\FraudPreventionSuite\\Lib\\FpsCheckRunner')
