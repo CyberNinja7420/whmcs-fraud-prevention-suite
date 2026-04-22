@@ -1,0 +1,58 @@
+# GitLab CI/CD pipeline for the Fraud Prevention Suite WHMCS module.
+#
+# Stages:
+#   - syntax: php -l on every PHP file (catches parse errors fast)
+#   - static: phpstan analyse against the in-repo phpstan.neon.dist
+#
+# The pipeline is intentionally lightweight (no DB, no WHMCS bootstrap)
+# so it stays under 60s on a default GitLab runner. WHMCS-side smoke
+# tests still run on the deploy host post-deploy.
+
+image: php:8.2-cli
+
+stages:
+  - syntax
+  - static
+
+variables:
+  COMPOSER_HOME: "$CI_PROJECT_DIR/.composer-cache"
+  COMPOSER_ALLOW_SUPERUSER: "1"
+
+cache:
+  key:
+    files:
+      - composer.json
+  paths:
+    - .composer-cache/
+    - vendor/
+
+before_script:
+  - apt-get update -qq && apt-get install -y -qq git unzip curl >/dev/null
+  - php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+  - php composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+  - rm composer-setup.php
+
+php-lint:
+  stage: syntax
+  script:
+    - |
+      set -e
+      FAIL=0
+      while IFS= read -r -d '' f; do
+        if ! php -l "$f" >/dev/null 2>&1; then
+          echo "LINT FAIL: $f"
+          php -l "$f"
+          FAIL=1
+        fi
+      done < <(find . -name '*.php' \
+                 -not -path './vendor/*' \
+                 -not -path './phpstan-stubs/*' \
+                 -not -path './docs/*' \
+                 -print0)
+      exit "$FAIL"
+
+phpstan:
+  stage: static
+  script:
+    - composer install --no-interaction --no-progress --prefer-dist
+    - vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=512M

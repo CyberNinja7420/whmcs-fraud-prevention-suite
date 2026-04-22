@@ -274,6 +274,11 @@ class TorDatacenterProvider implements FpsProviderInterface
             );
         }
 
+        // Defensive: in the current build $asnMap is always non-empty
+        // (seeded from KNOWN_HOSTING_ASNS) so this guard is dead code today.
+        // Kept as a safety net in case the constant is ever emptied; phpstan
+        // is told not to flag it via the next-line annotation below.
+        // @phpstan-ignore-next-line empty.notFalsy
         if (empty($asnMap)) {
             logModuleCall(
                 'fraud_prevention_suite',
