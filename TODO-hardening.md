@@ -2,7 +2,7 @@
 
 Items the production-hardening passes did NOT close. Each item lists a severity and a rough effort estimate. Items marked `Pass-2: closed` were carried over from the first pass and resolved in v4.2.4 (2026-04-21); their entries are kept for context.
 
-**Last reconciled:** 2026-04-22 (3rd reconciliation -- items 1, 2, 4, 5 closed end-to-end against actual code).
+**Last reconciled:** 2026-04-22 PM (4th reconciliation -- ALL operational soak items + bulk extraction + psalm wired). Nothing structurally open.
 
 ## Status legend
 
@@ -10,6 +10,7 @@ Items the production-hardening passes did NOT close. Each item lists a severity 
 - `Pass-2: closed` -- resolved in the 2026-04-21 second pass; see [remediation-summary.md](docs/audits/remediation-summary.md) "Second pass" section.
 - `Post-pass-2: closed` -- resolved in the 2026-04-22 follow-up session.
 - `Items-124-closed` -- resolved in the 2026-04-22 third pass (pre-checkout fast-path, legacy-write toggle, file extraction, phpstan + CI).
+- `Get-it-all-done-closed` -- resolved in the 2026-04-22 PM fourth pass (defaults flipped, P95 widget, psalm wired, second extraction batch).
 
 ## Deferred with rationale
 
@@ -143,6 +144,38 @@ The module has accumulated some stale comments, unused variables, and comments t
 - [ ] Optionally add psalm config alongside (lower priority -- phpstan covers the bug classes we care about).
 
 ---
+
+---
+
+## Closed in get-it-all-done fourth pass (2026-04-22 PM, v4.2.4 follow-up)
+
+### Pre-checkout fast-path is now the DEFAULT path
+
+`use_runner_fast_path` default flipped from `'0'` (inline) to `'1'` (runner). Existing installs keep whatever value they had set. Inline pipeline is preserved AS automatic fallback only -- it runs when `runPreCheckoutFast()` throws, logged as `PreCheckout::FastPathFallback`. To roll back, an operator flips the flag back to `'0'` from the Settings tab.
+
+### P95 latency widget shipped on Dashboard
+
+New `fps_computePreCheckoutLatency()` helper aggregates the per-row `check_duration_ms` column over the last 24 hours into P50 / P95 / P99 / max. The dashboard tab grew a "Pre-Checkout Latency (24h)" card with colour-coded P95 (green <1500ms, amber <2000ms, red ≥2000ms) so operators can baseline before flipping `use_runner_fast_path` and verify the runner stays under the <2s checkout budget after.
+
+### `write_legacy_details_column` default flipped to '0'
+
+Fresh installs no longer double-write the legacy `details` + `raw_response` JSON blobs. The structured columns (`provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`, `updated_at`) carry the same data, and `FpsHookHelpers::fps_readProviderScores()` / `fps_readCheckContext()` fall back to the legacy blobs for any pre-existing rows.
+
+### `drop_legacy_details_columns` opt-in shipped
+
+New setting (default `'0'` for safety). When operators flip to `'1'`, the next module reactivation drops the `details` + `raw_response` columns from `mod_fps_checks` via idempotent ALTER. The `_activate()` create() definition no longer includes those columns either, so fresh installs never get them.
+
+### psalm level 6 wired
+
+`psalm.xml` (errorLevel 6) + `psalm-baseline.xml` ship in repo. `composer.json` declares `vimeo/psalm ^5.26` dev dep with `composer psalm` script. Both `.gitlab-ci.yml` (new `psalm` stage) and `.github/workflows/qa.yml` (new `psalm` job) run psalm in CI alongside phpstan. Baseline tracks current debt; CI fails on NEW issues only.
+
+### phpstan raised to level 3
+
+`phpstan.neon.dist` level bumped from 1 to 3. New `phpstan-baseline.neon` tracks 26 known legacy-typing patterns (loose return types, mixed-shape array access on Capsule rows). 0 NEW errors after baseline; CI fails only on new issues. Level 4+ deferred (would surface 100s of strict-types findings on legacy WHMCS code).
+
+### Second extraction batch (Bot + GDPR AJAX)
+
+`fps_ajaxDetectBots`, `PreviewBotAction`, `FlagBots`, `DeactivateBots`, `PurgeBots`, `DeepPurgeBots`, `DetectOrphanUsers`, `PurgeOrphanUsers` (8 functions, 175 lines) → `lib/Ajax/FpsAjaxBotCleanup.php`. `fps_ajaxGdprSubmitRequest`, `GdprVerifyEmail`, `GdprGetRequests`, `GdprReviewRequest` (4 functions, 256 lines) → `lib/Gdpr/FpsAjaxGdpr.php`. Functions stay in the global namespace so the dispatch switch in `fps_handleAjax()` is unchanged. Main file shrank from 4,764 → 4,333 lines (~9% additional reduction this pass).
 
 ---
 
