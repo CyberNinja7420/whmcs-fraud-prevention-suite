@@ -3070,11 +3070,35 @@ function fraud_prevention_suite_clientarea(array $vars): array
             // with filemtime to give deterministic per-deploy cache busting.
             $topoCssMt = (string) (@filemtime(__DIR__ . '/assets/css/fps-topology.css') ?: 0);
             $topoJsMt  = (string) (@filemtime(__DIR__ . '/assets/js/fps-topology.js') ?: 0);
+
+            // 3D vendor libs: prefer the vendored copies (no runtime CDN
+            // dependency); fall back to the public jsdelivr URL only if the
+            // vendor file is missing on disk at render time. Refresh via
+            // scripts/refresh-vendor-assets.sh quarterly.
+            $threeLocal   = __DIR__ . '/assets/vendor/three.min.js';
+            $globeLocal   = __DIR__ . '/assets/vendor/globe.gl.min.js';
+            $threeModSrc  = file_exists($threeLocal)
+                ? '/modules/addons/fraud_prevention_suite/assets/vendor/three.min.js?v='
+                  . FPS_MODULE_VERSION . '-' . filemtime($threeLocal)
+                : 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js';
+            $globeModSrc  = file_exists($globeLocal)
+                ? '/modules/addons/fraud_prevention_suite/assets/vendor/globe.gl.min.js?v='
+                  . FPS_MODULE_VERSION . '-' . filemtime($globeLocal)
+                : 'https://cdn.jsdelivr.net/npm/globe.gl@2.31.0/dist/globe.gl.min.js';
+
             $html = str_replace(
-                ['fps-topology.css?v={$module_version}', 'fps-topology.js?v={$module_version}', '{$module_version}'],
+                [
+                    'fps-topology.css?v={$module_version}',
+                    'fps-topology.js?v={$module_version}',
+                    '{THREE_SRC}',
+                    '{GLOBE_SRC}',
+                    '{$module_version}',
+                ],
                 [
                     'fps-topology.css?v=' . FPS_MODULE_VERSION . '-' . $topoCssMt,
                     'fps-topology.js?v='  . FPS_MODULE_VERSION . '-' . $topoJsMt,
+                    $threeModSrc,
+                    $globeModSrc,
                     FPS_MODULE_VERSION,
                 ],
                 $html
