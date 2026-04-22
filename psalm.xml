@@ -39,13 +39,17 @@
         </ignoreFiles>
     </projectFiles>
 
-    <!-- Reuse the WHMCS / Capsule / Illuminate stubs from phpstan-stubs/ -->
+    <!-- Reuse the WHMCS / Capsule / Illuminate stubs from phpstan-stubs/.
+         fps-globals.php declares cross-file FPS helper signatures so psalm
+         can resolve them at call sites without traversing every project
+         file in load order. -->
     <stubs>
         <file name="phpstan-stubs/whmcs.php"/>
         <file name="phpstan-stubs/capsule.php"/>
         <file name="phpstan-stubs/illuminate-query.php"/>
         <file name="phpstan-stubs/illuminate-schema.php"/>
         <file name="phpstan-stubs/illuminate-collection.php"/>
+        <file name="phpstan-stubs/fps-globals.php"/>
     </stubs>
 
     <issueHandlers>
