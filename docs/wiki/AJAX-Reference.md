@@ -2,7 +2,7 @@
 
 ## Overview
 
-FPS admin dashboard uses 75+ AJAX actions to load data, save settings, execute bulk operations, and stream progress. All actions are POST requests to `addonmodules.php?module=fraud_prevention_suite&ajax=1&a=action_name`.
+FPS admin dashboard uses 70+ AJAX actions to load data, save settings, execute bulk operations, and stream progress. All actions are POST requests to `addonmodules.php?module=fraud_prevention_suite&ajax=1&a=action_name`.
 
 ## Request Format
 

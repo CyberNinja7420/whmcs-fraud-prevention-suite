@@ -314,7 +314,7 @@ curl "https://whmcs.example.com/modules/addons/fraud_prevention_suite/public/api
 **Fix**:
 1. Re-run activation: Go to Addon Modules, click Deactivate, then Activate
 2. Activation is idempotent (safe to re-run)
-3. Check all 36 tables exist: `SHOW TABLES LIKE 'mod_fps%'`
+3. Check all 28 tables exist: `SHOW TABLES LIKE 'mod_fps%'`
 4. If specific table missing, re-activate module
 5. As last resort, restore database backup and activate again
 

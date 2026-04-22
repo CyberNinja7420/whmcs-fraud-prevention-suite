@@ -7,6 +7,41 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.4] - 2026-04-22
+
+### Added
+- **Vendored frontend libs** -- `assets/vendor/apexcharts.min.js` (3.54.1, 540 KB), `assets/vendor/three.min.js` (0.160.0, 670 KB), `assets/vendor/globe.gl.min.js` (2.31.0, 1.0 MB) so admin Statistics and the topology globe no longer depend on jsdelivr at runtime. Loader prefers the vendored copy and falls back to the public CDN only if the vendor file is missing on disk.
+- **`scripts/refresh-vendor-assets.sh`** -- idempotent quarterly refresh of all three vendored libs pinned to specific upstream versions; skips downloads when local sha256 matches.
+- **`scripts/fps-vendor-refresh.cron`** -- `/etc/cron.d` entry that runs the refresh script on the 1st of Jan/Apr/Jul/Oct at 03:17 UTC.
+- **`FpsHookHelpers::fps_resolveDefaultCurrencyId()`** -- memoized WHMCS default currency resolver (default=1 row -> lowest id -> 1) so callers stop hardcoding `currency=1`.
+- **`FpsHookHelpers::fps_resolvePreCheckoutThresholds(string $gateway = '')`** -- single source of truth for the pre-checkout block + captcha thresholds with consistent fall-throughs (per-gateway -> legacy admin -> modern admin -> safe default).
+- **`FpsHookHelpers::fps_assetCacheBust(string $relativeAssetPath)`** -- deterministic `?v=<version>-<filemtime>` suffix for in-module asset injections.
+- **`FpsHookHelpers::fps_readProviderScores($row)` and `fps_readCheckContext($row)`** -- canonical readers that prefer the structured columns introduced in pass 1 and fall back to the legacy `details` blob for pre-v4.2.4 rows.
+- **`docs/audits/`** -- added the production hardening audit, remediation summary, compatibility report, schema parity report, and `TODO-hardening.md` from the two-pass remediation effort.
+
+### Fixed
+- **Hardcoded currency=1 in featured-products homepage injection** -- `hooks.php` was using `where('currency', 1)` when reading `tblpricing`, breaking "starting at" prices on installs whose default currency is not id 1. Now resolved via `fps_resolveDefaultCurrencyId()`.
+- **Topology page emitted literal `{$module_version}`** -- `templates/topology.tpl` is served raw via `file_get_contents()` (no Smarty pass) so the `{$module_version}` placeholder was never expanded. PHP topology block now substitutes both the version string and per-asset filemtime values before emission.
+- **Three asset injections were unversioned** -- admin `fps-1000x.css` header injection and both `fps-fingerprint.js` script tags now produce a deterministic `?v=4.2.4-<filemtime>` suffix.
+- **Geo-mismatch and geo-impossibility comments inaccurate** -- `FpsCheckRunner::fps_runGeoMismatchCheck()` and `FpsGeoImpossibilityEngine::analyze()` now have explicit docblocks describing the data preconditions and the safe no-op behaviour when those preconditions fail. Added a guard so missing billing country also fails safely in geo-mismatch.
+
+### Changed
+- **`FpsCheckRunner::fps_persistCheck()` writes structured columns** -- every persist now populates `provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`, `updated_at` in addition to the legacy `raw_response`/`details` JSON. New optional `?float $durationMs = null` parameter threads measured pipeline duration into the persisted row (3 call sites updated).
+- **Inline pre-checkout insert in `hooks.php` populates structured columns** -- builds and writes the same `provider_scores`/`check_context` JSON map as the canonical writer; `is_pre_checkout=1`, `check_duration_ms`, and `updated_at` always set.
+- **Turnstile-block insert path upgraded to structured-column parity** -- `is_pre_checkout=1`, `provider_scores={"turnstile":100}`, `check_context` capturing the Turnstile error codes + user-agent, `updated_at` always set, `check_duration_ms` left NULL (instant block, no measured timing).
+- **`FpsGlobalIntelCollector::extractRiskFlags()` reader migrated** -- now uses `FpsHookHelpers::fps_readProviderScores()` (structured-first with legacy JSON fallback) instead of hand-rolled details-decoding. The very-old `details.risk.factors[]` textual sweep is retained as a tertiary fallback.
+- **ApexCharts loader emits vendored URL by default** -- `fraud_prevention_suite.php` admin output now writes `<script src="...assets/vendor/apexcharts.min.js?v=4.2.4-<mtime>">` when the vendor file exists; falls back to `cdn.jsdelivr.net/npm/apexcharts@3` only when the local file is missing.
+- **Topology page emits vendored three.js + globe.gl by default** -- `templates/topology.tpl` uses `{THREE_SRC}` / `{GLOBE_SRC}` placeholders that the PHP topology block substitutes with the vendored URL + filemtime cache-bust.
+- **Module version** -- bumped from 4.2.3 to 4.2.4.
+- **`fps_createDefaultProducts()` reuses `fps_resolveDefaultCurrencyId()`** instead of duplicating the resolver inline.
+
+### Operations
+- v4.2.4 deployed to both WHMCS installs on `server.freeit.us` (`/home/freeit` and `/home/enterpri`); pre-deploy backups left in place.
+- 10-loop battle-validation passed: PHP lint clean (63/63), `_activate` success, `X-FPS-Version: 4.2.4` header on public API, ApexCharts vendor file HTTP 200 + sha256 match, structured columns populated on synthetic pre-checkout + Turnstile-block paths, legacy JSON readers still work, schema parity PASS (16/16 across 6 tables), end-to-end smoke (admin login, public homepage with FPS card, public API, hub `/health`) all green.
+- Currency battle-test: switched dev install's default currency to a synthetic EUR row at id=2; `fps_resolveDefaultCurrencyId()` returned `2` (NOT hardcoded 1); products without EUR pricing gracefully skipped instead of falsely showing USD prices.
+
+---
+
 ## [4.2.3] - 2026-04-08
 
 ### Added
