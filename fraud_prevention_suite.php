@@ -12,6 +12,18 @@ use WHMCS\Database\Capsule;
 require_once __DIR__ . '/lib/Autoloader.php';
 
 // ---------------------------------------------------------------------------
+// EXTRACTED HELPERS (TODO-hardening.md item #4 -- light extraction)
+//
+// Functions that previously lived inline in this file are now in their own
+// files under lib/. They remain in the global namespace (no PSR-4 conversion
+// yet) so call sites are unchanged; the only difference is which file the
+// function body lives in.
+// ---------------------------------------------------------------------------
+
+require_once __DIR__ . '/lib/Install/FpsInstallHelper.php';
+require_once __DIR__ . '/lib/Gdpr/FpsGdprHelper.php';
+
+// ---------------------------------------------------------------------------
 // VERSION (single source of truth)
 // ---------------------------------------------------------------------------
 // All user-visible, webhook-emitted, API-header, and DB-seeded version strings
@@ -664,6 +676,23 @@ function fraud_prevention_suite_activate(): array
             // contributes a score. Set to '0' on installs that need first-
             // check scoring for new clients (higher false-positive risk).
             'geo_impossibility_requires_history' => '1',
+            // Pre-checkout fast-path: when '1', the ShoppingCartValidateCheckout
+            // hook routes through FpsCheckRunner::runPreCheckoutFast() instead
+            // of the inline pipeline. Default '0' preserves the inline
+            // pipeline that has been the canonical path for years; flip to
+            // '1' after benchmarking that the runner stays under the <2s
+            // checkout budget on your install. See TODO-hardening.md item #1.
+            'use_runner_fast_path' => '0',
+            // Legacy details JSON column writer: when '1' (default), every
+            // mod_fps_checks insert continues to write the legacy `details`
+            // and `raw_response` JSON blobs in addition to the structured
+            // columns. Set to '0' AFTER a 60-day soak with the structured
+            // readers in place to stop double-writing; downstream readers
+            // (TabClientProfile, exports, third-party integrations) have
+            // already been migrated to FpsHookHelpers::fps_readProviderScores()
+            // and fps_readCheckContext() with legacy fallback. See
+            // TODO-hardening.md item #2.
+            'write_legacy_details_column' => '1',
             'refund_abuse_threshold' => '3',
             'refund_abuse_window_days' => '90',
             'chargeback_tracking_enabled' => '1',
@@ -797,235 +826,15 @@ function fraud_prevention_suite_activate(): array
 /**
  * Auto-create FPS API products and product group in WHMCS.
  * Idempotent: skips if products already exist.
+ *
+ * NOTE: Function body extracted to lib/Install/FpsInstallHelper.php
+ * (TODO-hardening.md item #4). The require_once at the top of this
+ * file loads the helper; this stub remains as a documentation hook.
+ *
+ * Implementation lives at:
+ *   {@see fps_createDefaultProducts()} in lib/Install/FpsInstallHelper.php
  */
-function fps_createDefaultProducts(): array
-{
-    $created = 0;
-
-    try {
-        // Resolve the WHMCS default currency ID (do NOT hardcode to 1).
-        // Resolution is centralised in FpsHookHelpers::fps_resolveDefaultCurrencyId()
-        // so all callers share one canonical implementation.
-        $defaultCurrency = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_resolveDefaultCurrencyId();
-
-        // Create product group
-        $group = Capsule::table('tblproductgroups')->where('name', 'Fraud Intelligence API')->first();
-        $groupId = $group->id ?? 0;
-
-        if ($groupId === 0) {
-            $insertData = [
-                'name'           => 'Fraud Intelligence API',
-                'headline'       => 'Real-time fraud detection and threat intelligence API',
-                'tagline'        => 'Protect your business with enterprise-grade fraud prevention',
-                'orderfrmtpl'    => '',
-                'disabledgateways' => '',
-                'hidden'         => 0,
-                'order'          => 0,
-            ];
-            // Set slug if column exists (WHMCS 8.x+)
-            if (Capsule::schema()->hasColumn('tblproductgroups', 'slug')) {
-                $insertData['slug'] = 'fraud-intelligence-api';
-            }
-            $groupId = Capsule::table('tblproductgroups')->insertGetId($insertData);
-        }
-
-        // Ensure group slug is set (may be missing on existing groups)
-        try {
-            if (Capsule::schema()->hasColumn('tblproductgroups', 'slug')) {
-                $currentSlug = Capsule::table('tblproductgroups')->where('id', $groupId)->value('slug');
-                if (empty($currentSlug)) {
-                    Capsule::table('tblproductgroups')->where('id', $groupId)->update(['slug' => 'fraud-intelligence-api']);
-                }
-            }
-        } catch (\Throwable $e) {}
-
-        if ($groupId <= 0) return ['created' => 0, 'error' => 'Failed to create product group'];
-
-        // Shared CSS injected once for all product descriptions
-        $css = '<style>.fps-prod{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-align:left;line-height:1.6;}'
-            . '.fps-prod .fp-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.04em;margin-bottom:10px;}'
-            . '.fps-prod .fp-feat{list-style:none;padding:0;margin:8px 0;}'
-            . '.fps-prod .fp-feat li{padding:5px 0 5px 22px;position:relative;font-size:.88rem;border-bottom:1px solid rgba(255,255,255,.04);}'
-            . '.fps-prod .fp-feat li:last-child{border:none;}'
-            . '.fps-prod .fp-feat li::before{content:"\\2713";position:absolute;left:0;color:#38ef7d;font-weight:700;}'
-            . '.fps-prod .fp-ep{list-style:none;padding:0;margin:6px 0;font-family:monospace;font-size:.78rem;}'
-            . '.fps-prod .fp-ep li{padding:3px 0;}'
-            . '.fps-prod .fp-ep .m{color:#38ef7d;font-weight:700;}'
-            . '.fps-prod .fp-ep .mp{color:#f5c842;font-weight:700;}'
-            . '.fps-prod .fp-sec{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin:14px 0 6px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);}'
-            . '.fps-prod .fp-rate{display:flex;gap:6px;justify-content:center;margin:10px 0;flex-wrap:wrap;}'
-            . '.fps-prod .fp-rate span{padding:4px 12px;border-radius:6px;font-size:.78rem;font-weight:700;background:rgba(102,126,234,.12);border:1px solid rgba(102,126,234,.25);}'
-            . '.fps-prod .fp-note{font-size:.75rem;opacity:.5;margin-top:10px;text-align:center;}'
-            . '</style>';
-
-        // Product definitions
-        $products = [
-            [
-                'name'  => 'FPS API - Free Tier',
-                'tier'  => 'free',
-                'price' => '0.00',
-                'desc'  => $css . '<div class="fps-prod">'
-                    . '<div class="fp-badge" style="background:rgba(56,239,125,.15);color:#38ef7d;">STARTER</div>'
-                    . '<p style="font-size:.9rem;opacity:.8;">Real-time fraud detection at no cost. Perfect for development and evaluation.</p>'
-                    . '<div class="fp-rate"><span>30 req/min</span><span>5,000 req/day</span></div>'
-                    . '<div class="fp-sec" style="color:#38ef7d;">Included Features</div>'
-                    . '<ul class="fp-feat">'
-                    . '<li>Global fraud statistics dashboard</li>'
-                    . '<li>Threat topology visualization</li>'
-                    . '<li>RESTful JSON API</li>'
-                    . '<li>Rate limit headers on every response</li>'
-                    . '<li>Client area usage dashboard</li>'
-                    . '</ul>'
-                    . '<div class="fp-sec" style="color:#667eea;">API Endpoints</div>'
-                    . '<ul class="fp-ep">'
-                    . '<li><span class="m">GET</span> /v1/stats/global</li>'
-                    . '<li><span class="m">GET</span> /v1/topology/hotspots</li>'
-                    . '</ul>'
-                    . '<div class="fp-note">Code examples in cURL, PHP, Python &amp; JavaScript</div>'
-                    . '</div>',
-            ],
-            [
-                'name'  => 'FPS API - Basic',
-                'tier'  => 'basic',
-                'price' => '19.00',
-                'desc'  => '<div class="fps-prod">'
-                    . '<div class="fp-badge" style="background:rgba(102,126,234,.15);color:#667eea;">MOST POPULAR</div>'
-                    . '<p style="font-size:.9rem;opacity:.8;">Full IP &amp; email intelligence for active fraud prevention. Ideal for hosting, e-commerce, and SaaS.</p>'
-                    . '<div class="fp-rate"><span>120 req/min</span><span>50K req/day</span></div>'
-                    . '<div class="fp-sec" style="color:#667eea;">Everything in Free +</div>'
-                    . '<ul class="fp-feat">'
-                    . '<li>IP threat intel (VPN, Tor, proxy, datacenter)</li>'
-                    . '<li>IP geolocation (country, city, ISP, ASN)</li>'
-                    . '<li>Email validation &amp; disposable detection</li>'
-                    . '<li>Real-time fraud event feed</li>'
-                    . '<li>Domain age &amp; reputation checks</li>'
-                    . '</ul>'
-                    . '<div class="fp-sec" style="color:#667eea;">Additional Endpoints</div>'
-                    . '<ul class="fp-ep">'
-                    . '<li><span class="m">GET</span> /v1/lookup/ip-basic</li>'
-                    . '<li><span class="m">GET</span> /v1/lookup/email-basic</li>'
-                    . '<li><span class="m">GET</span> /v1/topology/events</li>'
-                    . '</ul>'
-                    . '<div class="fp-sec" style="color:#667eea;">Use Cases</div>'
-                    . '<ul class="fp-feat">'
-                    . '<li>Block fraud IPs at signup</li>'
-                    . '<li>Validate emails at checkout</li>'
-                    . '<li>Monitor geographic patterns</li>'
-                    . '<li>Enrich CRM with threat data</li>'
-                    . '</ul>'
-                    . '<div class="fp-note">Email support &middot; 24h response</div>'
-                    . '</div>',
-            ],
-            [
-                'name'  => 'FPS API - Premium',
-                'tier'  => 'premium',
-                'price' => '99.00',
-                'desc'  => '<div class="fps-prod">'
-                    . '<div class="fp-badge" style="background:rgba(255,215,0,.15);color:#ffd700;">ENTERPRISE</div>'
-                    . '<p style="font-size:.9rem;opacity:.8;">Complete fraud intelligence suite with bulk ops, deep analysis, and priority support for enterprises &amp; MSPs.</p>'
-                    . '<div class="fp-rate"><span style="border-color:rgba(255,215,0,.3);">600 req/min</span><span style="border-color:rgba(255,215,0,.3);">500K req/day</span></div>'
-                    . '<div class="fp-sec" style="color:#ffd700;">Everything in Basic +</div>'
-                    . '<ul class="fp-feat">'
-                    . '<li>Full IP dossier (abuse history, risk scoring)</li>'
-                    . '<li>Full email analysis (breaches, social, SMTP)</li>'
-                    . '<li>Bulk lookup (100 items per request)</li>'
-                    . '<li>Country-level fraud analytics</li>'
-                    . '<li>Webhook notifications for high-risk</li>'
-                    . '<li>Custom rate limit overrides</li>'
-                    . '</ul>'
-                    . '<div class="fp-sec" style="color:#ffd700;">Additional Endpoints</div>'
-                    . '<ul class="fp-ep">'
-                    . '<li><span class="m">GET</span> /v1/lookup/ip-full</li>'
-                    . '<li><span class="m">GET</span> /v1/lookup/email-full</li>'
-                    . '<li><span class="mp">POST</span> /v1/lookup/bulk</li>'
-                    . '<li><span class="m">GET</span> /v1/reports/country/{CC}</li>'
-                    . '</ul>'
-                    . '<div class="fp-sec" style="color:#ffd700;">Enterprise</div>'
-                    . '<ul class="fp-feat">'
-                    . '<li>IP whitelist per API key</li>'
-                    . '<li>Per-key custom rate limits</li>'
-                    . '<li>99.9% uptime SLA</li>'
-                    . '<li>Priority support (4h response)</li>'
-                    . '</ul>'
-                    . '<div class="fp-note">Dedicated account manager for annual plans</div>'
-                    . '</div>',
-            ],
-        ];
-
-        foreach ($products as $p) {
-            // Skip if already exists
-            if (Capsule::table('tblproducts')->where('name', $p['name'])->exists()) {
-                continue;
-            }
-
-            $pid = Capsule::table('tblproducts')->insertGetId([
-                'type'           => 'other',
-                'gid'            => $groupId,
-                'name'           => $p['name'],
-                'description'    => $p['desc'],
-                'hidden'         => 0,
-                'showdomainoptions' => 0,
-                'paytype'        => 'recurring',
-                'autosetup'      => 'order',
-                'servertype'     => 'fps_api',
-                'configoption1'  => $p['tier'],
-                'order'          => 0,
-                'retired'        => 0,
-                'is_featured'    => 0,
-                'stockcontrol'   => 0,
-            ]);
-
-            if ($pid > 0) {
-                // Set pricing (monthly only, other cycles disabled).
-                // Currency ID resolved from tblcurrencies default above.
-                Capsule::table('tblpricing')->insertOrIgnore([
-                    'type'           => 'product',
-                    'currency'       => $defaultCurrency,
-                    'relid'          => $pid,
-                    'msetupfee'      => '0.00',
-                    'qsetupfee'      => '0.00',
-                    'ssetupfee'      => '0.00',
-                    'asetupfee'      => '0.00',
-                    'bsetupfee'      => '0.00',
-                    'tsetupfee'      => '0.00',
-                    'monthly'        => $p['price'],
-                    'quarterly'      => '-1.00',
-                    'semiannually'   => '-1.00',
-                    'annually'       => '-1.00',
-                    'biennially'     => '-1.00',
-                    'triennially'    => '-1.00',
-                ]);
-
-                // Set product slug for SEO-friendly URLs
-                $slug = 'fps-api-' . $p['tier'];
-                try {
-                    if (Capsule::schema()->hasColumn('tblproducts', 'slug')) {
-                        Capsule::table('tblproducts')->where('id', $pid)->update(['slug' => $slug]);
-                    }
-                    // Also set in tblproducts_slugs if table exists (WHMCS 8.x with Lagom2)
-                    if (Capsule::schema()->hasTable('tblproducts_slugs')) {
-                        Capsule::table('tblproducts_slugs')->insertOrIgnore([
-                            'product_id'  => $pid,
-                            'slug'        => $slug,
-                            'group_slug'  => 'fraud-intelligence-api',
-                            'group_id'    => $groupId,
-                            'active'      => 1,
-                        ]);
-                    }
-                } catch (\Throwable $e) {
-                    // Slug setting is non-fatal
-                }
-
-                $created++;
-            }
-        }
-
-        return ['created' => $created];
-    } catch (\Throwable $e) {
-        logModuleCall('fraud_prevention_suite', 'CreateProducts', '', $e->getMessage());
-        return ['created' => $created, 'error' => $e->getMessage()];
-    }
-}
+// (function body lives at lib/Install/FpsInstallHelper.php; require_once at top of file)
 
 // ---------------------------------------------------------------------------
 // DEACTIVATE
@@ -2455,6 +2264,8 @@ function fps_ajaxSaveSettings(): array
         'enable_site_theme_overrides', 'enable_featured_products',
         'hide_invoice_extensions', 'redirect_chat_now',
         'geo_impossibility_requires_history',
+        'use_runner_fast_path',
+        'write_legacy_details_column',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {
@@ -4489,119 +4300,7 @@ function fps_ajaxGlobalIntelSaveSettings(): array
  * @param string|null $ip        IP address if the request is also tied to one.
  * @return array{subject: array, tables: array<string, array{deleted:int, anonymised:int}>}
  */
-function fps_gdprPurgeByEmail(string $emailHash, ?string $email = null, ?string $ip = null): array
-{
-    $report = [
-        'subject' => [
-            'email_hash' => $emailHash,
-            'email'      => $email,
-            'ip'         => $ip,
-            'purged_at'  => date('Y-m-d H:i:s'),
-        ],
-        'tables' => [],
-    ];
-
-    $record = function (string $table, int $deleted, int $anonymised) use (&$report) {
-        $report['tables'][$table] = ['deleted' => $deleted, 'anonymised' => $anonymised];
-    };
-
-    // 1. mod_fps_global_intel - full delete by email_hash (strongest identifier)
-    try {
-        $count = Capsule::table('mod_fps_global_intel')
-            ->where('email_hash', $emailHash)->delete();
-        $record('mod_fps_global_intel', $count, 0);
-    } catch (\Throwable $e) {
-        $record('mod_fps_global_intel', 0, 0);
-    }
-
-    // 2. mod_fps_email_intel - cache of email reputation lookups
-    try {
-        if (Capsule::schema()->hasTable('mod_fps_email_intel')) {
-            $count = Capsule::table('mod_fps_email_intel')
-                ->where('email_hash', $emailHash)->delete();
-            $record('mod_fps_email_intel', $count, 0);
-        }
-    } catch (\Throwable $e) {
-        $record('mod_fps_email_intel', 0, 0);
-    }
-
-    // 3. mod_fps_ip_intel - IP reputation cache (only if IP provided)
-    if ($ip !== null && $ip !== '') {
-        try {
-            if (Capsule::schema()->hasTable('mod_fps_ip_intel')) {
-                $count = Capsule::table('mod_fps_ip_intel')
-                    ->where('ip_address', $ip)->delete();
-                $record('mod_fps_ip_intel', $count, 0);
-            }
-        } catch (\Throwable $e) {
-            $record('mod_fps_ip_intel', 0, 0);
-        }
-    }
-
-    // 4. mod_fps_fingerprints - delete matching rows (schema varies by install)
-    try {
-        if (Capsule::schema()->hasTable('mod_fps_fingerprints')) {
-            $q = Capsule::table('mod_fps_fingerprints');
-            if ($email !== null && $email !== '' && Capsule::schema()->hasColumn('mod_fps_fingerprints', 'email')) {
-                $count = $q->where('email', $email)->delete();
-                $record('mod_fps_fingerprints', $count, 0);
-            } elseif ($ip !== null && $ip !== '' && Capsule::schema()->hasColumn('mod_fps_fingerprints', 'ip_address')) {
-                $count = $q->where('ip_address', $ip)->delete();
-                $record('mod_fps_fingerprints', $count, 0);
-            }
-        }
-    } catch (\Throwable $e) {
-        $record('mod_fps_fingerprints', 0, 0);
-    }
-
-    // 5. mod_fps_checks - ANONYMISE rather than delete. Lawful basis for retention
-    //    of fraud-defence evidence under GDPR Article 17(3)(e); but PII must be
-    //    redacted on request.
-    try {
-        $q = Capsule::table('mod_fps_checks');
-        if ($email !== null && $email !== '') {
-            $emailRows = (clone $q)->where('email', $email)->update([
-                'email'         => null,
-                'phone'         => null,
-                'ip_address'    => null,
-                'details'       => null,
-                'check_context' => json_encode(['anonymised' => true, 'at' => date('c')]),
-            ]);
-        } else {
-            $emailRows = 0;
-        }
-        if ($ip !== null && $ip !== '') {
-            $ipRows = (clone $q)->where('ip_address', $ip)->update([
-                'email'         => null,
-                'phone'         => null,
-                'ip_address'    => null,
-                'details'       => null,
-                'check_context' => json_encode(['anonymised' => true, 'at' => date('c')]),
-            ]);
-        } else {
-            $ipRows = 0;
-        }
-        $record('mod_fps_checks', 0, $emailRows + $ipRows);
-    } catch (\Throwable $e) {
-        $record('mod_fps_checks', 0, 0);
-    }
-
-    // 6. mod_fps_api_logs - only relevant if IP was tied to API calls
-    if ($ip !== null && $ip !== '') {
-        try {
-            if (Capsule::schema()->hasTable('mod_fps_api_logs')) {
-                $count = Capsule::table('mod_fps_api_logs')
-                    ->where('ip_address', $ip)
-                    ->update(['ip_address' => null]);
-                $record('mod_fps_api_logs', 0, $count);
-            }
-        } catch (\Throwable $e) {
-            $record('mod_fps_api_logs', 0, 0);
-        }
-    }
-
-    return $report;
-}
+// (function body lives at lib/Gdpr/FpsGdprHelper.php; require_once at top of file)
 
 /**
  * Module-safe mail sender wrapper.
@@ -4714,6 +4413,11 @@ function fps_ajaxGlobalIntelExport(): void
  */
 function fps_ajaxGdprSubmitRequest(): array
 {
+    // Define the generic anti-enumeration response BEFORE the try{} so the
+    // catch block at the bottom can reference it even when an exception is
+    // thrown early (caught by phpstan: variable might not be defined).
+    $genericMessage = 'If data associated with this email exists in our system, a verification link has been sent to your email address. Please check your inbox.';
+
     try {
         $email = strtolower(trim($_POST['email'] ?? ''));
         $name = trim($_POST['name'] ?? '');
@@ -4729,10 +4433,6 @@ function fps_ajaxGdprSubmitRequest(): array
         $exists = Capsule::table('mod_fps_global_intel')
             ->where('email_hash', $emailHash)
             ->exists();
-
-        // Generic response to prevent email enumeration (GDPR Art. 12(4))
-        // Returns the same message regardless of whether data exists or not
-        $genericMessage = 'If data associated with this email exists in our system, a verification link has been sent to your email address. Please check your inbox.';
 
         if (!$exists) {
             // No data found -- still return the same generic message

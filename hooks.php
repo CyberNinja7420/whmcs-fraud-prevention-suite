@@ -389,6 +389,60 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             }
         }
 
+        // Feature flag: route through FpsCheckRunner::runPreCheckoutFast()
+        // instead of the inline pipeline below. Default '0' = inline (current
+        // behaviour). When operators want to converge the two engines they
+        // flip this to '1' from the Settings tab and the inline path becomes
+        // dead code on this hook. Closes TODO-hardening.md item #1.
+        $useRunnerFastPath = '0';
+        try {
+            $val = Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'use_runner_fast_path')
+                ->value('setting_value');
+            if ($val !== null) {
+                $useRunnerFastPath = (string) $val;
+            }
+        } catch (\Throwable $e) { /* non-fatal -- default off */ }
+
+        if ($useRunnerFastPath === '1'
+            && class_exists('\\FraudPreventionSuite\\Lib\\FpsCheckRunner')
+            && class_exists('\\FraudPreventionSuite\\Lib\\Models\\FpsCheckContext')) {
+            try {
+                $selectedGateway = (string) ($_SESSION['paymentmethod'] ?? '');
+                $thresholds      = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_resolvePreCheckoutThresholds($selectedGateway);
+
+                $runnerCtx = new \FraudPreventionSuite\Lib\Models\FpsCheckContext(
+                    email:           $email,
+                    ip:              $ip,
+                    phone:           $phone,
+                    country:         $country,
+                    clientId:        $clientId,
+                    orderId:         0,
+                    amount:          0.0,
+                    domain:          $context['domain'] ?? '',
+                    fingerprintHash: $fingerprintData,
+                    checkType:       'pre_checkout',
+                );
+                $runnerResult = (new \FraudPreventionSuite\Lib\FpsCheckRunner())->runPreCheckoutFast($runnerCtx);
+
+                // Mirror the inline path's stats recording so the dashboard
+                // counters stay consistent regardless of which path ran.
+                if (class_exists('\\FraudPreventionSuite\\Lib\\FpsStatsCollector')) {
+                    $statsEvent = ($runnerResult->risk->score >= $thresholds['block']) ? 'pre_checkout_block' : 'pre_checkout_allow';
+                    (new \FraudPreventionSuite\Lib\FpsStatsCollector())->recordEvent($statsEvent);
+                }
+
+                if ($runnerResult->risk->score >= $thresholds['block']) {
+                    logActivity("Fraud Prevention: Pre-checkout (fast-path) BLOCKED for client #{$clientId} (IP: {$ip}, score: {$runnerResult->risk->score})");
+                    return ['We were unable to process your order at this time. Please contact support if you believe this is an error. Reference: FPS-' . date('ymdHi')];
+                }
+                return [];
+            } catch (\Throwable $e) {
+                // Fast-path runner failed -- fall through to inline pipeline below.
+                logModuleCall('fraud_prevention_suite', 'PreCheckout::FastPathFallback', '', $e->getMessage());
+            }
+        }
+
         // Run quick checks only (providers where isQuick() = true)
         $score = 0;
         $details = [];
@@ -595,14 +649,26 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             'has_fp'      => $fingerprintData !== '',
             'amount'      => 0.0,
             'domain'      => $context['domain'] ?? '',
-            'gateway'     => $selectedGateway ?? '',
+            'gateway'     => $selectedGateway,
             'thresholds'  => [
                 'block'   => $blockThreshold,
                 'captcha' => $captchaThreshold,
             ],
         ]);
 
-        Capsule::table('mod_fps_checks')->insert([
+        // Legacy details writes are gated by write_legacy_details_column
+        // setting (see TODO-hardening.md item #2 + FpsCheckRunner::fps_persistCheck).
+        $writeLegacyHere = '1';
+        try {
+            $val = Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'write_legacy_details_column')
+                ->value('setting_value');
+            if ($val !== null) {
+                $writeLegacyHere = (string) $val;
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        $insertRow = [
             'order_id'          => 0,
             'client_id'         => $clientId,
             'check_type'        => 'pre_checkout',
@@ -612,7 +678,6 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             'email'             => $email,
             'phone'             => $phone,
             'country'           => $country,
-            'details'           => json_encode($details),
             'action_taken'      => $score >= $blockThreshold ? 'blocked' : 'allowed',
             'provider_scores'   => json_encode($providerScores),
             'check_context'     => $checkContextJson,
@@ -620,7 +685,11 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             'check_duration_ms' => $durationMs,
             'created_at'        => $now,
             'updated_at'        => $now,
-        ]);
+        ];
+        if ($writeLegacyHere !== '0') {
+            $insertRow['details'] = json_encode($details);
+        }
+        Capsule::table('mod_fps_checks')->insert($insertRow);
 
         // Record via shared stats collector (same path as turnstile_block and api_request).
         // Distinguishes blocks from allows so dashboard counters stay accurate.
