@@ -1,0 +1,33 @@
+<?php
+/**
+ * PHPStan stub file for WHMCS host functions used by FPS.
+ *
+ * These functions exist at runtime (provided by WHMCS itself) but are
+ * not declared in any package PHPStan can autoload. Stubbing them here
+ * lets the analyser type-check our call sites without false positives.
+ *
+ * Keep signatures permissive (mixed for params/returns) -- we are
+ * stubbing for SHAPE, not full type fidelity.
+ */
+
+/** @return mixed */
+function logModuleCall(
+    string $module,
+    string $action,
+    $request = null,
+    $response = null,
+    $processedData = null,
+    $replaceVars = null
+) {}
+
+/** @return void */
+function logActivity(string $description, ?int $userId = null) {}
+
+/** @return string */
+function generate_token(string $type = 'plain'): string { return ''; }
+
+/** @return array<string, mixed> */
+function localAPI(string $command, array $values = [], string $adminUser = ''): array { return []; }
+
+/** @return string */
+function getModuleName(): string { return ''; }

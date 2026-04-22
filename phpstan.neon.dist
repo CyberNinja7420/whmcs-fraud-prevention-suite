@@ -1,0 +1,65 @@
+# phpstan.neon.dist
+# ----------------------------------------------------------------------------
+# PHPStan baseline for the Fraud Prevention Suite.
+#
+# Starts at level 1 (the lowest non-zero level) so the gate runs against
+# real defects (undefined variables, unknown methods on KNOWN classes)
+# without being drowned in WHMCS-globals false positives. Level can be
+# raised gradually as the codebase is migrated.
+#
+# WHMCS provides several global helpers (logModuleCall, logActivity,
+# generate_token, localAPI, ...) that PHPStan cannot see; they are
+# stubbed via dynamicConstantNames + ignoreErrors below.
+#
+# Run locally with:
+#   composer require --dev phpstan/phpstan
+#   ./vendor/bin/phpstan analyse --configuration=phpstan.neon.dist
+#
+# The Capsule namespace (\WHMCS\Database\Capsule) ships with WHMCS
+# itself, so PHPStan needs the WHMCS vendor directory on the
+# autoload path to resolve it -- run from inside a checked-out WHMCS
+# install, or pass --autoload-file=/path/to/whmcs/init.php.
+# ----------------------------------------------------------------------------
+
+parameters:
+    level: 1
+
+    paths:
+        - fraud_prevention_suite.php
+        - hooks.php
+        - lib
+        - public
+
+    excludePaths:
+        - vendor
+        - assets
+        - data
+        - install
+        - templates
+        - docs
+        - scripts
+
+    # Allow Throwable in catch blocks (we use it intentionally; PHPStan
+    # otherwise warns "uses Throwable, prefer Exception").
+    treatPhpDocTypesAsCertain: false
+
+    # WHMCS / cPanel host environment exposes these as globals.
+    bootstrapFiles: []
+
+    # Functions that exist in the WHMCS runtime but not in PHP itself.
+    # These are stubbed at parse-time so PHPStan does not flag them.
+    stubFiles:
+        - phpstan-stubs/whmcs.stub
+
+    ignoreErrors:
+        # FpsConfig::getCustom is a runtime-defined accessor over the settings
+        # table; method existence is dynamic by design.
+        -
+            message: '#Call to an undefined method .*FpsConfig::getCustom\(\)#'
+            paths:
+                - lib/FpsCheckRunner.php
+
+    # When the baseline file exists we accept its known-issue list as
+    # "tracked debt" -- PHPStan only fails on NEW errors. Generate it once
+    # via `phpstan analyse --generate-baseline`.
+    # baseline: phpstan-baseline.neon
