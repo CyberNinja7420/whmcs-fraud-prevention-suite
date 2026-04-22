@@ -56,3 +56,9 @@ phpstan:
   script:
     - composer install --no-interaction --no-progress --prefer-dist
     - vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=512M
+
+psalm:
+  stage: static
+  script:
+    - composer install --no-interaction --no-progress --prefer-dist
+    - vendor/bin/psalm --no-cache --no-progress --show-info=false

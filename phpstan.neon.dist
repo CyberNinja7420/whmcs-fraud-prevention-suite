@@ -22,7 +22,14 @@
 # ----------------------------------------------------------------------------
 
 parameters:
-    level: 1
+    # Level 3 catches:
+    #   - level 1: undefined variables, unknown methods on KNOWN classes
+    #   - level 2: unknown methods on union types
+    #   - level 3: return type mismatches and parameter type mismatches
+    # We hold at 3 (not higher) because levels 4-9 surface 100s of
+    # strict-types findings on legacy WHMCS code that's working fine in
+    # production. Bump to 4+ only after a dedicated triage sprint.
+    level: 3
 
     paths:
         - fraud_prevention_suite.php
@@ -59,6 +66,8 @@ parameters:
     # when phpstan flags something we've consciously decided is acceptable.
 
     # When the baseline file exists we accept its known-issue list as
-    # "tracked debt" -- PHPStan only fails on NEW errors. Generate it once
-    # via `phpstan analyse --generate-baseline`.
-    # baseline: phpstan-baseline.neon
+    # "tracked debt" -- PHPStan only fails on NEW errors. Refresh after
+    # major changes via `phpstan analyse --generate-baseline`.
+
+includes:
+    - phpstan-baseline.neon
