@@ -2,11 +2,13 @@
 
 Welcome to the FPS comprehensive documentation. Use this index to find the right guide for your role or task.
 
+**Module version:** v4.2.4 (2026-04-22)
+
 ## Documentation Overview
 
-This wiki contains 10 detailed guides covering all aspects of the Fraud Prevention Suite module for WHMCS.
+This wiki contains 14 detailed guides covering all aspects of the Fraud Prevention Suite module for WHMCS.
 
-**Total Documentation**: 5,200+ lines across 10 files covering 16 providers, 14 hooks, 75+ AJAX actions, 36 database tables, 9 REST API endpoints, and 1 server provisioning module.
+**Total Documentation**: 5,200+ lines across 14 files covering 16 providers, 14 admin tabs, 14 documented WHMCS hook integrations, 70+ AJAX actions, 28 database tables, 9 REST API endpoints, and 1 server provisioning module.
 
 ---
 
@@ -43,7 +45,7 @@ Implement FPS features in your applications:
 2. **Architecture & Customization**
    - [Architecture-Overview.md](Architecture-Overview.md) - System design, 16 detection engines, data flow
    - [Adding-Providers.md](Adding-Providers.md) - Build custom providers
-   - [Database-Schema.md](Database-Schema.md) - 36 tables with full column reference
+   - [Database-Schema.md](Database-Schema.md) - 28 tables with full column reference
 
 3. **Troubleshooting**
    - [Troubleshooting.md](Troubleshooting.md) - Debug integration issues
@@ -86,7 +88,7 @@ Implement FPS features in your applications:
 
 ### Admin Dashboard & AJAX
 
-- [AJAX-Reference.md](AJAX-Reference.md) - 75+ actions (dashboard, cleanup, settings, etc.)
+- [AJAX-Reference.md](AJAX-Reference.md) - 70+ actions (dashboard, cleanup, settings, etc.)
 - [Architecture-Overview.md](Architecture-Overview.md) - Tab renderers and UI architecture
 
 ### WHMCS Integration
@@ -111,9 +113,9 @@ Implement FPS features in your applications:
 | [Troubleshooting.md](Troubleshooting.md) | 450+ | Admins/Ops | 25+ common issues and fixes |
 | [Architecture-Overview.md](Architecture-Overview.md) | 480+ | Developers | 10 components, 16 providers, server module |
 | [Adding-Providers.md](Adding-Providers.md) | 408 | Developers | Custom provider development guide |
-| [Database-Schema.md](Database-Schema.md) | 570+ | All | 36 tables, columns, indexes, relationships |
+| [Database-Schema.md](Database-Schema.md) | 570+ | All | 28 tables, columns, indexes, relationships |
 | [Hook-Reference.md](Hook-Reference.md) | 720+ | Developers | 14 hooks with code examples |
-| [AJAX-Reference.md](AJAX-Reference.md) | 750+ | Developers | 75+ admin actions, parameters, responses |
+| [AJAX-Reference.md](AJAX-Reference.md) | 750+ | Developers | 70+ admin actions, parameters, responses |
 | [Server-Module-Guide.md](Server-Module-Guide.md) | 250+ | Admins/Resellers | fps_api server module, products, provisioning |
 
 ---
@@ -231,7 +233,7 @@ See: [API-Documentation.md](API-Documentation.md), [Server-Module-Guide.md](Serv
 - **mod_fps_rules** - Custom fraud rules (IP blocks, email patterns, velocity limits)
 - **mod_fps_settings** - Module configuration (API keys, thresholds, toggles)
 
-See: [Database-Schema.md](Database-Schema.md) for all 36 tables
+See: [Database-Schema.md](Database-Schema.md) for all 28 tables
 
 ---
 
@@ -293,7 +295,7 @@ Use these search terms to find sections:
 
 ## Contributing & Updates
 
-These docs are auto-generated from FPS v4.2.0 codebase. To update:
+These docs are maintained alongside the FPS v4.2.4 codebase. To update:
 
 1. Read the source files in `/lib/` and `fraud_prevention_suite.php`
 2. Update relevant .md file with changes
@@ -312,6 +314,6 @@ These docs are auto-generated from FPS v4.2.0 codebase. To update:
 
 ---
 
-**Last Updated**: 2026-04-02
-**Module Version**: v4.2.0
-**Docs Version**: 1.1
+**Last Updated**: 2026-04-22
+**Module Version**: v4.2.4
+**Docs Version**: 1.2

@@ -2,7 +2,7 @@
 
 ## Overview
 
-FPS creates 36 database tables with the `mod_fps_` prefix. All tables are created idempotently during module activation.
+FPS creates 28 database tables with the `mod_fps_` prefix. All tables are created idempotently during module activation. (The Global Intel Hub has its own additional tables; this reference covers the per-instance module schema.)
 
 ## Core Check Data (4 tables)
 
