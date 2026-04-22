@@ -77,6 +77,19 @@ class FpsGeoImpossibilityEngine
     /**
      * Analyse geographic consistency across all available signals.
      *
+     * Required data: at least TWO non-empty geo signals from
+     * {IP-derived country, billing country, phone-prefix country,
+     *  BIN-derived country}. Most fresh installs only have billing +
+     * possibly phone for the first few checks per client; IP-derived
+     * country comes from the IP intel cache populated by lookup
+     * providers, and BIN-derived country from BinLookupProvider.
+     *
+     * When fewer than 2 signals are available the engine returns
+     * score=0 with details="Insufficient geographic data for analysis."
+     * (success=true so callers know we ran cleanly without scoring).
+     * This is by design -- penalising for missing data would punish
+     * legitimate users.
+     *
      * @param array{
      *     ip: string,
      *     country: string,
@@ -99,7 +112,7 @@ class FpsGeoImpossibilityEngine
         $emptyResult = [
             'provider' => $provider,
             'score'    => 0.0,
-            'details'  => 'Insufficient geographic data for analysis.',
+            'details'  => 'Insufficient geographic data for analysis (need >=2 of: ip-country, billing, phone, BIN).',
             'factors'  => [],
             'success'  => true,
         ];
@@ -113,6 +126,8 @@ class FpsGeoImpossibilityEngine
             static fn(string $v): bool => $v !== ''
         );
 
+        // Safe no-op when we don't have enough independent signals to
+        // meaningfully cross-correlate. See class doc above.
         if (count($available) < 2) {
             return $emptyResult;
         }
