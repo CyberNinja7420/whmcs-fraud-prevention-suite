@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="6"
+    resolveFromConfigFile="true"
+    findUnusedBaselineEntry="false"
+    findUnusedCode="false"
+    errorBaseline="psalm-baseline.xml"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+>
+    <!--
+        Psalm config for the Fraud Prevention Suite WHMCS module.
+
+        errorLevel="6" sits above PHPStan level 3 in strictness for the
+        legacy patterns that PHPStan handles but is below psalm's
+        strictest levels (1-3) which would flag every WHMCS-host
+        nullable. The baseline file (psalm-baseline.xml) tracks the
+        existing debt so CI fails only on NEW violations.
+
+        WHMCS Capsule + global helpers come from the shared phpstan-stubs/
+        directory; psalm reads PHP files directly so the same stubs work.
+    -->
+
+    <projectFiles>
+        <directory name="lib"/>
+        <directory name="public"/>
+        <file name="fraud_prevention_suite.php"/>
+        <file name="hooks.php"/>
+        <ignoreFiles>
+            <directory name="vendor"/>
+            <directory name="assets"/>
+            <directory name="data"/>
+            <directory name="docs"/>
+            <directory name="install"/>
+            <directory name="phpstan-stubs"/>
+            <directory name="scripts"/>
+            <directory name="templates"/>
+        </ignoreFiles>
+    </projectFiles>
+
+    <!-- Reuse the WHMCS / Capsule / Illuminate stubs from phpstan-stubs/ -->
+    <stubs>
+        <file name="phpstan-stubs/whmcs.php"/>
+        <file name="phpstan-stubs/capsule.php"/>
+        <file name="phpstan-stubs/illuminate-query.php"/>
+        <file name="phpstan-stubs/illuminate-schema.php"/>
+        <file name="phpstan-stubs/illuminate-collection.php"/>
+    </stubs>
+
+    <issueHandlers>
+        <!-- Suppress noise psalm emits on legacy patterns we accept -->
+        <PossiblyNullPropertyFetch>
+            <errorLevel type="suppress">
+                <directory name="lib"/>
+                <file name="fraud_prevention_suite.php"/>
+                <file name="hooks.php"/>
+            </errorLevel>
+        </PossiblyNullPropertyFetch>
+    </issueHandlers>
+</psalm>

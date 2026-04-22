@@ -45,7 +45,25 @@ class Builder
     /** @return $this */
     public function join(string $table, ...$args) { return $this; }
     /** @return $this */
-    public function distinct() { return $this; }
+    public function distinct(...$args) { return $this; }
+    /** @return $this */
+    public function whereRaw(string $sql, array $bindings = []) { return $this; }
+    /** @return $this */
+    public function havingRaw(string $sql, array $bindings = []) { return $this; }
+    /** @return $this */
+    public function orderByRaw(string $sql, array $bindings = []) { return $this; }
+    /** @return $this */
+    public function groupByRaw(string $sql, array $bindings = []) { return $this; }
+    /** @return bool */
+    public function truncate(): bool { return true; }
+    /** @return $this */
+    public function lockForUpdate() { return $this; }
+    /** @return $this */
+    public function sharedLock() { return $this; }
+    /** @return $this */
+    public function chunk(int $count, callable $callback) { return $this; }
+    /** @return mixed */
+    public function find($id, array $columns = ['*']) { return null; }
 
     /** @return mixed */
     public function value(string $column) { return null; }

@@ -1,0 +1,76 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Cannot access property \\$client_id on array\\<string, mixed\\>\\.$#"
+			count: 4
+			path: fraud_prevention_suite.php
+
+		-
+			message: "#^Cannot access property \\$created_at on array\\<string, mixed\\>\\.$#"
+			count: 1
+			path: fraud_prevention_suite.php
+
+		-
+			message: "#^Cannot access property \\$reason on array\\<string, mixed\\>\\.$#"
+			count: 1
+			path: fraud_prevention_suite.php
+
+		-
+			message: "#^Cannot access property \\$set_by_admin_id on array\\<string, mixed\\>\\.$#"
+			count: 1
+			path: fraud_prevention_suite.php
+
+		-
+			message: "#^Cannot access property \\$status on array\\<string, mixed\\>\\.$#"
+			count: 1
+			path: fraud_prevention_suite.php
+
+		-
+			message: "#^Cannot access property \\$updated_at on array\\<string, mixed\\>\\.$#"
+			count: 1
+			path: fraud_prevention_suite.php
+
+		-
+			message: "#^Offset 'match_count' does not exist on array\\{client_id\\: mixed, name\\: string, email\\: mixed, status\\: mixed, match_types\\: non\\-empty\\-array\\<int, string\\>\\}\\.$#"
+			count: 2
+			path: fraud_prevention_suite.php
+
+		-
+			message: "#^Method FraudPreventionSuite\\\\Lib\\\\FpsGlobalIntelClient\\:\\:pushIntel\\(\\) invoked with 1 parameter, 0 required\\.$#"
+			count: 2
+			path: lib/FpsBotDetector.php
+
+		-
+			message: "#^Cannot cast array to string\\.$#"
+			count: 7
+			path: lib/FpsCheckRunner.php
+
+		-
+			message: "#^PHPDoc tag @var for constant FraudPreventionSuite\\\\Lib\\\\FpsGeoImpossibilityEngine\\:\\:PHONE_PREFIX_MAP with type array\\<string, string\\> is incompatible with value array\\{380\\: 'UA', 234\\: 'NG', 358\\: 'FI', 353\\: 'IE', 44\\: 'GB', 49\\: 'DE', 33\\: 'FR', 91\\: 'IN', \\.\\.\\.\\}\\.$#"
+			count: 1
+			path: lib/FpsGeoImpossibilityEngine.php
+
+		-
+			message: "#^Comparison operation \"\\>\\=\" between \\(array\\|float\\|int\\) and 10 results in an error\\.$#"
+			count: 1
+			path: lib/FpsGlobalIntelChecker.php
+
+		-
+			message: "#^Comparison operation \"\\>\\=\" between \\(array\\|float\\|int\\<min, 2\\>\\) and 1 results in an error\\.$#"
+			count: 1
+			path: lib/FpsGlobalIntelChecker.php
+
+		-
+			message: "#^Comparison operation \"\\>\\=\" between \\(array\\|float\\|int\\<min, 4\\>\\) and 3 results in an error\\.$#"
+			count: 1
+			path: lib/FpsGlobalIntelChecker.php
+
+		-
+			message: "#^Comparison operation \"\\>\\=\" between \\(array\\|float\\|int\\<min, 9\\>\\) and 5 results in an error\\.$#"
+			count: 1
+			path: lib/FpsGlobalIntelChecker.php
+
+		-
+			message: "#^Method FraudPreventionSuite\\\\Lib\\\\FpsGlobalIntelCollector\\:\\:harvestFromClient\\(\\) should return array\\{harvested\\: bool, email_hash\\: string, risk_score\\: float, evidence\\: array\\} but returns array\\{harvested\\: false, reason\\: 'Client not found or…'\\}\\.$#"
+			count: 1
+			path: lib/FpsGlobalIntelCollector.php
