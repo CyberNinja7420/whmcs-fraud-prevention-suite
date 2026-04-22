@@ -49,7 +49,8 @@ add_hook('AdminAreaHeaderOutput', 1, function ($vars) {
         if (strpos($page, 'configaddonmods') !== false
             && isset($_GET['module'])
             && $_GET['module'] === 'fraud_prevention_suite') {
-            return '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css">';
+            $bust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('css/fps-1000x.css');
+            return '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css' . $bust . '">';
         }
         return '';
     } catch (\Throwable $e) {
@@ -308,25 +309,32 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                         // Record the block in mod_fps_checks so it appears in
                         // dashboard stats, reports, topology, and global intel.
                         try {
+                            $tsNow = date('Y-m-d H:i:s');
                             Capsule::table('mod_fps_checks')->insert([
-                                'order_id'     => 0,
-                                'client_id'    => $clientId,
-                                'email'        => $email ?: null,
-                                'ip_address'   => $ip,
-                                'country'      => $country ?: null,
-                                'check_type'   => 'turnstile_block',
-                                'risk_score'   => 100.0,
-                                'risk_level'   => 'critical',
-                                'action_taken' => 'block',
-                                'locked'       => 1,
-                                'reviewed_by'  => 0,
-                                'reviewed_at'  => date('Y-m-d H:i:s'),
-                                'check_context'=> json_encode([
+                                'order_id'          => 0,
+                                'client_id'         => $clientId,
+                                'email'             => $email ?: null,
+                                'ip_address'        => $ip,
+                                'country'           => $country ?: null,
+                                'check_type'        => 'turnstile_block',
+                                'risk_score'        => 100.0,
+                                'risk_level'        => 'critical',
+                                'action_taken'      => 'block',
+                                'locked'            => 1,
+                                'reviewed_by'       => 0,
+                                'reviewed_at'       => $tsNow,
+                                // Structured columns (parity with the inline pre-checkout
+                                // and FpsCheckRunner write paths).
+                                'provider_scores'   => json_encode(['turnstile' => 100.0]),
+                                'check_context'     => json_encode([
                                     'turnstile_errors' => $tsResult['error_codes'] ?? [],
                                     'blocked_at'       => 'checkout',
                                     'user_agent'       => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
                                 ]),
-                                'created_at'   => date('Y-m-d H:i:s'),
+                                'is_pre_checkout'   => 1,
+                                'check_duration_ms' => null,
+                                'created_at'        => $tsNow,
+                                'updated_at'        => $tsNow,
                             ]);
                             // Record daily counters via the shared recorder so this path
                             // stays consistent with the normal-check and API-request paths.
@@ -384,13 +392,19 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
         // Run quick checks only (providers where isQuick() = true)
         $score = 0;
         $details = [];
+        // providerScores: per-provider weighted contribution to the final score.
+        // Persisted to mod_fps_checks.provider_scores so newer readers can rank
+        // signals without parsing the legacy details JSON blob.
+        $providerScores = [];
 
         // 1. IP Intel (cached = instant)
         if (class_exists('\\FraudPreventionSuite\\Lib\\Providers\\IpIntelProvider')) {
             $provider = new \FraudPreventionSuite\Lib\Providers\IpIntelProvider();
             if ($provider->isEnabled()) {
                 $result = $provider->check($context);
-                $score += ($result['score'] ?? 0) * $provider->getWeight();
+                $contribution = ($result['score'] ?? 0) * $provider->getWeight();
+                $score += $contribution;
+                $providerScores['ip_intel'] = (float) $contribution;
                 if (!empty($result['details'])) {
                     $details = array_merge($details, $result['details']);
                 }
@@ -402,7 +416,9 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $provider = new \FraudPreventionSuite\Lib\Providers\EmailValidationProvider();
             if ($provider->isEnabled()) {
                 $result = $provider->check($context);
-                $score += ($result['score'] ?? 0) * $provider->getWeight();
+                $contribution = ($result['score'] ?? 0) * $provider->getWeight();
+                $score += $contribution;
+                $providerScores['email_validation'] = (float) $contribution;
                 if (!empty($result['details'])) {
                     $details = array_merge($details, $result['details']);
                 }
@@ -414,7 +430,9 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $provider = new \FraudPreventionSuite\Lib\Providers\FingerprintProvider();
             if ($provider->isEnabled()) {
                 $result = $provider->check($context);
-                $score += ($result['score'] ?? 0) * $provider->getWeight();
+                $contribution = ($result['score'] ?? 0) * $provider->getWeight();
+                $score += $contribution;
+                $providerScores['fingerprint'] = (float) $contribution;
                 if (!empty($result['details'])) {
                     $details = array_merge($details, $result['details']);
                 }
@@ -455,7 +473,11 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                 $details[] = 'Random-looking email';
             }
 
-            $score += $botScore * 2.0; // Weight 2.0 for bot detection
+            $botContribution = $botScore * 2.0; // Weight 2.0 for bot detection
+            $score += $botContribution;
+            if ($botContribution > 0) {
+                $providerScores['bot_pattern'] = (float) $botContribution;
+            }
         }
 
         // 5. Global Intel cross-reference (instant -- local DB only)
@@ -467,6 +489,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                 if ($globalResult['found']) {
                     $adj = $globalChecker->getScoreAdjustment($globalResult);
                     $score += $adj;
+                    $providerScores['global_intel'] = (float) $adj;
                     $details[] = "Known in global fraud DB (seen {$globalResult['seen_count']}x)";
                 }
             }
@@ -491,8 +514,10 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $ruleResult = $ruleEngine->evaluate($ruleContext);
             if ($ruleResult->action === 'block') {
                 $score = max($score, 95);
+                $providerScores['rules'] = 95.0;
             } elseif ($ruleResult->action === 'flag') {
                 $score += 15;
+                $providerScores['rules'] = ($providerScores['rules'] ?? 0.0) + 15.0;
             }
             if (count($ruleResult->matchedRules) > 0) {
                 $names = array_column($ruleResult->matchedRules, 'rule_name');
@@ -502,41 +527,22 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
 
         $score = min($score, 100);
 
-        // Resolve pre-checkout thresholds.
+        // Resolve pre-checkout thresholds via the shared helper so the
+        // inline path and FpsCheckRunner-style paths agree on values when
+        // admin settings change. See FpsHookHelpers::fps_resolvePreCheckoutThresholds()
+        // for the resolution order (per-gateway -> legacy admin -> modern admin -> default).
         //
-        // Design note on duplicate engines (see audit issue #5): The inline
-        // scoring above is retained for performance - the checkout hook runs
-        // in a user-facing path with a <2s budget, and calling the full
-        // FpsCheckRunner::runPreCheckout() would pull in too many dependencies.
-        // We keep the inline provider orchestration but UNIFY the threshold
-        // resolution + persistence + stats via shared helpers (below) so that
-        // changes to admin settings affect this path consistently.
-        $blockThreshold = (float)(Capsule::table('tbladdonmodules')
-            ->where('module', 'fraud_prevention_suite')
-            ->where('setting', 'pre_checkout_block_threshold')
-            ->value('value') ?: 85);
-
-        $captchaThreshold = 60;
-
-        // Per-gateway threshold override (mod_fps_gateway_thresholds keeps its
-        // own block_threshold/flag_threshold columns - that's its own scope and
-        // is a valid use; this is NOT the global action-threshold drift from
-        // audit issue #4).
-        $selectedGateway = $_SESSION['paymentmethod'] ?? '';
-        if ($selectedGateway !== '') {
-            $gwRow = Capsule::table('mod_fps_gateway_thresholds')
-                ->where('gateway', $selectedGateway)
-                ->where('enabled', 1)
-                ->first();
-            if ($gwRow) {
-                if ((float)$gwRow->block_threshold > 0) {
-                    $blockThreshold = (float)$gwRow->block_threshold;
-                }
-                if ((float)$gwRow->flag_threshold > 0) {
-                    $captchaThreshold = (float)$gwRow->flag_threshold;
-                }
-            }
-        }
+        // Design note on duplicate engines (audit issue #5): the inline
+        // provider orchestration above is intentionally kept here for the
+        // <2s checkout budget. Threshold resolution, persistence (structured
+        // columns) and stats are now centralised so the only intentional
+        // gap between this path and FpsCheckRunner::runPreCheckout() is the
+        // provider list itself. See TODO-hardening.md for the remaining
+        // unification work.
+        $selectedGateway  = (string) ($_SESSION['paymentmethod'] ?? '');
+        $thresholds       = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_resolvePreCheckoutThresholds($selectedGateway);
+        $blockThreshold   = $thresholds['block'];
+        $captchaThreshold = $thresholds['captcha'];
 
         // (Trust check moved to top of hook, before scoring pipeline)
 
@@ -548,6 +554,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $velScore = (float) ($velResult['score'] ?? 0);
             if ($velScore > 0) {
                 $score = min(100, $score + $velScore);
+                $providerScores['velocity'] = (float) $velScore;
                 $details[] = 'Velocity: ' . ($velResult['details'] ?? '');
             }
         }
@@ -559,6 +566,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $torScore = (float) ($torResult['score'] ?? 0);
             if ($torScore > 0) {
                 $score = min(100, $score + $torScore);
+                $providerScores['tor_datacenter'] = (float) $torScore;
                 $details[] = 'Tor/DC: ' . json_encode($torResult['details'] ?? []);
             }
         }
@@ -572,21 +580,46 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
         elseif ($score >= 60) $riskLevel = 'high';
         elseif ($score >= 30) $riskLevel = 'medium';
 
+        // Write BOTH legacy details JSON (existing readers) AND the structured
+        // columns (provider_scores, check_context, is_pre_checkout,
+        // check_duration_ms, updated_at) so this inline pre-checkout path
+        // matches what FpsCheckRunner::fps_persistCheck() writes.
+        $now = date('Y-m-d H:i:s');
+        $checkContextJson = json_encode([
+            'check_type'  => 'pre_checkout',
+            'order_id'    => 0,
+            'client_id'   => $clientId,
+            'has_email'   => $email !== '',
+            'has_phone'   => $phone !== '',
+            'has_country' => $country !== '',
+            'has_fp'      => $fingerprintData !== '',
+            'amount'      => 0.0,
+            'domain'      => $context['domain'] ?? '',
+            'gateway'     => $selectedGateway ?? '',
+            'thresholds'  => [
+                'block'   => $blockThreshold,
+                'captcha' => $captchaThreshold,
+            ],
+        ]);
+
         Capsule::table('mod_fps_checks')->insert([
-            'order_id' => 0,
-            'client_id' => $clientId,
-            'check_type' => 'pre_checkout',
-            'risk_score' => $score,
-            'risk_level' => $riskLevel,
-            'ip_address' => $ip,
-            'email' => $email,
-            'phone' => $phone,
-            'country' => $country,
-            'details' => json_encode($details),
-            'action_taken' => $score >= $blockThreshold ? 'blocked' : 'allowed',
-            'is_pre_checkout' => 1,
+            'order_id'          => 0,
+            'client_id'         => $clientId,
+            'check_type'        => 'pre_checkout',
+            'risk_score'        => $score,
+            'risk_level'        => $riskLevel,
+            'ip_address'        => $ip,
+            'email'             => $email,
+            'phone'             => $phone,
+            'country'           => $country,
+            'details'           => json_encode($details),
+            'action_taken'      => $score >= $blockThreshold ? 'blocked' : 'allowed',
+            'provider_scores'   => json_encode($providerScores),
+            'check_context'     => $checkContextJson,
+            'is_pre_checkout'   => 1,
             'check_duration_ms' => $durationMs,
-            'created_at' => date('Y-m-d H:i:s'),
+            'created_at'        => $now,
+            'updated_at'        => $now,
         ]);
 
         // Record via shared stats collector (same path as turnstile_block and api_request).
@@ -705,8 +738,9 @@ add_hook('ClientAreaPageCart', 1, function ($vars) {
 
         if ($scope !== 'checkout') return [];
 
+        $bust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('js/fps-fingerprint.js');
         return [
-            'fps_fingerprint_js' => '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-fingerprint.js" defer></script>',
+            'fps_fingerprint_js' => '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-fingerprint.js' . $bust . '" defer></script>',
         ];
     } catch (\Throwable $e) {
         return [];
@@ -1236,7 +1270,8 @@ add_hook('ClientAreaFooterOutput', 1, function ($vars) {
 
         if ($scope !== 'all') return '';
 
-        return '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-fingerprint.js" defer></script>';
+        $bust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('js/fps-fingerprint.js');
+        return '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-fingerprint.js' . $bust . '" defer></script>';
     } catch (\Throwable $e) {
         return '';
     }
@@ -1309,6 +1344,11 @@ add_hook('ClientAreaFooterOutput', 3, function ($vars) {
             return '';
         }
 
+        // Resolve the WHMCS default currency once for all pricing lookups
+        // below (audit issue: previously hardcoded to currency=1 which broke
+        // installs whose default currency is not id 1).
+        $defaultCurrency = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_resolveDefaultCurrencyId();
+
         $html = '<script>(function(){';
         // Find the News section (2nd .section on homepage) or fallback to last .section
         $html .= 'var sections = document.querySelectorAll(".main-body .section");';
@@ -1342,7 +1382,7 @@ add_hook('ClientAreaFooterOutput', 3, function ($vars) {
                 $price = Capsule::table('tblpricing')
                     ->where('type', 'product')
                     ->where('relid', $p->id)
-                    ->where('currency', 1)
+                    ->where('currency', $defaultCurrency)
                     ->first();
                 if ($price && $price->monthly > 0) {
                     $startingPrice = '$' . number_format((float)$price->monthly, 2) . '/mo';
