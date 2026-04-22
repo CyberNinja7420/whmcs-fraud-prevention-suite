@@ -40,3 +40,7 @@ docs/promotion/
 
 # Large data files
 data/sdn.csv
+
+# Composer vendor at root is ignored, but in-module asset vendor copies are not
+!assets/vendor/
+!assets/vendor/**
