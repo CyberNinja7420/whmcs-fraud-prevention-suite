@@ -46,18 +46,17 @@ parameters:
     # WHMCS / cPanel host environment exposes these as globals.
     bootstrapFiles: []
 
-    # Functions that exist in the WHMCS runtime but not in PHP itself.
-    # These are stubbed at parse-time so PHPStan does not flag them.
-    stubFiles:
-        - phpstan-stubs/whmcs.stub
+    # WHMCS provides Capsule + global helper functions at runtime; phpstan
+    # cannot autoload them. The phpstan-stubs/ directory contains skeleton
+    # declarations so the analyser knows these symbols exist with the right
+    # signatures. scanDirectories does the actual symbol discovery; phpstan
+    # parses every .php file under it without analysing them.
+    scanDirectories:
+        - phpstan-stubs
 
-    ignoreErrors:
-        # FpsConfig::getCustom is a runtime-defined accessor over the settings
-        # table; method existence is dynamic by design.
-        -
-            message: '#Call to an undefined method .*FpsConfig::getCustom\(\)#'
-            paths:
-                - lib/FpsCheckRunner.php
+    # ignoreErrors: empty for now -- the FpsConfig::getCustom rule no longer
+    # matches once stub files are loaded. Add specific patterns here only
+    # when phpstan flags something we've consciously decided is acceptable.
 
     # When the baseline file exists we accept its known-issue list as
     # "tracked debt" -- PHPStan only fails on NEW errors. Generate it once

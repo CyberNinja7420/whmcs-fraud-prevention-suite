@@ -36,7 +36,6 @@ templates_c/
 # Internal files (not for public repo)
 docs/demo/
 docs/promotion/
-.gitlab-ci.yml
 
 # Large data files
 data/sdn.csv
