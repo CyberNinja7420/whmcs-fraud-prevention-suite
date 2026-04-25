@@ -103,3 +103,9 @@ class FpsAnalyticsConsentManager {
     public static function shouldShowBanner(string $country): bool { return false; }
     public static function readConsent(): ?bool { return null; }
 }
+
+class FpsAnalyticsInjector {
+    /** @param array<string, mixed> $context */
+    public static function client(string $visitorCountry, array $context = []): string { return ''; }
+    public static function admin(string $adminId = '', string $adminRole = ''): string { return ''; }
+}

@@ -29,6 +29,7 @@ require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConfig.php';
 require_once __DIR__ . '/lib/Analytics/FpsAnalyticsLog.php';
 require_once __DIR__ . '/lib/Analytics/FpsAnalyticsServerEvents.php';
 require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConsentManager.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsInjector.php';
 
 // ---------------------------------------------------------------------------
 // VERSION (single source of truth)
