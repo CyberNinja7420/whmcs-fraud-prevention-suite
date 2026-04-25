@@ -42,6 +42,18 @@ final class FpsAnalyticsConfig
     public const KEY_EVENT_SAMPLING_RATE        = 'analytics_event_sampling_rate';
 
     // -----------------------------------------------------------------------
+    // All setting key strings as an ordered array (spec requirement)
+    // -----------------------------------------------------------------------
+
+    public const KEYS = [
+        'enable_client_analytics', 'enable_admin_analytics', 'enable_server_events',
+        'ga4_measurement_id_client', 'ga4_measurement_id_admin', 'ga4_api_secret',
+        'ga4_service_account_json',
+        'clarity_project_id_client', 'clarity_project_id_admin',
+        'analytics_eea_consent_required', 'analytics_event_sampling_rate',
+    ];
+
+    // -----------------------------------------------------------------------
     // Per-request memoization cache
     // -----------------------------------------------------------------------
 
@@ -135,7 +147,7 @@ final class FpsAnalyticsConfig
      */
     public static function isValidGa4Id(string $id): bool
     {
-        return (bool) preg_match('/^G-[A-Z0-9]{1,20}$/', $id);
+        return $id === '' || (bool) preg_match('/^G-[A-Z0-9]{8,12}$/', $id);
     }
 
     /**
@@ -145,7 +157,7 @@ final class FpsAnalyticsConfig
      */
     public static function isValidClarityId(string $id): bool
     {
-        return (bool) preg_match('/^[a-z0-9]{6,12}$/', $id);
+        return $id === '' || (bool) preg_match('/^[a-z0-9]{8,12}$/', $id);
     }
 
     /**
@@ -159,21 +171,16 @@ final class FpsAnalyticsConfig
      */
     public static function isValidServiceAccountJson(string $json): bool
     {
-        if (trim($json) === '') {
+        if ($json === "") {
+            return true;
+        }
+
+        $d = json_decode($json, true);
+        if (!is_array($d) || empty($d["private_key"]) || empty($d["client_email"])) {
             return false;
         }
 
-        try {
-            $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
-            return false;
-        }
-
-        if (!is_array($decoded) || empty($decoded['private_key'])) {
-            return false;
-        }
-
-        $key = @openssl_pkey_get_private($decoded['private_key']);
+        $key = @openssl_pkey_get_private($d["private_key"]);
         if ($key === false) {
             return false;
         }

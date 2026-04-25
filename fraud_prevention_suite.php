@@ -685,8 +685,8 @@ function fraud_prevention_suite_activate(): array
                 $table->increments('id');
                 $table->string('event_name', 50)->index();
                 $table->text('payload_json')->nullable();
-                $table->enum('destination', ['ga4_client', 'ga4_server', 'clarity']);
-                $table->enum('status', ['queued', 'sent', 'failed'])->default('queued');
+                $table->string('destination', 20)->default('ga4_server');
+                $table->string('status', 10)->default('queued');
                 $table->text('error')->nullable();
                 $table->timestamp('created_at')->useCurrent()->index();
             });
@@ -696,8 +696,8 @@ function fraud_prevention_suite_activate(): array
             Capsule::schema()->create('mod_fps_analytics_anomalies', function ($table) {
                 $table->increments('id');
                 $table->string('event_name', 50)->index();
-                $table->integer('baseline_count');
-                $table->integer('observed_count');
+                $table->integer('baseline_count')->default(0);
+                $table->integer('observed_count')->default(0);
                 $table->timestamp('detected_at')->useCurrent();
                 $table->timestamp('notified_at')->nullable();
             });
