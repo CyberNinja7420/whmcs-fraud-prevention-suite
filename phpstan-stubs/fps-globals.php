@@ -73,3 +73,27 @@ class FpsAnalyticsConfig
     public static function isValidServiceAccountJson(string $json): bool { return true; }
     public static function clearCache(): void {}
 }
+
+class FpsAnalyticsLog
+{
+    public const DEST_GA4_CLIENT = 'ga4_client';
+    public const DEST_GA4_SERVER = 'ga4_server';
+    public const DEST_CLARITY    = 'clarity';
+    /** @param array<string, mixed> $payload */
+    public static function record(string $eventName, array $payload, string $destination, string $status, ?string $error = null): void {}
+    public static function countEventsToday(string $eventName): int { return 0; }
+    public static function medianDailyCount(string $eventName, int $days = 14): int { return 0; }
+    /** @return array{ts: string|null, count: int} */
+    public static function statusSnapshot(string $destination): array { return ['ts' => null, 'count' => 0]; }
+    public static function purgeOlderThan(int $days = 30): int { return 0; }
+}
+
+class FpsAnalyticsServerEvents
+{
+    /** @var list<string> */
+    public const EVENTS = [];
+    /** @param array<string, mixed> $params */
+    public static function send(string $name, array $params = [], string $cid = ''): void {}
+    public static function flush(): void {}
+}
+
