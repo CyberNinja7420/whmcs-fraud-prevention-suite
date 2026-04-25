@@ -97,3 +97,9 @@ class FpsAnalyticsServerEvents
     public static function flush(): void {}
 }
 
+
+class FpsAnalyticsConsentManager {
+    public static function isEeaVisitor(string $country): bool { return false; }
+    public static function shouldShowBanner(string $country): bool { return false; }
+    public static function readConsent(): ?bool { return null; }
+}
