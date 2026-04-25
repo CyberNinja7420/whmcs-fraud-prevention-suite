@@ -345,7 +345,28 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                             // Non-fatal -- don't let logging failure unblock the bot
                         }
 
+                        if (class_exists('FpsAnalyticsServerEvents')) {
+                            try {
+                                FpsAnalyticsServerEvents::send('turnstile_fail', [
+                                    'country'     => $country,
+                                    'error_codes' => implode(',', $tsResult['error_codes'] ?? []),
+                                    'ip_country'  => $country,
+                                ]);
+                            } catch (\Throwable $analyticsEx) {
+                                logModuleCall('fraud_prevention_suite', 'analytics::turnstile_fail', [], $analyticsEx->getMessage());
+                            }
+                        }
+
                         return ['Bot protection verification failed. Please refresh the page and try again. Reference: FPS-TS-' . date('ymdHi')];
+                    } else {
+                        // Turnstile passed
+                        if (class_exists('FpsAnalyticsServerEvents')) {
+                            try {
+                                FpsAnalyticsServerEvents::send('turnstile_pass', ['country' => $country]);
+                            } catch (\Throwable $analyticsEx) {
+                                logModuleCall('fraud_prevention_suite', 'analytics::turnstile_pass', [], $analyticsEx->getMessage());
+                            }
+                        }
                     }
                 }
             }
@@ -1552,6 +1573,18 @@ add_hook('ClientAdd', 1, function ($vars) {
                 if ($result->risk->score >= 80) {
                     Capsule::table('tblclients')->where('id', $clientId)->update(['status' => 'Inactive']);
                     logActivity("Fraud Prevention: Auto-deactivated client #{$clientId} (score: {$result->risk->score})");
+                }
+            }
+
+            if ($result->risk->score >= 80 && class_exists('FpsAnalyticsServerEvents')) {
+                try {
+                    FpsAnalyticsServerEvents::send('high_risk_signup', [
+                        'risk_score'   => $result->risk->score,
+                        'country'      => $vars['country'] ?? '',
+                        'email_domain' => substr(strrchr((string) ($vars['email'] ?? ''), '@') ?: '', 1),
+                    ]);
+                } catch (\Throwable $analyticsEx) {
+                    logModuleCall('fraud_prevention_suite', 'analytics::high_risk_signup', $vars, $analyticsEx->getMessage());
                 }
             }
         }
