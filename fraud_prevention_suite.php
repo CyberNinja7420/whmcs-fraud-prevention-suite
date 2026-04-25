@@ -25,6 +25,7 @@ require_once __DIR__ . '/lib/Gdpr/FpsGdprHelper.php';
 require_once __DIR__ . '/lib/Gdpr/FpsAjaxGdpr.php';
 require_once __DIR__ . '/lib/Ajax/FpsAjaxBotCleanup.php';
 require_once __DIR__ . '/lib/FpsMailHelper.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConfig.php';
 
 // ---------------------------------------------------------------------------
 // VERSION (single source of truth)
@@ -720,6 +721,19 @@ function fraud_prevention_suite_activate(): array
             // throws). Set to '0' to roll back to historical inline-first
             // behaviour. See TODO-hardening.md item #1.
             'use_runner_fast_path' => '1',
+            // v4.2.5: Analytics & Tracking settings (all default OFF).
+            // Operators opt in per-side via the Analytics panel in TabSettings.
+            'enable_client_analytics'        => '0',
+            'enable_admin_analytics'         => '0',
+            'enable_server_events'           => '0',
+            'ga4_measurement_id_client'      => '',
+            'ga4_measurement_id_admin'       => '',
+            'ga4_api_secret'                 => '',
+            'ga4_service_account_json'       => '',
+            'clarity_project_id_client'      => '',
+            'clarity_project_id_admin'       => '',
+            'analytics_eea_consent_required' => '1',
+            'analytics_event_sampling_rate'  => '100',
             // Legacy details JSON column writer: '0' (default as of v4.2.4 PM).
             // Fresh installs no longer double-write the legacy details +
             // raw_response columns; the structured columns
@@ -2371,6 +2385,10 @@ function fps_ajaxSaveSettings(): array
         'use_runner_fast_path',
         'write_legacy_details_column',
         'drop_legacy_details_columns',
+        'enable_client_analytics',
+        'enable_admin_analytics',
+        'enable_server_events',
+        'analytics_eea_consent_required',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {
