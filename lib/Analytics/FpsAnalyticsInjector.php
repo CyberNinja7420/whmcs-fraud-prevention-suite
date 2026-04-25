@@ -48,8 +48,7 @@ final class FpsAnalyticsInjector
         }
 
         if ($clarity !== '' && self::idValid($clarity, 'clarity')) {
-            $idEsc = htmlspecialchars($clarity, ENT_QUOTES, 'UTF-8');
-            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\",{$idEsc});\n";
+            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\"," . json_encode($clarity, JSON_UNESCAPED_SLASHES) . ");\n";
             // Attach FPS context as Clarity custom tags
             foreach ($context as $k => $v) {
                 if (!is_scalar($v)) continue;
@@ -106,8 +105,7 @@ final class FpsAnalyticsInjector
         }
 
         if ($clarity !== '' && self::idValid($clarity, 'clarity')) {
-            $idEsc = htmlspecialchars($clarity, ENT_QUOTES, 'UTF-8');
-            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\",{$idEsc});\n";
+            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\"," . json_encode($clarity, JSON_UNESCAPED_SLASHES) . ");\n";
             // json_encode() produces a properly-quoted JS string. See note in client()
             // for why htmlspecialchars is wrong inside <script>.
             $out .= "clarity('identify'," . json_encode('admin_' . $adminId, JSON_UNESCAPED_SLASHES) . ");\n";
