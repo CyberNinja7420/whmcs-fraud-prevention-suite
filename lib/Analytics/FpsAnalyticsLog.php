@@ -56,6 +56,8 @@ final class FpsAnalyticsLog
                 ->toArray();
             if ($rows === []) return 0;
             sort($rows);
+            // Returns upper median for even-length arrays (e.g. [1,2,3,4] -> 3).
+            // Suitable for anomaly detection baselines (slightly conservative).
             return (int) $rows[(int) (count($rows) / 2)];
         } catch (\Throwable $e) { return 0; }
     }

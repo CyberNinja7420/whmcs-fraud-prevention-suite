@@ -2,7 +2,7 @@
 /**
  * FpsAnalyticsConfig -- memoized analytics settings reader + ID validators.
  *
- * Reads all 11 analytics settings from mod_fps_settings with a
+ * Reads all 12 analytics settings from mod_fps_settings with a
  * per-request in-memory cache (static array).  Call clearCache()
  * in unit tests to reset between cases.
  *
@@ -40,6 +40,7 @@ final class FpsAnalyticsConfig
     public const KEY_CLARITY_PROJECT_ID_ADMIN   = 'clarity_project_id_admin';
     public const KEY_EEA_CONSENT_REQUIRED       = 'analytics_eea_consent_required';
     public const KEY_EVENT_SAMPLING_RATE        = 'analytics_event_sampling_rate';
+    public const KEY_HIGH_RISK_SIGNUP_THRESHOLD = 'analytics_high_risk_signup_threshold';
 
     // -----------------------------------------------------------------------
     // All setting key strings as an ordered array (spec requirement)
@@ -51,11 +52,12 @@ final class FpsAnalyticsConfig
         'ga4_service_account_json',
         'clarity_project_id_client', 'clarity_project_id_admin',
         'analytics_eea_consent_required', 'analytics_event_sampling_rate',
+        'analytics_high_risk_signup_threshold',
     ];
 
     // -----------------------------------------------------------------------
     // Safe defaults -- eagerly loaded before the DB query so the cache
-    // always contains all 11 keys regardless of which rows exist in the DB.
+    // always contains all 12 keys regardless of which rows exist in the DB.
     // -----------------------------------------------------------------------
 
     private const DEFAULTS = [
@@ -69,7 +71,8 @@ final class FpsAnalyticsConfig
         'clarity_project_id_client'      => '',
         'clarity_project_id_admin'       => '',
         'analytics_eea_consent_required' => '1',
-        'analytics_event_sampling_rate'  => '100',
+        'analytics_event_sampling_rate'        => '100',
+        'analytics_high_risk_signup_threshold' => '80',
     ];
 
     // -----------------------------------------------------------------------
