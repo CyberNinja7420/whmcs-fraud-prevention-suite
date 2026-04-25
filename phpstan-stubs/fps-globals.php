@@ -55,3 +55,21 @@ function fps_computePreCheckoutLatency(): array
 {
     return ['samples' => 0, 'p50' => 0, 'p95' => 0, 'p99' => 0, 'max' => 0];
 }
+
+/**
+ * Analytics settings reader and validator -- runtime impl in
+ * lib/Analytics/FpsAnalyticsConfig.php. Stub here so psalm does
+ * not flag cross-file static calls as UndefinedClass.
+ */
+class FpsAnalyticsConfig
+{
+    public const KEYS = [];
+    public static function get(string $key, string $default = ''): string { return $default; }
+    public static function isClientEnabled(): bool { return false; }
+    public static function isAdminEnabled(): bool { return false; }
+    public static function isServerEnabled(): bool { return false; }
+    public static function isValidGa4Id(string $id): bool { return true; }
+    public static function isValidClarityId(string $id): bool { return true; }
+    public static function isValidServiceAccountJson(string $json): bool { return true; }
+    public static function clearCache(): void {}
+}

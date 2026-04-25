@@ -54,6 +54,25 @@ final class FpsAnalyticsConfig
     ];
 
     // -----------------------------------------------------------------------
+    // Safe defaults -- eagerly loaded before the DB query so the cache
+    // always contains all 11 keys regardless of which rows exist in the DB.
+    // -----------------------------------------------------------------------
+
+    private const DEFAULTS = [
+        'enable_client_analytics'        => '0',
+        'enable_admin_analytics'         => '0',
+        'enable_server_events'           => '0',
+        'ga4_measurement_id_client'      => '',
+        'ga4_measurement_id_admin'       => '',
+        'ga4_api_secret'                 => '',
+        'ga4_service_account_json'       => '',
+        'clarity_project_id_client'      => '',
+        'clarity_project_id_admin'       => '',
+        'analytics_eea_consent_required' => '1',
+        'analytics_event_sampling_rate'  => '100',
+    ];
+
+    // -----------------------------------------------------------------------
     // Per-request memoization cache
     // -----------------------------------------------------------------------
 
@@ -70,7 +89,10 @@ final class FpsAnalyticsConfig
     /**
      * Get one analytics setting value from mod_fps_settings.
      *
-     * Results are cached for the lifetime of the PHP request.
+     * Results are cached for the lifetime of the PHP request. The cache
+     * is eagerly pre-populated with DEFAULTS so all 11 keys are always
+     * present -- DB rows overwrite the defaults; missing rows keep the
+     * safe default value.
      *
      * @param string $key     One of the KEY_* constants (or any setting_key).
      * @param string $default Returned when the key is absent or DB throws.
@@ -78,22 +100,10 @@ final class FpsAnalyticsConfig
     public static function get(string $key, string $default = ''): string
     {
         if (self::$cache === null) {
-            self::$cache = [];
+            self::$cache = self::DEFAULTS;        // eager-init with safe defaults
             try {
                 $rows = Capsule::table('mod_fps_settings')
-                    ->whereIn('setting_key', [
-                        self::KEY_ENABLE_CLIENT_ANALYTICS,
-                        self::KEY_ENABLE_ADMIN_ANALYTICS,
-                        self::KEY_ENABLE_SERVER_EVENTS,
-                        self::KEY_GA4_MEASUREMENT_ID_CLIENT,
-                        self::KEY_GA4_MEASUREMENT_ID_ADMIN,
-                        self::KEY_GA4_API_SECRET,
-                        self::KEY_GA4_SERVICE_ACCOUNT_JSON,
-                        self::KEY_CLARITY_PROJECT_ID_CLIENT,
-                        self::KEY_CLARITY_PROJECT_ID_ADMIN,
-                        self::KEY_EEA_CONSENT_REQUIRED,
-                        self::KEY_EVENT_SAMPLING_RATE,
-                    ])
+                    ->whereIn('setting_key', self::KEYS)
                     ->get(['setting_key', 'setting_value']);
 
                 foreach ($rows as $row) {
@@ -140,10 +150,9 @@ final class FpsAnalyticsConfig
     // -----------------------------------------------------------------------
 
     /**
-     * Validate a GA4 Measurement ID (format: G-XXXXXXXXXX).
-     *
-     * Accepts the standard G- prefix followed by 1-20 uppercase
-     * alphanumeric characters, matching all current GA4 property IDs.
+     * Validate a GA4 Measurement ID. Format: G- prefix + 8-12 uppercase
+     * alphanumeric chars (covers all current GA4 property IDs). Empty string
+     * is accepted (= "not configured" -- treated as not-yet-set, not invalid).
      */
     public static function isValidGa4Id(string $id): bool
     {
@@ -153,7 +162,8 @@ final class FpsAnalyticsConfig
     /**
      * Validate a Microsoft Clarity project ID.
      *
-     * Clarity IDs are lowercase alphanumeric strings of 6-12 characters.
+     * Clarity IDs are lowercase alphanumeric strings of 8-12 characters.
+     * Empty string is accepted (= "not configured").
      */
     public static function isValidClarityId(string $id): bool
     {
@@ -168,6 +178,7 @@ final class FpsAnalyticsConfig
      * valid PEM RSA private key (via openssl_pkey_get_private).
      *
      * Returns false on any structural or cryptographic failure.
+     * Empty string is accepted (= "not configured").
      */
     public static function isValidServiceAccountJson(string $json): bool
     {
@@ -193,9 +204,9 @@ final class FpsAnalyticsConfig
     // -----------------------------------------------------------------------
 
     /**
-     * Flush the memoization cache.
-     *
-     * Call this between test cases to ensure a clean read from the DB.
+     * Flush the memoization cache. Intended ONLY for test isolation;
+     * never call mid-request -- a subsequent get() will re-bulk-load
+     * but at the cost of an extra round-trip and lost amortisation.
      */
     public static function clearCache(): void
     {
