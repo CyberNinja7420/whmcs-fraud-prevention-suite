@@ -99,6 +99,7 @@ class FpsAnalyticsServerEvents
 
 
 class FpsAnalyticsConsentManager {
+    public const EEA_COUNTRIES = [];
     public static function isEeaVisitor(string $country): bool { return false; }
     public static function shouldShowBanner(string $country): bool { return false; }
     public static function readConsent(): ?bool { return null; }
