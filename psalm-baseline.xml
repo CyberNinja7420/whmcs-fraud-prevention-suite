@@ -29,6 +29,16 @@
       <code><![CDATA[!defined('WHMCS')]]></code>
     </ParadoxicalCondition>
   </file>
+  <file src="lib/Analytics/FpsAnalyticsConsentManager.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
+  <file src="lib/Analytics/FpsAnalyticsInjector.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
   <file src="lib/Analytics/FpsAnalyticsLog.php">
     <ParadoxicalCondition>
       <code><![CDATA[!defined('WHMCS')]]></code>
