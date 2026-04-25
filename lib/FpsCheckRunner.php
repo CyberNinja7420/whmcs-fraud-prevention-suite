@@ -464,6 +464,27 @@ class FpsCheckRunner
             );
 
             $this->stats->recordCheck($result);
+
+            // Server-side analytics event (see docs/plans/2026-04-22-analytics-integration-design.md).
+            // Fire-and-forget: gated by enable_server_events; auto-flushes at shutdown.
+            if (class_exists('FpsAnalyticsServerEvents')) {
+                try {
+                    $thresholds = FpsHookHelpers::fps_resolvePreCheckoutThresholds();
+                    $analyticsEvent = ($result->risk->score >= (float) $thresholds['block'])
+                        ? 'pre_checkout_block' : 'pre_checkout_allow';
+                    \FpsAnalyticsServerEvents::send($analyticsEvent, [
+                        'risk_score'  => round((float) $result->risk->score, 2),
+                        'risk_level'  => $result->risk->level,
+                        'country'     => $context->country,
+                        'gateway'     => '',
+                        'duration_ms' => (int) round($result->executionMs),
+                        'providers'   => implode(',', array_keys((array) $result->risk->providerScores)),
+                    ], 'check_' . $result->checkId);
+                } catch (\Throwable $analyticsEx) {
+                    logModuleCall('fraud_prevention_suite', 'analytics::pre_checkout', [], $analyticsEx->getMessage());
+                }
+            }
+
             return $result;
         } catch (\Throwable $e) {
             $executionMs = (microtime(true) - $startTime) * 1000;
