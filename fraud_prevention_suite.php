@@ -678,6 +678,31 @@ function fraud_prevention_suite_activate(): array
             });
         }
 
+        // -- v4.2.5: Analytics tables --
+
+        if (!Capsule::schema()->hasTable('mod_fps_analytics_log')) {
+            Capsule::schema()->create('mod_fps_analytics_log', function ($table) {
+                $table->increments('id');
+                $table->string('event_name', 50)->index();
+                $table->text('payload_json')->nullable();
+                $table->enum('destination', ['ga4_client', 'ga4_server', 'clarity']);
+                $table->enum('status', ['queued', 'sent', 'failed'])->default('queued');
+                $table->text('error')->nullable();
+                $table->timestamp('created_at')->useCurrent()->index();
+            });
+        }
+
+        if (!Capsule::schema()->hasTable('mod_fps_analytics_anomalies')) {
+            Capsule::schema()->create('mod_fps_analytics_anomalies', function ($table) {
+                $table->increments('id');
+                $table->string('event_name', 50)->index();
+                $table->integer('baseline_count');
+                $table->integer('observed_count');
+                $table->timestamp('detected_at')->useCurrent();
+                $table->timestamp('notified_at')->nullable();
+            });
+        }
+
         // Seed default settings (wrapped in try/catch for v1.0 compat).
         // module_version seed uses the current FPS_MODULE_VERSION so fresh installs
         // match what the config() metadata advertises; existing installs retain
