@@ -39,20 +39,25 @@ final class FpsAnalyticsInjector
             $idEsc = htmlspecialchars($ga4, ENT_QUOTES, 'UTF-8');
             $out .= "<script async src=\"https://www.googletagmanager.com/gtag/js?id={$idEsc}\"></script>\n";
             $out .= "<script>gtag('js', new Date());\n";
-            $out .= "gtag('config','{$idEsc}',{anonymize_ip:true,send_page_view:true});\n";
+            // json_encode() produces a properly-quoted JS string literal. htmlspecialchars
+            // is wrong here: HTML entities are NOT decoded inside <script>, so it would
+            // produce literal &#039; etc. in the GA4 measurement ID.
+            $out .= "gtag('config'," . json_encode($ga4, JSON_UNESCAPED_SLASHES) . ",{anonymize_ip:true,send_page_view:true});\n";
             $out .= $userProps;
             $out .= "</script>\n";
         }
 
         if ($clarity !== '' && self::idValid($clarity, 'clarity')) {
             $idEsc = htmlspecialchars($clarity, ENT_QUOTES, 'UTF-8');
-            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\",\"{$idEsc}\");\n";
+            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\",{$idEsc});\n";
             // Attach FPS context as Clarity custom tags
             foreach ($context as $k => $v) {
                 if (!is_scalar($v)) continue;
-                $kEsc = htmlspecialchars((string) $k, ENT_QUOTES, 'UTF-8');
-                $vEsc = htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
-                $out .= "clarity('set','{$kEsc}','{$vEsc}');\n";
+                // json_encode() produces a properly-quoted JS string literal (handles
+                // single/double quotes, backslashes, control chars, unicode). HTML
+                // entities are NOT decoded inside <script>, so htmlspecialchars would
+                // corrupt the data with literal &#039; etc.
+                $out .= "clarity('set'," . json_encode((string) $k, JSON_UNESCAPED_SLASHES) . "," . json_encode((string) $v, JSON_UNESCAPED_SLASHES) . ");\n";
             }
             $out .= "</script>\n";
         }
@@ -93,16 +98,19 @@ final class FpsAnalyticsInjector
             $idEsc = htmlspecialchars($ga4, ENT_QUOTES, 'UTF-8');
             $out .= "<script async src=\"https://www.googletagmanager.com/gtag/js?id={$idEsc}\"></script>\n";
             $out .= "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}\n";
-            $out .= "gtag('js',new Date());gtag('config','{$idEsc}',{anonymize_ip:true,send_page_view:true});\n";
+            // json_encode() produces a properly-quoted JS string literal. See note in client()
+            // for why htmlspecialchars is wrong inside <script>.
+            $out .= "gtag('js',new Date());gtag('config'," . json_encode($ga4, JSON_UNESCAPED_SLASHES) . ",{anonymize_ip:true,send_page_view:true});\n";
             $out .= $userProps;
             $out .= "</script>\n";
         }
 
         if ($clarity !== '' && self::idValid($clarity, 'clarity')) {
-            $idEsc     = htmlspecialchars($clarity, ENT_QUOTES, 'UTF-8');
-            $adminEsc  = htmlspecialchars($adminId, ENT_QUOTES, 'UTF-8');
-            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\",\"{$idEsc}\");\n";
-            $out .= "clarity('identify','admin_{$adminEsc}');\n";
+            $idEsc = htmlspecialchars($clarity, ENT_QUOTES, 'UTF-8');
+            $out .= "<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src=\"https://www.clarity.ms/tag/\"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,\"clarity\",\"script\",{$idEsc});\n";
+            // json_encode() produces a properly-quoted JS string. See note in client()
+            // for why htmlspecialchars is wrong inside <script>.
+            $out .= "clarity('identify'," . json_encode('admin_' . $adminId, JSON_UNESCAPED_SLASHES) . ");\n";
             $out .= "</script>\n";
         }
 

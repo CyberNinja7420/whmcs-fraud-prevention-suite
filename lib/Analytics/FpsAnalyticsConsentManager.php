@@ -25,6 +25,21 @@ final class FpsAnalyticsConsentManager
         return in_array(strtoupper(trim($country)), self::EEA_COUNTRIES, true);
     }
 
+    /**
+     * Determines whether to show the cookie consent banner for a given visitor.
+     *
+     * Semantics (deliberately a little surprising):
+     *   - When `analytics_eea_consent_required = '1'` (default): show banner ONLY
+     *     to visitors whose IP-derived country is in the EEA list. Non-EEA
+     *     visitors get the analytics scripts without a banner.
+     *   - When `analytics_eea_consent_required = '0'`: show banner to EVERYONE.
+     *     This is the conservative / simplest setting -- operators who want a
+     *     uniform GDPR-style banner regardless of jurisdiction.
+     *
+     * Note: this method only decides VISIBILITY. The actual gating of analytics
+     * scripts happens via Consent Mode v2 default-deny in FpsAnalyticsInjector
+     * -- the banner just collects the user's choice and updates that state.
+     */
     public static function shouldShowBanner(string $country): bool
     {
         if (FpsAnalyticsConfig::get('analytics_eea_consent_required', '1') !== '1') {
@@ -33,7 +48,16 @@ final class FpsAnalyticsConsentManager
         return self::isEeaVisitor($country);
     }
 
-    /** Read the user's previously-stored consent decision from the cookie. */
+    /**
+     * Read the visitor's previously-stored consent decision from the
+     * fps_consent cookie set by the consent banner.
+     *
+     * @return ?bool null = decision pending (no cookie), true = consent granted,
+     *               false = consent declined (cookie value not '1')
+     *
+     * @internal Reserved for Group E (banner JS interop) and Group H (GDPR
+     *           purge respecting consent state).
+     */
     public static function readConsent(): ?bool
     {
         if (!isset($_COOKIE['fps_consent'])) return null;
