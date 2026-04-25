@@ -68,12 +68,24 @@ final class FpsAnalyticsServerEvents
         $measurementId = FpsAnalyticsConfig::get('ga4_measurement_id_client', '');
         $apiSecret     = FpsAnalyticsConfig::get('ga4_api_secret', '');
         if ($measurementId === '' || $apiSecret === '') {
+            foreach (self::$queue as $e) {
+                FpsAnalyticsLog::record(
+                    $e['name'],
+                    $e['params'],
+                    FpsAnalyticsLog::DEST_GA4_SERVER,
+                    'failed',
+                    'GA4 credentials not configured (measurement_id or api_secret empty)'
+                );
+            }
             self::$queue = [];
             return;
         }
 
         // Group by client_id (Measurement Protocol allows multiple events per
-        // POST but they share the same client_id).
+        // POST when they share the same client_id). Each unique CID becomes
+        // a separate request -- this is the intentional session-correlation
+        // strategy: events tagged with the same FPS check_id end up in the
+        // same GA4 session for funnel analysis.
         $byCid = [];
         foreach (self::$queue as $e) { $byCid[$e['client_id']][] = ['name' => $e['name'], 'params' => $e['params']]; }
         self::$queue = [];

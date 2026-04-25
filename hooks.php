@@ -1576,7 +1576,8 @@ add_hook('ClientAdd', 1, function ($vars) {
                 }
             }
 
-            if ($result->risk->score >= 80 && class_exists('FpsAnalyticsServerEvents')) {
+            $highRiskThreshold = (float) FpsAnalyticsConfig::get('analytics_high_risk_signup_threshold', '80');
+            if ($result->risk->score >= $highRiskThreshold && class_exists('FpsAnalyticsServerEvents')) {
                 try {
                     FpsAnalyticsServerEvents::send('high_risk_signup', [
                         'risk_score'   => $result->risk->score,
