@@ -67,6 +67,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full change history.
 - **Colorblind Accessibility** -- Toggle button swaps green to blue palette site-wide
 - **Auto-provisioning** -- API products created automatically on module activation
 - **Cloudflare Turnstile** -- Invisible CAPTCHA on login, registration, checkout, and ticket forms
+- **Google Analytics 4 + Microsoft Clarity Integration** -- Server-side fraud tracking, Consent Mode v2 (GDPR), anomaly detection, MCP servers for AI analytics queries. See [Analytics & MCP Integration](docs/wiki/Analytics-MCP-Setup.md).
 
 ## Quick Start
 
