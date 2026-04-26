@@ -1811,6 +1811,27 @@ add_hook('DailyCronJob', 1, function ($vars) {
             logModuleCall('fraud_prevention_suite', 'DailyCron:GlobalIntelPush', '', $e->getMessage());
         }
 
+        if (class_exists('FpsAnalyticsAnomalyDetector')) {
+            try { FpsAnalyticsAnomalyDetector::runDaily(); }
+            catch (\Throwable $e) { logModuleCall('fraud_prevention_suite', 'AnalyticsAnomaly::ERROR', '', $e->getMessage()); }
+        }
+
+        if (class_exists('FpsAnalyticsLog')) {
+            try { FpsAnalyticsLog::purgeOlderThan(30); }
+            catch (\Throwable $e) { /* non-fatal */ }
+        }
+
+        // Daily heartbeat event so we can see the cron ran in GA4 Realtime
+        if (class_exists('FpsAnalyticsServerEvents')) {
+            try {
+                FpsAnalyticsServerEvents::send('module_health', [
+                    'module_version'    => defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown',
+                    'total_checks_24h'  => (int) \WHMCS\Database\Capsule::table('mod_fps_checks')
+                                                ->where('created_at', '>=', date('Y-m-d H:i:s', time() - 86400))->count(),
+                ]);
+            } catch (\Throwable $e) { /* non-fatal */ }
+        }
+
         logModuleCall('fraud_prevention_suite', 'DailyCron',
             "Purged: {$geoDeleted} geo events, {$apiDeleted} API logs",
             'Cron completed successfully');
