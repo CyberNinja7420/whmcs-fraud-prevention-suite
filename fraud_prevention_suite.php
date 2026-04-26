@@ -1173,6 +1173,8 @@ function fraud_prevention_suite_output(array $vars): void
     }
     echo '<script src="' . $assetsUrl . '/js/fps-admin.js' . $bust('js/fps-admin.js') . '"></script>';
     echo '<script src="' . $assetsUrl . '/js/fps-charts.js' . $bust('js/fps-charts.js') . '"></script>';
+    // v4.2.6: analytics setup wizard JS (state machine for the 7-step modal)
+    echo '<script src="' . $assetsUrl . '/js/fps-analytics-wizard.js' . $bust('js/fps-analytics-wizard.js') . '"></script>';
     // WHMCS CSRF token (available globally for all AJAX calls)
     // WHMCS 8.x uses generate_token() for CSRF -- $_SESSION['token'] is empty
     $csrfToken = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');

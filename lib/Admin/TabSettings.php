@@ -41,6 +41,11 @@ class TabSettings
         echo '</form>';
 
         $this->fpsRenderSaveBar($ajaxUrl);
+
+        // v4.2.6: analytics setup wizard modal -- triggered by the
+        // "Run setup wizard" link in the Analytics & Tracking card. Always
+        // rendered so FpsAdmin.openModal('fps-analytics-wizard') can show it.
+        echo FpsAnalyticsWizard::render();
     }
 
     /**
