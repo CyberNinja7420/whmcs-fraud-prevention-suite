@@ -5,7 +5,7 @@
 [![WHMCS 8.x | 9.x](https://img.shields.io/badge/WHMCS-8.x%20%7C%209.x-0052CC?style=for-the-badge)](https://whmcs.com)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-![Version](https://img.shields.io/badge/Version-4.2.4-2563eb?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-4.2.5-2563eb?style=for-the-badge)
 
 [Live Demo](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite) | [API Plans](https://enterprisevpssolutions.com/store/fraud-intelligence-api) | [Threat Map](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite&page=topology) | [Documentation](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Home)
 
@@ -22,6 +22,17 @@ Fraud Prevention Suite (FPS) is a comprehensive fraud detection addon module for
 - **WHMCS-native** -- Built specifically for WHMCS using Capsule ORM, Smarty templates, and the hook system
 - **Zero runtime CDN dependency** -- ApexCharts, three.js and globe.gl are all vendored under `assets/vendor/` (refreshed quarterly via `scripts/refresh-vendor-assets.sh`)
 - **Accessibility-first** -- Built-in colorblind mode toggle and high-contrast support
+
+### What's new in v4.2.5 (2026-04-25)
+
+- **Google Analytics 4 + Microsoft Clarity integration** with three independently-toggleable scopes (client storefront, admin tabs, server-side custom events)
+- **12 server-side custom events** sent via the GA4 Measurement Protocol covering the full FPS lifecycle: pre-checkout blocks/allows, Turnstile pass/fail, high-risk signups, geo-impossibility hits, velocity blocks, admin review actions, API requests, bot purges, daily heartbeat
+- **EEA Consent Mode v2** -- default-deny, banner shown only to EEA visitors (27-country list), Accept/Decline updates `gtag('consent')` + `clarity('consent')` and persists in localStorage + cookie
+- **Dashboard "Analytics Connection Status" widget** with health dots, deep-links to GA4 Realtime + Clarity, optional yesterday-block-count via Service Account JWT
+- **Daily anomaly detection** (3x-median spike check on 3 fraud events) with admin email alert
+- **GDPR Article 17 erasure extended** to call Microsoft Clarity DSR API + GA4 manual-deletion instructions
+- **MCP server installer** (`scripts/install-mcp-servers.sh`) wires the official Google Analytics + Microsoft Clarity MCP servers into Claude Code for natural-language analytics queries
+- See [Analytics & MCP Setup](docs/wiki/Analytics-MCP-Setup.md) for the operator guide
 
 ### What's new in v4.2.4 (2026-04-22)
 

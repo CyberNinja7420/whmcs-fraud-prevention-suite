@@ -2,7 +2,7 @@
 
 Items the production-hardening passes did NOT close. Each item lists a severity and a rough effort estimate. Items marked `Pass-2: closed` were carried over from the first pass and resolved in v4.2.4 (2026-04-21); their entries are kept for context.
 
-**Last reconciled:** 2026-04-22 PM (4th reconciliation -- ALL operational soak items + bulk extraction + psalm wired). Nothing structurally open.
+**Last reconciled:** 2026-04-25 (5th reconciliation -- analytics integration v4.2.5 shipped). Nothing structurally open; analytics integration complete.
 
 ## Status legend
 
@@ -11,6 +11,30 @@ Items the production-hardening passes did NOT close. Each item lists a severity 
 - `Post-pass-2: closed` -- resolved in the 2026-04-22 follow-up session.
 - `Items-124-closed` -- resolved in the 2026-04-22 third pass (pre-checkout fast-path, legacy-write toggle, file extraction, phpstan + CI).
 - `Get-it-all-done-closed` -- resolved in the 2026-04-22 PM fourth pass (defaults flipped, P95 widget, psalm wired, second extraction batch).
+- `v4.2.5-analytics-shipped` -- resolved in the 2026-04-25 fifth pass (Google Analytics 4 + Microsoft Clarity integration with EEA consent + 12 server-side events + GDPR DSR + MCP wiring).
+
+
+## Closed in v4.2.5 (2026-04-25, analytics integration)
+
+End-to-end Google Analytics 4 + Microsoft Clarity integration shipped as 33 commits on `feat/analytics-integration-v425` (base `f69f446`, head `17e97cf`). 7 implementation groups (A-J) + final pre-deploy review (caught 2 SSL bugs + 1 notification_email gap, all fixed).
+
+**Closed deliverables:**
+- 7 new files in `lib/Analytics/` (Config, Log, ServerEvents, ConsentManager, Injector, DataApi, AnomalyDetector)
+- 2 new schema tables (`mod_fps_analytics_log`, `mod_fps_analytics_anomalies`) with 30-day rolling TTL
+- 12 server-side custom events on the Measurement Protocol with batched POST + sampling
+- EEA Consent Mode v2 with banner gated by IP-derived country (27-country list)
+- Daily cron extension for anomaly detection (3x-median + min-50 threshold across 3 events) + heartbeat
+- GDPR Article 17 extension calling Clarity DSR API + GA4 manual-deletion instructions
+- 15 new admin settings + Settings tab card + Dashboard widget
+- 2 vendor JS files (`fps-consent-banner.js`, `fps-analytics-debug.js`)
+- MCP install helper script
+- 248-line operator guide (`docs/wiki/Analytics-MCP-Setup.md`)
+
+**Validation:** dev battle 33/33 PASS, freeit live 27/27 PASS, enterpri live 16/16 PASS (RSThemes ionCube error pre-existing, isolated check), HTTP smoke 200/200 + scripts 200/200 on both, both installs serving `X-FPS-Version: 4.2.5`.
+
+**Quality gates:** lint 75 PHP files clean / phpstan level 3 baseline / psalm level 6 baseline / 2 JS files node-check clean / bash script clean.
+
+---
 
 ## Deferred with rationale
 
