@@ -1335,6 +1335,33 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         $output .= $js;
     }
 
+
+    // ---------- FPS Analytics (client) ----------
+    if (class_exists('FpsAnalyticsInjector') && FpsAnalyticsConfig::isClientEnabled()) {
+        try {
+            $visitorCountry = '';
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            if ($ip !== '' && class_exists('\\FraudPreventionSuite\\Lib\\FpsHookHelpers')) {
+                $visitorCountry = (string) (\FraudPreventionSuite\Lib\FpsHookHelpers::fps_lookupCountryByIp($ip) ?? '');
+            }
+            $context = [
+                'fps_country'             => $visitorCountry,
+                'fps_module_version'      => defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown',
+                'fps_is_returning_client' => isset($_SESSION['uid']) ? 1 : 0,
+            ];
+            $modVer      = defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown';
+            $bannerJsUrl = '/modules/addons/fraud_prevention_suite/assets/js/fps-consent-banner.js?v=' . urlencode($modVer);
+            $debugJsTag  = (isset($_GET['fps_analytics_debug']) && $_GET['fps_analytics_debug'] === '1')
+                ? '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-analytics-debug.js"></script>'
+                : '';
+            $output .= FpsAnalyticsInjector::client($visitorCountry, $context)
+                . "<script defer src=\"{$bannerJsUrl}\"></script>\n"
+                . $debugJsTag;
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'AnalyticsInject::ClientErr', '', $e->getMessage());
+        }
+    }
+
     return $output;
     } catch (\Throwable $e) {
         return '';
