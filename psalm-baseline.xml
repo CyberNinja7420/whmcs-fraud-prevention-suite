@@ -24,6 +24,26 @@
       <code><![CDATA[!defined("WHMCS")]]></code>
     </ParadoxicalCondition>
   </file>
+  <file src="lib/Analytics/FpsAnalyticsConfig.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
+  <file src="lib/Analytics/FpsAnalyticsConsentManager.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
+  <file src="lib/Analytics/FpsAnalyticsInjector.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
+  <file src="lib/Analytics/FpsAnalyticsLog.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
   <file src="lib/FpsBotDetector.php">
     <InvalidReturnStatement>
       <code><![CDATA[[
