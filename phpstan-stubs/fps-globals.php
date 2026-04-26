@@ -110,3 +110,8 @@ class FpsAnalyticsInjector {
     public static function client(string $visitorCountry, array $context = []): string { return ''; }
     public static function admin(string $adminId = '', string $adminRole = ''): string { return ''; }
 }
+
+class FpsAnalyticsDataApi
+{
+    public static function getYesterdayCount(string $eventName): ?int { return null; }
+}
