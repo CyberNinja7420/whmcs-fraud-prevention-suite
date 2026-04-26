@@ -32,6 +32,21 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ## [4.2.5] - 2026-04-25
 
+### Security (audit reconciliation, 2026-04-26)
+- **fps_api server module no longer persists raw API keys.** Pre-v4.2.5
+  installs wrote the cleartext key into tblhosting.dedicatedip with a
+  comment claiming it was "encrypted by WHMCS" -- it wasn't. The audit
+  pass replaces this with a bcrypt hash + one-time session-flash
+  display (the raw key is shown exactly once on
+  CreateAccount/RegenerateKey via the WHMCS session). Existing installs
+  with a legacy raw key keep working: ClientArea() detects the
+  ^fps_[a-zA-Z0-9]+$ pattern, displays a "regenerate now" banner, and
+  the next admin Regenerate-Key click swaps the dedicatedip value to a
+  bcrypt hash. New helper fps_api_verifyRawKey() accepts both formats
+  via password_verify() / hash_equals() so verification flows are
+  backwards compatible during the transition window.
+
+
 ### Added
 - **Google Analytics 4 + Microsoft Clarity integration** -- client-side, admin-side, and server-side tracking of 12 FPS-specific events (pre-checkout blocks, Turnstile challenges, high-risk signups, geo-impossibility, velocity blocks, admin review actions, API requests, bot purge, module health).
 - **Two new analytics tables** -- `mod_fps_analytics_log` (event audit trail, 30-day rolling) and `mod_fps_analytics_anomalies` (spike-detection records).

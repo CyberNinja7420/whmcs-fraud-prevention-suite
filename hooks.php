@@ -11,6 +11,14 @@ if (file_exists($autoloaderPath)) {
     require_once $autoloaderPath;
 }
 
+// Load global-namespace analytics helpers (FpsAnalytics*) -- the autoloader
+// only resolves the FraudPreventionSuite\Lib\ prefix, so these are pulled
+// in explicitly. See lib/AnalyticsBootstrap.php for rationale.
+$fpsAnalyticsBootstrap = __DIR__ . '/lib/AnalyticsBootstrap.php';
+if (file_exists($fpsAnalyticsBootstrap)) {
+    require_once $fpsAnalyticsBootstrap;
+}
+
 // ---------------------------------------------------------------------------
 // 0. Load AI Assistant hooks (if module is installed but WHMCS isn't loading them)
 // ---------------------------------------------------------------------------

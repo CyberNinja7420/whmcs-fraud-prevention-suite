@@ -80,7 +80,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full change history.
 - **REST API** with 4 tiers: Free / Community / Basic ($19/mo) / Premium ($99/mo)
 - **Pre-checkout Blocking** -- Block fraudulent orders before payment processing
 - **Live 3D Threat Map** -- Globe.gl visualization with real-time fraud events
-- **Admin Dashboard** -- 10 tabs: Dashboard, Review Queue, Client Profile, Rules, API Keys, Settings, and more
+- **Admin Dashboard** -- 14 tabs: Dashboard, Review Queue, Client Profile, Rules, API Keys, Alert Log, Bot Cleanup, Global Intel, Mass Scan, Reports, Statistics, Topology, Trust Management, Settings
 - **Client Area Pages** -- Public overview, API docs, topology, GDPR data removal
 - **Colorblind Accessibility** -- Toggle button swaps green to blue palette site-wide
 - **Auto-provisioning** -- API products created automatically on module activation

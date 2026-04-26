@@ -1,7 +1,7 @@
 # FPS Schema Parity Report
 
 **Date:** 2026-04-21
-**Module version:** 4.2.4
+**Module version:** 4.2.5
 **Verified on:** 130.12.69.3 (live), 130.12.69.7 (dev) -- pass 1 deploys; pass 2 is additive-only and pending re-deploy.
 
 ## Definitions

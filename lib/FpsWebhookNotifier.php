@@ -624,7 +624,14 @@ class FpsWebhookNotifier
      * Validate a webhook URL to prevent SSRF attacks.
      *
      * Only allows https:// URLs pointing to public (non-internal) IP addresses.
-     * Blocks RFC 1918 ranges, loopback, link-local, and cloud metadata IPs.
+     * Resolves the hostname (A + AAAA) and rejects targets in:
+     *   - IPv4 loopback (127.0.0.0/8), 0.0.0.0, link-local (169.254/16),
+     *     and all RFC 1918 private ranges (10/8, 172.16/12, 192.168/16).
+     *   - IPv4-mapped IPv6 wrapping any of the above (::ffff:0:0/96).
+     *   - IPv6 loopback (::1), unique-local (fc00::/7), link-local (fe80::/10).
+     * Uses PHP's FILTER_VALIDATE_IP with NO_PRIV_RANGE | NO_RES_RANGE as the
+     * canonical allowlist; the explicit prefix checks above are a defence in
+     * depth for IP variants that the filter is lenient about.
      */
     public static function fps_isValidWebhookUrl(string $url): bool
     {
@@ -638,27 +645,91 @@ class FpsWebhookNotifier
             return false;
         }
 
-        // Resolve hostname to IP and check for internal addresses
-        $ips = gethostbynamel($parsed['host']);
-        if ($ips === false || empty($ips)) {
+        $host = $parsed['host'];
+
+        // Build the candidate IP list. For a hostname this is gethostbynamel
+        // (IPv4) plus dns_get_record AAAA (IPv6) where the resolver supports
+        // it. For a literal IP, just use the literal.
+        $ips = [];
+        $literal = filter_var($host, FILTER_VALIDATE_IP);
+        if ($literal !== false) {
+            $ips[] = $host;
+        } else {
+            $v4 = gethostbynamel($host);
+            if (is_array($v4)) {
+                $ips = array_merge($ips, $v4);
+            }
+            if (function_exists('dns_get_record')) {
+                $v6 = @dns_get_record($host, DNS_AAAA);
+                if (is_array($v6)) {
+                    foreach ($v6 as $rec) {
+                        if (!empty($rec['ipv6'])) {
+                            $ips[] = $rec['ipv6'];
+                        }
+                    }
+                }
+            }
+        }
+
+        if (empty($ips)) {
             return false; // Cannot resolve = not safe
         }
 
         foreach ($ips as $ip) {
-            // Block loopback (127.0.0.0/8)
-            if (str_starts_with($ip, '127.')) return false;
-            // Block RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-            if (str_starts_with($ip, '10.')) return false;
-            if (str_starts_with($ip, '192.168.')) return false;
-            if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $ip)) return false;
-            // Block link-local (169.254.0.0/16) -- includes cloud metadata
-            if (str_starts_with($ip, '169.254.')) return false;
-            // Block IPv6-mapped IPv4
-            if (str_starts_with($ip, '::ffff:')) return false;
-            // Block 0.0.0.0
-            if ($ip === '0.0.0.0') return false;
+            if (!self::fps_isPublicIp($ip)) {
+                return false;
+            }
         }
 
         return true;
+    }
+
+    /**
+     * Returns true only if the supplied address string is a routable
+     * public IP (v4 or v6). Rejects private, reserved, loopback, link-local,
+     * unique-local, and IPv4-mapped-IPv6 wrappers of the above.
+     */
+    private static function fps_isPublicIp(string $ip): bool
+    {
+        // Defence in depth: explicit IPv4 prefix denylist first.
+        if (str_starts_with($ip, '127.')) return false;
+        if (str_starts_with($ip, '10.')) return false;
+        if (str_starts_with($ip, '192.168.')) return false;
+        if (preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $ip)) return false;
+        if (str_starts_with($ip, '169.254.')) return false;
+        if ($ip === '0.0.0.0') return false;
+
+        // IPv4-mapped IPv6 (::ffff:a.b.c.d). Re-check the embedded IPv4.
+        if (stripos($ip, '::ffff:') === 0) {
+            $embedded = substr($ip, 7);
+            // Either dotted-quad (::ffff:192.168.0.1) or hex (::ffff:c0a8:1).
+            if (filter_var($embedded, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                return self::fps_isPublicIp($embedded);
+            }
+            // Hex form -- be conservative and reject.
+            return false;
+        }
+
+        // IPv6: explicit denies for loopback, unique-local, link-local.
+        $packed = @inet_pton($ip);
+        if ($packed !== false && strlen($packed) === 16) {
+            // ::1 loopback
+            if ($ip === '::1') return false;
+            $first = ord($packed[0]);
+            // fc00::/7 unique-local (first byte 0xFC or 0xFD)
+            if (($first & 0xFE) === 0xFC) return false;
+            // fe80::/10 link-local
+            $second = ord($packed[1]);
+            if ($first === 0xFE && ($second & 0xC0) === 0x80) return false;
+        }
+
+        // Final canonical pass: PHP's filter rejects private + reserved
+        // ranges in one shot. If it lets the address through after the
+        // explicit checks above, treat it as public.
+        return filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) !== false;
     }
 }
