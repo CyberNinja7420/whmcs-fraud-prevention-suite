@@ -5,7 +5,20 @@
  * Automatically provisions API keys when clients purchase FPS API products.
  * Handles full lifecycle: create, suspend, unsuspend, terminate, upgrade/downgrade.
  *
- * @version 1.0.0
+ * @version 1.1.0
+ *
+ * Security model (v4.2.5+):
+ *   - mod_fps_api_keys.key_hash holds the SHA-256 (used by API auth).
+ *   - tblhosting.dedicatedip holds the bcrypt hash of the raw key
+ *     (used ONLY to verify a client-submitted key on the regenerate
+ *     button or support flow). The raw key is NEVER persisted; it is
+ *     surfaced exactly once at creation/regeneration via the WHMCS
+ *     session flash and shown in the client area on that single render.
+ *
+ *   Legacy installs (pre-v4.2.5) stored the raw key in dedicatedip.
+ *   ClientArea() detects the legacy raw format (^fps_[a-zA-Z0-9]+$) and
+ *   prompts the operator to regenerate. After regeneration the legacy
+ *   value is replaced with the bcrypt hash.
  */
 
 if (!defined("WHMCS")) {
@@ -70,6 +83,64 @@ function fps_api_getTierLimits(string $tier): array
 }
 
 // ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the supplied string looks like a legacy raw FPS key
+ * (the pre-v4.2.5 storage format that wrote the cleartext key into
+ * tblhosting.dedicatedip). Used to surface a "regenerate now" warning.
+ */
+function fps_api_isLegacyRawKey(string $stored): bool
+{
+    return $stored !== '' && (bool) preg_match('/^fps_[a-zA-Z0-9]+$/', $stored);
+}
+
+/**
+ * Verify a client-supplied raw key against the bcrypt hash we keep in
+ * tblhosting.dedicatedip. Falls back to a constant-time compare against
+ * the legacy raw value so existing installs still work until they
+ * regenerate.
+ */
+function fps_api_verifyRawKey(string $supplied, string $stored): bool
+{
+    if ($supplied === '' || $stored === '') {
+        return false;
+    }
+    if (str_starts_with($stored, '$2y$') || str_starts_with($stored, '$2a$') || str_starts_with($stored, '$2b$')) {
+        return password_verify($supplied, $stored);
+    }
+    // Legacy: raw key in dedicatedip. Compare in constant time, but the
+    // operator should regenerate -- ClientArea() will show a banner.
+    return hash_equals($stored, $supplied);
+}
+
+/**
+ * Stash the raw key in the WHMCS session so the client area can show it
+ * exactly once after creation/regeneration. The key is removed from the
+ * session as soon as it has been read.
+ */
+function fps_api_flashRawKey(int $serviceId, string $rawKey): void
+{
+    if (!class_exists('\\WHMCS\\Session')) {
+        return;
+    }
+    \WHMCS\Session::set('fps_api_raw_key_' . $serviceId, $rawKey);
+}
+
+function fps_api_consumeFlashRawKey(int $serviceId): string
+{
+    if (!class_exists('\\WHMCS\\Session')) {
+        return '';
+    }
+    $value = (string) \WHMCS\Session::get('fps_api_raw_key_' . $serviceId);
+    if ($value !== '') {
+        \WHMCS\Session::delete('fps_api_raw_key_' . $serviceId);
+    }
+    return $value;
+}
+
+// ---------------------------------------------------------------------------
 // CreateAccount - generates API key on purchase
 // ---------------------------------------------------------------------------
 
@@ -127,13 +198,20 @@ function fps_api_CreateAccount(array $params): string
             'total_requests'       => 0,
         ]);
 
-        // Store key in service dedicated IP field (WHMCS convention for server-generated creds)
+        // Persist a bcrypt hash of the raw key for verification flows
+        // (e.g. the client-area "show this is your key" round-trip).
+        // The raw key is surfaced once via session flash and never
+        // persisted as cleartext.
+        $bcryptHash = password_hash($rawKey, PASSWORD_BCRYPT);
+
         Capsule::table('tblhosting')
             ->where('id', $serviceId)
             ->update([
                 'username'    => $keyPrefix . '...',
-                'dedicatedip' => $rawKey, // Full key stored encrypted by WHMCS
+                'dedicatedip' => $bcryptHash,
             ]);
+
+        fps_api_flashRawKey($serviceId, $rawKey);
 
         logModuleCall(
             'fraud_prevention_suite',
@@ -312,7 +390,6 @@ function fps_api_RegenerateKey(array $params): string
 {
     try {
         $serviceId = (int)$params['serviceid'];
-        $clientId  = (int)$params['clientsdetails']['userid'];
 
         $key = Capsule::table('mod_fps_api_keys')
             ->where('service_id', $serviceId)
@@ -335,12 +412,16 @@ function fps_api_RegenerateKey(array $params): string
                 'created_at' => date('Y-m-d H:i:s'),
             ]);
 
+        $bcryptHash = password_hash($rawKey, PASSWORD_BCRYPT);
+
         Capsule::table('tblhosting')
             ->where('id', $serviceId)
             ->update([
                 'username'    => $keyPrefix . '...',
-                'dedicatedip' => $rawKey,
+                'dedicatedip' => $bcryptHash,
             ]);
+
+        fps_api_flashRawKey($serviceId, $rawKey);
 
         logModuleCall('fraud_prevention_suite', 'RegenerateKey', $serviceId, 'New key: ' . $keyPrefix . '...');
         return 'success';
@@ -375,11 +456,19 @@ function fps_api_ClientArea(array $params): string
             </div>';
         }
 
-        // Get the raw key from tblhosting dedicatedip (stored at provisioning)
+        // Pull what's stored in tblhosting.dedicatedip:
+        //   - In v4.2.5+ this is a bcrypt hash (so we can verify a
+        //     client-submitted key without ever holding cleartext).
+        //   - In legacy installs it may still be the raw key. We detect
+        //     that and surface a regenerate banner.
         $hosting = Capsule::table('tblhosting')
             ->where('id', $serviceId)
             ->first(['dedicatedip']);
-        $rawKey = $hosting->dedicatedip ?? '';
+        $stored = (string) ($hosting->dedicatedip ?? '');
+
+        $isLegacyRaw = fps_api_isLegacyRawKey($stored);
+        $flashedRawKey = fps_api_consumeFlashRawKey($serviceId);
+
         $maskedKey = $key->key_prefix . str_repeat('*', 40);
 
         // Usage stats
@@ -416,22 +505,36 @@ function fps_api_ClientArea(array $params): string
 .fps-ca-stat-val { font-size:1.4rem; font-weight:700; color:#58a6ff; }
 .fps-ca-stat-label { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.6; margin-top:4px; }
 .fps-ca-info { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:0.85rem; opacity:0.8; }
+.fps-ca-warn { background:#3a1d1d; border:1px solid #c0392b; color:#ffb3b3; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:0.85rem; }
 </style>
 <div class="fps-ca">
   <div class="fps-ca-card">
-    <h3 style="margin:0 0 12px;font-size:1.1rem;">Your API Key</h3>
-    <div class="fps-ca-key" id="fps-ca-key-display">
 HTML;
 
-        if (!empty($rawKey)) {
-            $html .= htmlspecialchars($rawKey, ENT_QUOTES, 'UTF-8');
+        if ($isLegacyRaw) {
+            $html .= '    <div class="fps-ca-warn"><strong>Heads up:</strong> your API key is stored in a legacy insecure format. Click <strong>Regenerate Key</strong> in the admin panel (or contact support) to rotate to the secure storage layout.</div>' . "\n";
+        }
+
+        $html .= '    <h3 style="margin:0 0 12px;font-size:1.1rem;">Your API Key</h3>' . "\n";
+        $html .= '    <div class="fps-ca-key" id="fps-ca-key-display">' . "\n";
+
+        if ($flashedRawKey !== '') {
+            $html .= htmlspecialchars($flashedRawKey, ENT_QUOTES, 'UTF-8');
+            $html .= '<button class="fps-ca-copy" onclick="navigator.clipboard.writeText(document.getElementById(\'fps-ca-key-display\').textContent.trim().replace(\'Copy\',\'\'));this.textContent=\'Copied!\';">Copy</button>';
+            $html .= '<br><small style="opacity:0.6;color:#ffb3b3;">This is the only time the full key will be shown -- store it now.</small>';
+        } elseif ($isLegacyRaw) {
+            // Legacy install: we still have the raw key on disk. Show it
+            // so the operator isn't locked out, but the warning above
+            // tells them to rotate.
+            $html .= htmlspecialchars($stored, ENT_QUOTES, 'UTF-8');
             $html .= '<button class="fps-ca-copy" onclick="navigator.clipboard.writeText(document.getElementById(\'fps-ca-key-display\').textContent.trim().replace(\'Copy\',\'\'));this.textContent=\'Copied!\';">Copy</button>';
         } else {
             $html .= htmlspecialchars($maskedKey, ENT_QUOTES, 'UTF-8');
-            $html .= '<br><small style="opacity:0.5;">Full key shown once at creation. Contact support to regenerate.</small>';
+            $html .= '<br><small style="opacity:0.5;">Full key shown once at creation. Click Regenerate Key in the admin panel to issue a new one.</small>';
         }
 
         $html .= <<<HTML
+
     </div>
     <div class="fps-ca-stats">
       <div class="fps-ca-stat"><div class="fps-ca-stat-val">{$todayCount}</div><div class="fps-ca-stat-label">Requests Today</div></div>
