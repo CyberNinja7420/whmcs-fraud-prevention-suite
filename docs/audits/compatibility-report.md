@@ -1,6 +1,6 @@
 # FPS Compatibility Report
 
-**Version:** 4.2.4
+**Version:** 4.2.5
 **Date:** 2026-04-21
 
 ## WHMCS assumptions

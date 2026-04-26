@@ -13,6 +13,7 @@ image: php:8.2-cli
 stages:
   - syntax
   - static
+  - integrity
 
 variables:
   COMPOSER_HOME: "$CI_PROJECT_DIR/.composer-cache"
@@ -62,3 +63,12 @@ psalm:
   script:
     - composer install --no-interaction --no-progress --prefer-dist
     - vendor/bin/psalm --no-cache --no-progress --show-info=false
+
+release-integrity:
+  stage: integrity
+  needs: []
+  script:
+    - bash scripts/check-release-integrity.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"

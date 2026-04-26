@@ -156,7 +156,7 @@ class FpsHookHelpers
      * Never pass time() -- that would defeat browser caching entirely.
      *
      * @param string $relativeAssetPath path under assets/
-     * @return string e.g. "?v=4.2.4-1733180123" or "?v=4.2.4-0" if missing
+     * @return string e.g. "?v=4.2.6-1733180123" or "?v=4.2.6-0" if missing
      */
     public static function fps_assetCacheBust(string $relativeAssetPath): string
     {

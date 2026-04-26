@@ -336,7 +336,7 @@ class FpsCheckRunner
      * runPreCheckoutFast() -- the full fast-path pre-checkout pipeline that
      * mirrors the inline ShoppingCartValidateCheckout hook in hooks.php.
      *
-     * This is the v4.2.4 unification target for TODO-hardening.md item #1.
+     * Unifies the inline ShoppingCartValidateCheckout pipeline (TODO-hardening item #1, originally landed in the v4.2.4 release).
      * It runs the SAME provider set as the inline hook (IP intel, email
      * domain checks, fingerprint, bot patterns, global intel, custom rules,
      * velocity, Tor/DC) so operators can flip a single feature flag

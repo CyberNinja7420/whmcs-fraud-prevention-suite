@@ -10,6 +10,7 @@ use WHMCS\Database\Capsule;
 // ---------------------------------------------------------------------------
 
 require_once __DIR__ . '/lib/Autoloader.php';
+require_once __DIR__ . '/lib/AnalyticsBootstrap.php';
 
 // ---------------------------------------------------------------------------
 // EXTRACTED HELPERS (TODO-hardening.md item #4 -- light extraction)
@@ -869,7 +870,7 @@ function fraud_prevention_suite_activate(): array
             $whmcsRoot = dirname(dirname(__DIR__)); // modules/addons/fps -> WHMCS root
             $serverModDir = $whmcsRoot . '/modules/servers/fps_api';
             $serverModFile = $serverModDir . '/fps_api.php';
-            $sourceFile = __DIR__ . '/install/fps_api.php';
+            $sourceFile = __DIR__ . '/modules/servers/fps_api/fps_api.php';
 
             if (!file_exists($serverModFile) && file_exists($sourceFile)) {
                 if (!is_dir($serverModDir)) {
@@ -1948,7 +1949,7 @@ function fps_computePreCheckoutLatency(): array
 
 function fps_ajaxRecentChecks(): array
 {
-    $limit = min((int)($_GET['limit'] ?? 20), 100);
+    $limit = max(1, min(100, (int)($_GET['limit'] ?? 20)));
     $checks = Capsule::table('mod_fps_checks')
         ->orderBy('created_at', 'desc')
         ->limit($limit)
@@ -2224,8 +2225,8 @@ function fps_ajaxMassScan(): array
     $clientIds = $_POST['client_ids'] ?? [];
     if (empty($clientIds)) {
         $status    = $_POST['status'] ?? '';          // '' = all statuses
-        $limit     = min((int)($_POST['batch_size'] ?? 25), 50);
-        $offset    = (int)($_POST['offset'] ?? 0);
+        $limit     = max(1, min(50, (int)($_POST['batch_size'] ?? 25)));
+        $offset    = max(0, (int)($_POST['offset'] ?? 0));
         $dateFrom  = trim($_POST['date_from'] ?? '');
         $dateTo    = trim($_POST['date_to'] ?? '');
         $skipDays  = max(0, (int)($_POST['skip_recent'] ?? 0));
