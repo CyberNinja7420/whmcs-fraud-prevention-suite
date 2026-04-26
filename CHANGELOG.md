@@ -7,6 +7,29 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.6] - 2026-04-26
+
+### Added
+- **Analytics Setup Wizard** -- 7-step modal walking operators through GA4 + Clarity setup with deep-links to the right section of each vendor console. Triggered by a "Run setup wizard" link in the Analytics & Tracking card.
+- **GA4 property auto-discovery** -- `FpsAnalyticsDataApi::discoverProperties(string $saJson): array` calls the GA4 Admin API `accountSummaries.list` endpoint and returns `[{property_id, display_name, account_name}]` for the wizard to render as a dropdown; eliminates the need to manually look up the numeric property ID.
+- **Enriched per-field help text** on every analytics input -- format hints, descriptions, and "where to find" deep-links.
+- **`FpsAdmin.openModal(modalId)`** -- companion to the existing `closeModal()`. Earlier code referenced `openModal` but it was never defined; fixed.
+- **2 new AJAX handlers** -- `fps_ajaxAnalyticsDiscoverProperties` (proxies to the GA4 Admin API call), `fps_ajaxAnalyticsWizardSave` (whitelisted UPSERT into `mod_fps_settings` for the 12 wizard fields with per-field validation).
+- **`assets/js/fps-analytics-wizard.js`** -- 260-line vanilla JS state machine for the wizard; reuses `FpsAdmin.ajax/toast/closeModal` when present, falls back to `fetch` otherwise.
+
+### Removed
+- **`clarity_dsr_token` setting** + UI field -- removed from `FpsAnalyticsConfig::KEYS`, `DEFAULTS`, the activate seed, and the Analytics & Tracking card. No API exists to use it for; keeping it would mislead operators into thinking GDPR purge automation works for Clarity (it doesn't).
+
+### Fixed (RETRACTION of v4.2.5 bug)
+- **Fake Microsoft Clarity DSR API call** in `fps_gdprPurgeByEmail()` -- v4.2.5 POSTed to `https://www.clarity.ms/export-data/api/v1/data-subject-requests`, an endpoint that does not exist. Per [Microsoft Learn](https://learn.microsoft.com/en-us/clarity/faq), Clarity has no per-user deletion API; data either auto-purges after 30 days or requires emailing clarityMS@microsoft.com. The fake POST has been removed; `manual_followup.clarity_user_deletion` now correctly tells the operator the actual process. **Impact**: operators who attempted GDPR purges in v4.2.5 may have logged a false-positive "0 deleted via clarity_dsr_api" row that they assumed meant the call succeeded with zero matches; in fact the endpoint was returning 404 and the GDPR-erasure obligation was not being satisfied via API. **Action**: rely on Clarity's 30-day rolling retention or file a manual request.
+
+### Notes
+- Wizard JS lives at `assets/js/fps-analytics-wizard.js` and is auto-loaded by `lib/Admin/TabSettings.php` on the Settings tab. The wizard modal HTML is rendered once per page load via `FpsAnalyticsWizard::render()` and is hidden until the operator clicks "Run setup wizard".
+- All quality gates remain clean: 75 PHP files lint, phpstan level 3 + baseline = 0 errors, psalm level 6 + baseline = 0 errors, 3 JS files node-check clean, bash script clean.
+- The wizard does NOT bypass any per-field validation; if the operator enters a malformed GA4 ID or invalid Service Account JSON, the wizard surfaces the inline error and refuses to advance.
+
+---
+
 ## [4.2.5] - 2026-04-25
 
 ### Added
