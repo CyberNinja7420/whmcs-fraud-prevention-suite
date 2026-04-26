@@ -764,7 +764,6 @@ function fraud_prevention_suite_activate(): array
             'ga4_property_id'                => '',
             'clarity_project_id_client'      => '',
             'clarity_project_id_admin'       => '',
-            'clarity_dsr_token'              => '',
             'analytics_eea_consent_required' => '1',
             'analytics_event_sampling_rate'  => '100',
             'analytics_high_risk_signup_threshold' => '80',

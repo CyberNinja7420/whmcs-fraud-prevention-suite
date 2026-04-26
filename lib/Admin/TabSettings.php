@@ -460,7 +460,6 @@ HTML;
                     ['type' => 'textarea','name' => 'ga4_service_account_json', 'label' => 'GA4 Data API service account JSON (optional)', 'placeholder' => 'Paste service-account JSON; enables yesterday-count widget'],
                     ['type' => 'text',   'name' => 'clarity_project_id_client', 'label' => 'Clarity project ID (client)', 'placeholder' => '10-char alphanumeric'],
                     ['type' => 'text',   'name' => 'clarity_project_id_admin',  'label' => 'Clarity project ID (admin, optional)'],
-                    ['type' => 'text',   'name' => 'clarity_dsr_token',         'label' => 'Clarity DSR API token (optional)', 'placeholder' => 'Clarity DSR API token (optional, only if using GDPR purge)'],
                     ['type' => 'toggle', 'name' => 'analytics_eea_consent_required', 'label' => 'Show consent banner only to EEA visitors (recommended); off = banner for everyone'],
                     ['type' => 'text',   'name' => 'analytics_event_sampling_rate', 'label' => 'Server event sampling rate (1-100, default 100)', 'placeholder' => '100'],
                     ['type' => 'text',   'name' => 'analytics_high_risk_signup_threshold', 'label' => 'High-risk signup analytics threshold (0-100, default 80)', 'placeholder' => '80'],

@@ -148,48 +148,17 @@ function fps_gdprPurgeByEmail(string $emailHash, ?string $email = null, ?string 
         }
     }
 
-    // 7. Microsoft Clarity DSR -- send delete request via Clarity API.
-    //    Note: Clarity's DSR API requires a project access token; we read
-    //    the same project IDs the injector uses. Logged result is appended
-    //    to the report.tables row.
-    try {
-        $clarityIds = array_filter([
-            \WHMCS\Database\Capsule::table('mod_fps_settings')
-                ->where('setting_key','clarity_project_id_client')->value('setting_value'),
-            \WHMCS\Database\Capsule::table('mod_fps_settings')
-                ->where('setting_key','clarity_project_id_admin')->value('setting_value'),
-        ]);
-        $clarityToken = \WHMCS\Database\Capsule::table('mod_fps_settings')
-            ->where('setting_key','clarity_dsr_token')->value('setting_value');
-        $sent = 0;
-        foreach (array_unique($clarityIds) as $pid) {
-            if (empty($pid) || empty($clarityToken)) continue;
-            $ch = curl_init('https://www.clarity.ms/export-data/api/v1/data-subject-requests');
-            curl_setopt_array($ch, [
-                CURLOPT_POST           => true,
-                CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Authorization: Bearer ' . $clarityToken],
-                CURLOPT_POSTFIELDS     => json_encode([
-                    'projectId' => $pid, 'requestType' => 'delete',
-                    'identifier' => $emailHash,
-                ]),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => 5,
-                CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_SSL_VERIFYHOST => 2,
-            ]);
-            $resp = curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            if ($code >= 200 && $code < 300) $sent++;
-        }
-        $record('clarity_dsr_api', $sent, 0);
-    } catch (\Throwable $e) {
-        $record('clarity_dsr_api', 0, 0);
-    }
+    // 7. Microsoft Clarity -- no per-user deletion API exists.
+    //    Per Microsoft Learn (https://learn.microsoft.com/en-us/clarity/faq):
+    //    Clarity data auto-purges after 30 days; per-user deletion requires
+    //    emailing clarityMS@microsoft.com with the user's identifier.
+    //    Earlier (v4.2.5) shipped a POST to a fictional endpoint -- retracted.
+    $record('clarity_user_deletion', 0, 0); // No automated path; manual followup
 
-    // 8. GA4 -- no API for user deletion exists. Add manual-instructions.
+    // 8. Manual-followup instructions: vendor APIs that don't exist.
     $report['manual_followup'] = [
-        'ga4_user_deletion' => 'No GA4 API for user deletion exists. File a request at https://support.google.com/analytics/contact/data-deletion (requires the GA4 user ID -- see your service account audit log).',
+        'ga4_user_deletion'     => 'No GA4 API for user deletion exists. File a request at https://support.google.com/analytics/contact/data-deletion (requires the GA4 user ID -- see your service account audit log).',
+        'clarity_user_deletion' => 'Clarity has no per-user deletion API. Either (a) wait for Clarity\'s 30-day rolling data retention to auto-purge, or (b) email clarityMS@microsoft.com with the user identifier to request manual deletion.',
     ];
 
     return $report;
