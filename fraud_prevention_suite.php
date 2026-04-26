@@ -40,7 +40,7 @@ require_once __DIR__ . '/lib/Analytics/FpsAnalyticsAnomalyDetector.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '4.2.4');
+    define("FPS_MODULE_VERSION", "4.2.5");
 }
 
 // ---------------------------------------------------------------------------
