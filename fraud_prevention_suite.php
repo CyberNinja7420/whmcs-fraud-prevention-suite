@@ -768,6 +768,7 @@ function fraud_prevention_suite_activate(): array
             'analytics_eea_consent_required' => '1',
             'analytics_event_sampling_rate'  => '100',
             'analytics_high_risk_signup_threshold' => '80',
+            'notification_email'                   => '',
             // Legacy details JSON column writer: '0' (default as of v4.2.4 PM).
             // Fresh installs no longer double-write the legacy details +
             // raw_response columns; the structured columns

@@ -55,6 +55,7 @@ final class FpsAnalyticsConfig
         'analytics_eea_consent_required', 'analytics_event_sampling_rate',
         'analytics_high_risk_signup_threshold',
         'clarity_dsr_token',
+        'notification_email',
     ];
 
     // -----------------------------------------------------------------------
@@ -76,6 +77,7 @@ final class FpsAnalyticsConfig
         'analytics_eea_consent_required' => '1',
         'analytics_event_sampling_rate'        => '100',
         'analytics_high_risk_signup_threshold' => '80',
+        'notification_email'                   => '',
         'clarity_dsr_token'              => '',
     ];
 

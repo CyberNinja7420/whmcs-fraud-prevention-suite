@@ -464,6 +464,7 @@ HTML;
                     ['type' => 'toggle', 'name' => 'analytics_eea_consent_required', 'label' => 'Show consent banner only to EEA visitors (recommended); off = banner for everyone'],
                     ['type' => 'text',   'name' => 'analytics_event_sampling_rate', 'label' => 'Server event sampling rate (1-100, default 100)', 'placeholder' => '100'],
                     ['type' => 'text',   'name' => 'analytics_high_risk_signup_threshold', 'label' => 'High-risk signup analytics threshold (0-100, default 80)', 'placeholder' => '80'],
+                    ['type' => 'text',   'name' => 'notification_email',  'label' => 'Admin email for anomaly alerts (optional)',  'placeholder' => 'admin@example.com'],
                 ],
             ],
         ];
