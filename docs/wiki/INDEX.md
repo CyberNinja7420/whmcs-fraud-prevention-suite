@@ -2,13 +2,13 @@
 
 Welcome to the FPS comprehensive documentation. Use this index to find the right guide for your role or task.
 
-**Module version:** v4.2.4 (2026-04-22)
+**Module version:** v4.2.5 (2026-04-25)
 
 ## Documentation Overview
 
-This wiki contains 14 detailed guides covering all aspects of the Fraud Prevention Suite module for WHMCS.
+This wiki contains 15 detailed guides covering all aspects of the Fraud Prevention Suite module for WHMCS.
 
-**Total Documentation**: 5,200+ lines across 14 files covering 16 providers, 14 admin tabs, 14 documented WHMCS hook integrations, 70+ AJAX actions, 28 database tables, 9 REST API endpoints, and 1 server provisioning module.
+**Total Documentation**: 5,400+ lines across 15 files covering 16 providers, 14 admin tabs, 14 documented WHMCS hook integrations, 70+ AJAX actions, 30 database tables (28 module + 2 analytics), 9 REST API endpoints, and 1 server provisioning module.
 
 ---
 
