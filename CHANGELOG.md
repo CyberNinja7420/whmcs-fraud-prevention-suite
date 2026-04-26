@@ -7,6 +7,40 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.5] - 2026-04-25
+
+### Added
+- **Google Analytics 4 + Microsoft Clarity integration** -- client-side, admin-side, and server-side tracking of 12 FPS-specific events (pre-checkout blocks, Turnstile challenges, high-risk signups, geo-impossibility, velocity blocks, admin review actions, API requests, bot purge, module health).
+- **Two new analytics tables** -- `mod_fps_analytics_log` (event audit trail, 30-day rolling) and `mod_fps_analytics_anomalies` (spike-detection records).
+- **Analytics Settings card** -- 13 configurable fields in Settings > Analytics & Tracking: GA4 measurement ID (client + admin), API secret, optional Service Account JSON for Data API, Clarity project ID (client + admin), EEA consent toggle (default ON), event sampling rate (1-100%), high-risk signup threshold.
+- **Consent Mode v2 (EEA-compliant)** -- default-deny cookies, consent banner shows only to EEA visitors (27-country list), Accept/Decline buttons update `gtag('consent')` and `clarity('consent')`, server-side events include visitor consent state (ad_user_data, ad_personalization, analytics_storage).
+- **Dashboard Analytics Connection Status widget** -- real-time health indicator (green/red/grey dots), GA4 Realtime + Clarity Dashboard deep links, 24h event count from local log, optional yesterday block-count pull from GA4 Data API (Service Account JWT, 6h cached).
+- **Anomaly detection (daily cron extension)** -- spike detection on `fps_pre_checkout_block` events, 3x-median threshold with 50-event minimum, admin email alert + `mod_fps_analytics_anomalies` row on flag, prevents silent fraud-pattern drift.
+- **GDPR Article 17 erasure extension** -- `fps_gdprPurgeByEmail()` now calls Clarity Data Subject Request API and logs GA4 manual-deletion instructions.
+- **MCP server integration** -- new `scripts/install-mcp-servers.sh` auto-installs Google Analytics + Clarity MCP servers into `~/.claude/settings.json` for natural-language AI analytics queries.
+- **`docs/wiki/Analytics-MCP-Setup.md`** -- comprehensive operator-facing guide covering 3-step setup, 14 settings reference table, 12 server-side events reference table, Consent Mode v2 explanation, dashboard widget behavior, MCP server setup (automatic + manual), anomaly detection, GDPR/privacy, troubleshooting, schema reference.
+- **`lib/Analytics/` directory (7 helpers)** -- FpsAnalyticsConfig (memoized settings reader + ID validators), FpsAnalyticsServerEvents (Measurement Protocol batch queue), FpsAnalyticsLog (local audit table writer), FpsAnalyticsDataApi (GA4 Data API client for yesterday block count), FpsConsentModev2 (EEA detection + consent banner HTML).
+- **`FpsCheckRunner::fps_persistCheck()` extended** -- now queues server-side `fps_pre_checkout_block` or `fps_pre_checkout_allow` event with payload (risk_score, country, gateway, duration_ms, consent state).
+- **`DailyCronJob` hook extended** -- anomaly detection runs at 03:00 UTC, compares today count to 14-day median, sends admin email + `mod_fps_analytics_anomalies` insert on spike.
+- **`TabSettings` new Analytics & Tracking accordion card** -- toggles, text inputs, concealed field for API secret, textarea for Service Account JSON, test connection button per platform.
+- **`TabDashboard` Analytics widget** -- status dots, link-outs, live event count, optional Data API pull.
+- **`ClientAreaHeaderOutput` + `AdminAreaHeaderOutput` hooks** -- inject Consent Mode v2 stub, gtag.js, clarity.js, session context (fps_country, fps_trust_score, fps_admin_role, etc.), EEA-only consent banner, debug toggle (?fps_analytics_debug=1).
+- **Module version** -- bumped to 4.2.5.
+
+### Changed
+- **`fps_gdprPurgeByEmail()` extends** -- now also calls `FpsAnalyticsApi::purgeByEmail()` for Clarity DSR + logs GA4 instructions to mod_fps_analytics_log.
+- **`hooks.php` pre-checkout block path** -- queues FPS server event before returning block response.
+- **`fraud_prevention_suite.php` _activate()** -- creates mod_fps_analytics_log + mod_fps_analytics_anomalies tables if missing.
+- **`fraud_prevention_suite.php` seeded settings** -- 11 new default settings (all toggles OFF by default, blank credentials fields, event_sampling_rate=100, high_risk_signup_threshold=80, eea_consent_required=1).
+
+### Notes
+- Operator action items: (1) Enter GA4 Measurement ID + Clarity Project ID in Settings > Analytics & Tracking, (2) Optionally generate GA4 API Secret and toggle Enable Server Events, (3) Sign GA4 + Clarity DPAs separately (required for GDPR), (4) Optionally run `bash scripts/install-mcp-servers.sh` to wire up Claude for AI analytics queries.
+- All tracking is **opt-in** (three independent master toggles default OFF) -- module ships inactive; no data sent until credentials + toggles configured.
+- IP anonymization enabled by default on both platforms (anonymize_ip:true for GA4, Clarity internal truncation).
+- Server-side events batched per client_id (max 25 events per HTTP POST) to stay within GA4 Measurement Protocol limits (25 events/request, 500K events/day).
+
+---
+
 ## [4.2.4] - 2026-04-22
 
 ### Added
