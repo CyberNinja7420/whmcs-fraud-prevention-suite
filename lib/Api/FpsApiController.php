@@ -228,6 +228,17 @@ class FpsApiController
     public function lookupIpBasic(): array
     {
         $ip = trim($_GET['ip'] ?? '');
+        return $this->lookupIpBasicByValue($ip);
+    }
+
+    /**
+     * Pure helper -- looks up basic IP intel for a supplied value. Used by
+     * the public GET handler and by lookupBulk(). Does NOT read $_GET so it
+     * is safe to call repeatedly with different values inside one request.
+     */
+    private function lookupIpBasicByValue(string $ip): array
+    {
+        $ip = trim($ip);
         if (empty($ip) || !filter_var($ip, FILTER_VALIDATE_IP)) {
             return ['code' => 400, 'error' => 'Valid IP address required'];
         }
@@ -309,6 +320,16 @@ class FpsApiController
     public function lookupEmailBasic(): array
     {
         $email = strtolower(trim($_GET['email'] ?? ''));
+        return $this->lookupEmailBasicByValue($email);
+    }
+
+    /**
+     * Pure helper -- looks up basic email intel for a supplied value. Used
+     * by the public GET handler and by lookupBulk().
+     */
+    private function lookupEmailBasicByValue(string $email): array
+    {
+        $email = strtolower(trim($email));
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return ['code' => 400, 'error' => 'Valid email address required'];
         }
@@ -394,11 +415,9 @@ class FpsApiController
             $value = $item['value'] ?? '';
 
             if ($type === 'ip' && filter_var($value, FILTER_VALIDATE_IP)) {
-                $_GET['ip'] = $value;
-                $results[] = array_merge(['type' => 'ip', 'value' => $value], $this->lookupIpBasic()['data'] ?? []);
+                $results[] = array_merge(['type' => 'ip', 'value' => $value], $this->lookupIpBasicByValue($value)['data'] ?? []);
             } elseif ($type === 'email' && filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                $_GET['email'] = $value;
-                $results[] = array_merge(['type' => 'email', 'value' => $value], $this->lookupEmailBasic()['data'] ?? []);
+                $results[] = array_merge(['type' => 'email', 'value' => $value], $this->lookupEmailBasicByValue($value)['data'] ?? []);
             } else {
                 $results[] = ['type' => $type, 'value' => $value, 'error' => 'Invalid type or value'];
             }

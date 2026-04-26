@@ -75,3 +75,11 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist
       - name: Run Psalm
         run: vendor/bin/psalm --no-cache --no-progress --show-info=false
+
+  release-integrity:
+    runs-on: ubuntu-latest
+    name: Release integrity check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run release integrity script
+        run: bash scripts/check-release-integrity.sh
