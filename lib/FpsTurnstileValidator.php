@@ -126,8 +126,8 @@ class FpsTurnstileValidator
                 CURLOPT_TIMEOUT        => 5,
                 CURLOPT_CONNECTTIMEOUT => 3,
                 CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_MAXREDIRS      => 2,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_FOLLOWLOCATION => false, // Cloudflare Turnstile API never redirects; refuse to follow if it does
                 CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
             ]);
 
