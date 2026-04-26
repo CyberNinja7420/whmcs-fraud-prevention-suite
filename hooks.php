@@ -45,14 +45,29 @@ add_hook('AdminAreaPage', 1, function ($vars) {
 // ---------------------------------------------------------------------------
 add_hook('AdminAreaHeaderOutput', 1, function ($vars) {
     try {
+        $output = '';
+
+        // Module config page: inject admin panel CSS
         $page = $_SERVER['SCRIPT_NAME'] ?? '';
         if (strpos($page, 'configaddonmods') !== false
             && isset($_GET['module'])
             && $_GET['module'] === 'fraud_prevention_suite') {
             $bust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('css/fps-1000x.css');
-            return '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css' . $bust . '">';
+            $output .= '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css' . $bust . '">';
         }
-        return '';
+
+        // ---------- FPS Analytics (admin) ----------
+        if (class_exists('FpsAnalyticsInjector') && FpsAnalyticsConfig::isAdminEnabled()) {
+            try {
+                $adminId   = (string) ($_SESSION['adminid'] ?? '');
+                $adminRole = (string) ($_SESSION['adminrole'] ?? '');
+                $output .= FpsAnalyticsInjector::admin($adminId, $adminRole);
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'AnalyticsInject::AdminErr', '', $e->getMessage());
+            }
+        }
+
+        return $output;
     } catch (\Throwable $e) {
         return '';
     }
