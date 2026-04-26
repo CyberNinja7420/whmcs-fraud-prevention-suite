@@ -221,6 +221,17 @@ function fraud_prevention_suite_activate(): array
             logModuleCall('fraud_prevention_suite', 'DropLegacyColumns::ERROR', '', $e->getMessage());
         }
 
+        // v4.2.6 one-time cleanup: remove stale clarity_dsr_token row left over
+        // from v4.2.5. The setting was retracted because Microsoft Clarity has
+        // no per-user deletion API (verified against Microsoft Learn). The row
+        // was removed from KEYS/DEFAULTS/seed in v4.2.6 but existing rows must
+        // be deleted explicitly. Idempotent.
+        try {
+            Capsule::table('mod_fps_settings')->where('setting_key', 'clarity_dsr_token')->delete();
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'ClarityDsrCleanup::ERROR', '', $e->getMessage());
+        }
+
         if (!Capsule::schema()->hasTable('mod_fps_reports')) {
             Capsule::schema()->create('mod_fps_reports', function ($table) {
                 $table->increments('id');
