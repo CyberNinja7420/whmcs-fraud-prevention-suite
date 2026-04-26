@@ -119,4 +119,6 @@ class FpsAnalyticsInjector {
 class FpsAnalyticsDataApi
 {
     public static function getYesterdayCount(string $eventName): ?int { return null; }
+    /** @return array<int, array{property_id:string, display_name:string, account_name:string}> */
+    public static function discoverProperties(string $saJson): array { return []; }
 }
