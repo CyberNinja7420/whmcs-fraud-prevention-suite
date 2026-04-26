@@ -870,7 +870,7 @@ function fraud_prevention_suite_activate(): array
             $whmcsRoot = dirname(dirname(__DIR__)); // modules/addons/fps -> WHMCS root
             $serverModDir = $whmcsRoot . '/modules/servers/fps_api';
             $serverModFile = $serverModDir . '/fps_api.php';
-            $sourceFile = __DIR__ . '/install/fps_api.php';
+            $sourceFile = __DIR__ . '/modules/servers/fps_api/fps_api.php';
 
             if (!file_exists($serverModFile) && file_exists($sourceFile)) {
                 if (!is_dir($serverModDir)) {
