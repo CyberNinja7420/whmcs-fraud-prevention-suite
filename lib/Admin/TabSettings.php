@@ -449,20 +449,56 @@ HTML;
                 'title'   => 'Analytics & Tracking',
                 'icon'    => 'fa-chart-line',
                 'fields'  => [
-                    ['type' => 'info', 'text' => 'Enable Google Analytics 4 + Microsoft Clarity tracking. You must sign Google\'s GA4 DPA + Microsoft\'s Clarity DPA separately. Both default OFF; enable per side after entering credentials.'],
+                    ['type' => 'info', 'text' => '<strong>Google Analytics 4 + Microsoft Clarity tracking.</strong> All three master toggles default OFF. You must sign Google\'s GA4 DPA + Microsoft\'s Clarity DPA separately before enabling for EEA visitors. <a href="#" onclick="FpsAdmin.openModal(\'fps-analytics-wizard\');return false;" style="font-weight:600;">&#x1F9D9; Run setup wizard</a> to be walked through this step-by-step.'],
+
+                    // === Master toggles ===
+                    ['type' => 'info', 'text' => '<em>Master toggles</em> &mdash; flip on AFTER entering credentials below.'],
                     ['type' => 'toggle', 'name' => 'enable_client_analytics', 'label' => 'Enable client-side tracking (storefront + cart)'],
                     ['type' => 'toggle', 'name' => 'enable_admin_analytics',  'label' => 'Enable admin-side tracking (FPS admin tabs)'],
                     ['type' => 'toggle', 'name' => 'enable_server_events',    'label' => 'Enable server-side custom events (Measurement Protocol)'],
+
+                    // === GA4 client ===
+                    ['type' => 'info', 'text' => '<strong>GA4 measurement ID (client)</strong> &mdash; the data stream ID for your storefront. Find at: <a href="https://analytics.google.com/analytics/web/" target="_blank" rel="noopener">analytics.google.com</a> &rarr; Admin (gear icon) &rarr; Data streams &rarr; (your stream) &rarr; Measurement ID. Format: <code>G-XXXXXXXXXX</code>.'],
                     ['type' => 'text',   'name' => 'ga4_measurement_id_client', 'label' => 'GA4 measurement ID (client)', 'placeholder' => 'G-XXXXXXXXXX'],
+
+                    // === GA4 admin (optional) ===
+                    ['type' => 'info', 'text' => '<strong>GA4 measurement ID (admin, optional)</strong> &mdash; separate property to track admin behavior. Leave blank to use the client ID for both.'],
                     ['type' => 'text',   'name' => 'ga4_measurement_id_admin',  'label' => 'GA4 measurement ID (admin, optional)', 'placeholder' => 'falls back to client ID if blank'],
+
+                    // === GA4 API secret ===
+                    ['type' => 'info', 'text' => '<strong>GA4 Measurement Protocol secret</strong> &mdash; required for server-side custom events. Find at: <a href="https://analytics.google.com/analytics/web/" target="_blank" rel="noopener">analytics.google.com</a> &rarr; Admin &rarr; Data streams &rarr; (stream) &rarr; <em>Measurement Protocol API secrets</em> &rarr; Create. Treat as a password.'],
                     ['type' => 'text',   'name' => 'ga4_api_secret', 'label' => 'GA4 Measurement Protocol secret', 'placeholder' => '(required for server-side events)'],
-                    ['type' => 'text',   'name' => 'ga4_property_id', 'label' => 'GA4 numeric property ID (Data API)', 'placeholder' => 'numeric GA4 property ID, e.g. 123456789'],
+
+                    // === GA4 numeric property ID ===
+                    ['type' => 'info', 'text' => '<strong>GA4 numeric property ID</strong> (NOT the G- ID) &mdash; required for the dashboard "yesterday\'s count" widget. Find at: <a href="https://analytics.google.com/analytics/web/" target="_blank" rel="noopener">analytics.google.com</a> &rarr; Admin &rarr; Property settings &rarr; Property details &rarr; PROPERTY ID. Or paste the Service Account JSON below and use the wizard to auto-discover.'],
+                    ['type' => 'text',   'name' => 'ga4_property_id', 'label' => 'GA4 numeric property ID (Data API)', 'placeholder' => 'numeric, e.g. 123456789'],
+
+                    // === GA4 Service Account JSON ===
+                    ['type' => 'info', 'text' => '<strong>GA4 Data API Service Account JSON</strong> (optional) &mdash; powers the dashboard "yesterday\'s count" widget. Create at: <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener">Google Cloud Console</a> &rarr; IAM &amp; Admin &rarr; Service Accounts &rarr; Create &rarr; Keys &rarr; Add Key (JSON). Then grant the service account "Viewer" role on your GA4 property.'],
                     ['type' => 'textarea','name' => 'ga4_service_account_json', 'label' => 'GA4 Data API service account JSON (optional)', 'placeholder' => 'Paste service-account JSON; enables yesterday-count widget'],
+
+                    // === Clarity client ===
+                    ['type' => 'info', 'text' => '<strong>Clarity project ID (client)</strong> &mdash; 10-character lowercase ID for your storefront. Find at: <a href="https://clarity.microsoft.com/" target="_blank" rel="noopener">clarity.microsoft.com</a> &rarr; (your project) &rarr; Settings &rarr; Setup &rarr; Project ID.'],
                     ['type' => 'text',   'name' => 'clarity_project_id_client', 'label' => 'Clarity project ID (client)', 'placeholder' => '10-char alphanumeric'],
+
+                    // === Clarity admin (optional) ===
+                    ['type' => 'info', 'text' => '<strong>Clarity project ID (admin, optional)</strong> &mdash; separate Clarity project for admin sessions. Leave blank to share the client project.'],
                     ['type' => 'text',   'name' => 'clarity_project_id_admin',  'label' => 'Clarity project ID (admin, optional)'],
-                    ['type' => 'toggle', 'name' => 'analytics_eea_consent_required', 'label' => 'Show consent banner only to EEA visitors (recommended); off = banner for everyone'],
-                    ['type' => 'text',   'name' => 'analytics_event_sampling_rate', 'label' => 'Server event sampling rate (1-100, default 100)', 'placeholder' => '100'],
-                    ['type' => 'text',   'name' => 'analytics_high_risk_signup_threshold', 'label' => 'High-risk signup analytics threshold (0-100, default 80)', 'placeholder' => '80'],
+
+                    // === EEA consent ===
+                    ['type' => 'info', 'text' => '<strong>EEA consent banner</strong> &mdash; when ON (recommended), the consent banner is shown only to visitors whose IP-derived country is in the EEA + UK + Switzerland (27 countries). When OFF, the banner is shown to everyone (broader compliance with non-EEA cookie laws).'],
+                    ['type' => 'toggle', 'name' => 'analytics_eea_consent_required', 'label' => 'Show consent banner only to EEA visitors (recommended)'],
+
+                    // === Server event sampling rate ===
+                    ['type' => 'info', 'text' => '<strong>Server event sampling rate</strong> &mdash; 1-100. At 100 (default), every server event is sent. At 50, half are dropped at random. Use to throttle high-traffic installs.'],
+                    ['type' => 'text',   'name' => 'analytics_event_sampling_rate', 'label' => 'Server event sampling rate (1-100)', 'placeholder' => '100'],
+
+                    // === High-risk signup threshold ===
+                    ['type' => 'info', 'text' => '<strong>High-risk signup analytics threshold</strong> (0-100, default 80) &mdash; FPS risk score above which signups fire the <code>fps_high_risk_signup</code> event. Lower = more events; higher = fewer.'],
+                    ['type' => 'text',   'name' => 'analytics_high_risk_signup_threshold', 'label' => 'High-risk signup threshold', 'placeholder' => '80'],
+
+                    // === Notification email ===
+                    ['type' => 'info', 'text' => '<strong>Admin email for anomaly alerts</strong> &mdash; receives email when daily event counts spike (3x median, min 50). Leave blank to disable.'],
                     ['type' => 'text',   'name' => 'notification_email',  'label' => 'Admin email for anomaly alerts (optional)',  'placeholder' => 'admin@example.com'],
                 ],
             ],
