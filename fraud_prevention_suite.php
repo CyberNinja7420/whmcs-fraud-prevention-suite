@@ -10,6 +10,7 @@ use WHMCS\Database\Capsule;
 // ---------------------------------------------------------------------------
 
 require_once __DIR__ . '/lib/Autoloader.php';
+require_once __DIR__ . '/lib/AnalyticsBootstrap.php';
 
 // ---------------------------------------------------------------------------
 // EXTRACTED HELPERS (TODO-hardening.md item #4 -- light extraction)
