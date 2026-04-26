@@ -88,6 +88,11 @@ class FpsAnalyticsLog
     public static function purgeOlderThan(int $days = 30): int { return 0; }
 }
 
+class FpsAnalyticsAnomalyDetector
+{
+    public static function runDaily(): int { return 0; }
+}
+
 class FpsAnalyticsServerEvents
 {
     /** @var list<string> */
