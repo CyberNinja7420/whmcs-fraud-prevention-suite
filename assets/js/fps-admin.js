@@ -320,6 +320,20 @@
     }
   }
 
+  /**
+   * Open a PHP-rendered modal by id (e.g. FpsAdminRenderer::renderModal output).
+   * For programmatic JS modals built on the shared overlay, use showModal() instead.
+   * @param {string} modalId - The id attribute of the PHP-rendered .fps-modal div.
+   */
+  function openModal(modalId) {
+    if (!modalId) return;
+    var phpModal = document.getElementById(modalId);
+    if (!phpModal || !phpModal.classList.contains('fps-modal')) return;
+    phpModal.style.display = 'block';
+    phpModal.classList.add('fps-modal-open');
+    _state.activeModal = { id: modalId, onClose: null };
+  }
+
   function closeModal(modalId) {
     // Handle PHP-rendered modals (fps-rule-modal, fps-key-detail-modal, etc.)
     if (modalId) {
@@ -1090,6 +1104,7 @@
     animateNumber,
     // Modal
     showModal,
+    openModal,
     closeModal,
     confirm,
     // Table

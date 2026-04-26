@@ -2,7 +2,7 @@
 
 Welcome to the FPS Wiki. This is the comprehensive knowledge base for the Fraud Prevention Suite WHMCS module.
 
-**Module version:** v4.2.5 (2026-04-25)
+**Module version:** v4.2.6 (2026-04-26)
 
 ## Pages
 

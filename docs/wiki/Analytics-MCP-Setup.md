@@ -246,3 +246,30 @@ Rows auto-purged after 30 days.
 7. Ask Claude analytics questions
 
 For more, see Architecture Overview and API Documentation.
+
+---
+
+## Setup wizard (v4.2.6+)
+
+For new installs, the **Analytics Setup Wizard** walks operators through credential entry in 7 guided steps. Open it from Settings -> Analytics & Tracking by clicking the **Run setup wizard** link in the lead info row.
+
+### What the wizard does
+
+| Step | Asks for | Magic |
+|------|----------|-------|
+| 1. Welcome | Which scopes to enable (client / admin / server-side) | -- |
+| 2. GA4 measurement ID | Your `G-XXXXXXXXXX` data stream ID | "Open GA4 console" deep-link |
+| 3. GA4 server-side | Measurement Protocol secret + numeric property ID OR Service Account JSON | **Auto-discover properties**: paste the SA JSON and the wizard calls `accountSummaries.list` to populate a dropdown of your GA4 properties so you don't have to hunt for the numeric property ID |
+| 4. Clarity project ID | Your 10-character lowercase project ID | "Open Clarity dashboard" deep-link |
+| 5. Consent + privacy | EEA banner toggle + DPA signing reminder | Direct links to sign GA4 + Clarity DPAs |
+| 6. Optional extras | Notification email, sampling rate, high-risk threshold | Sensible defaults pre-filled |
+| 7. Save + verify | Review summary table | Whitelist UPSERT into `mod_fps_settings`; "wait 30 seconds for Realtime" hint |
+
+### Retraction note (v4.2.5 -> v4.2.6)
+
+v4.2.5 shipped with a `fps_gdprPurgeByEmail()` extension that POSTed to `https://www.clarity.ms/export-data/api/v1/data-subject-requests`. Per [Microsoft Learn](https://learn.microsoft.com/en-us/clarity/faq), this endpoint does not exist -- Microsoft Clarity has no per-user deletion API. The fake call has been removed in v4.2.6. For GDPR Article 17 compliance with Clarity, operators must either:
+
+1. Rely on Clarity's automatic 30-day rolling data retention (Microsoft auto-purges all session data after 30 days), or
+2. Email `clarityMS@microsoft.com` manually with the user identifier and request deletion.
+
+The `clarity_dsr_token` setting has been removed from the Settings card since no API exists to use it for.

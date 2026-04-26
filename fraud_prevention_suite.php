@@ -40,7 +40,7 @@ require_once __DIR__ . '/lib/Analytics/FpsAnalyticsAnomalyDetector.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define("FPS_MODULE_VERSION", "4.2.5");
+    define("FPS_MODULE_VERSION", "4.2.6");
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +219,17 @@ function fraud_prevention_suite_activate(): array
             }
         } catch (\Throwable $e) {
             logModuleCall('fraud_prevention_suite', 'DropLegacyColumns::ERROR', '', $e->getMessage());
+        }
+
+        // v4.2.6 one-time cleanup: remove stale clarity_dsr_token row left over
+        // from v4.2.5. The setting was retracted because Microsoft Clarity has
+        // no per-user deletion API (verified against Microsoft Learn). The row
+        // was removed from KEYS/DEFAULTS/seed in v4.2.6 but existing rows must
+        // be deleted explicitly. Idempotent.
+        try {
+            Capsule::table('mod_fps_settings')->where('setting_key', 'clarity_dsr_token')->delete();
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'ClarityDsrCleanup::ERROR', '', $e->getMessage());
         }
 
         if (!Capsule::schema()->hasTable('mod_fps_reports')) {
@@ -764,7 +775,6 @@ function fraud_prevention_suite_activate(): array
             'ga4_property_id'                => '',
             'clarity_project_id_client'      => '',
             'clarity_project_id_admin'       => '',
-            'clarity_dsr_token'              => '',
             'analytics_eea_consent_required' => '1',
             'analytics_event_sampling_rate'  => '100',
             'analytics_high_risk_signup_threshold' => '80',
@@ -1174,6 +1184,8 @@ function fraud_prevention_suite_output(array $vars): void
     }
     echo '<script src="' . $assetsUrl . '/js/fps-admin.js' . $bust('js/fps-admin.js') . '"></script>';
     echo '<script src="' . $assetsUrl . '/js/fps-charts.js' . $bust('js/fps-charts.js') . '"></script>';
+    // v4.2.6: analytics setup wizard JS (state machine for the 7-step modal)
+    echo '<script src="' . $assetsUrl . '/js/fps-analytics-wizard.js' . $bust('js/fps-analytics-wizard.js') . '"></script>';
     // WHMCS CSRF token (available globally for all AJAX calls)
     // WHMCS 8.x uses generate_token() for CSRF -- $_SESSION['token'] is empty
     $csrfToken = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
@@ -1805,6 +1817,15 @@ function fps_handleAjax(string $modulelink): void
 
             case 'global_intel_export':
                 fps_ajaxGlobalIntelExport();
+                break;
+
+            // v4.2.6: analytics setup wizard
+            case 'fps_ajaxAnalyticsDiscoverProperties':
+                fps_ajaxAnalyticsDiscoverProperties();
+                break;
+
+            case 'fps_ajaxAnalyticsWizardSave':
+                fps_ajaxAnalyticsWizardSave();
                 break;
 
             default:
@@ -4342,3 +4363,139 @@ function fps_ajaxGlobalIntelExport(): void
     exit;
 }
 
+/**
+ * v4.2.6: AJAX -- discover GA4 properties accessible to a Service Account.
+ *
+ * Wizard step 3 calls this with the operator-pasted SA JSON. Returns
+ * {success:true, data:{properties:[{property_id, display_name, account_name}]}}
+ * or {success:false, error:"..."}.
+ *
+ * FpsAnalyticsDataApi::discoverProperties already returns [] gracefully on
+ * malformed/auth-failed input -- we never throw to the client.
+ */
+function fps_ajaxAnalyticsDiscoverProperties(): void
+{
+    try {
+        $saJson = (string) ($_POST['sa_json'] ?? '');
+        // WHMCS htmlspecialchars-escapes POST values; reverse before JSON parsing.
+        $saJson = htmlspecialchars_decode($saJson, ENT_QUOTES);
+        $properties = FpsAnalyticsDataApi::discoverProperties($saJson);
+        echo json_encode([
+            'success' => true,
+            'data'    => ['properties' => $properties],
+        ]);
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'fps_ajaxAnalyticsDiscoverProperties', [], $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error'   => $e->getMessage(),
+        ]);
+    }
+}
+
+/**
+ * v4.2.6: AJAX -- save all wizard fields in one shot.
+ *
+ * Validates each provided value with FpsAnalyticsConfig validators where
+ * applicable, then UPSERTs into mod_fps_settings. Boolean flag fields
+ * (3 enable toggles + EEA) are sent explicitly as '0'/'1' by the wizard JS
+ * so we don't need the absent-means-zero compensation that fps_ajaxSaveSettings
+ * uses for HTML form submissions.
+ */
+function fps_ajaxAnalyticsWizardSave(): void
+{
+    try {
+        // Allowed setting keys (whitelist -- nothing else from POST is written).
+        $allowedKeys = [
+            'enable_client_analytics',
+            'enable_admin_analytics',
+            'enable_server_events',
+            'analytics_eea_consent_required',
+            'ga4_measurement_id_client',
+            'ga4_api_secret',
+            'ga4_property_id',
+            'ga4_service_account_json',
+            'clarity_project_id_client',
+            'notification_email',
+            'analytics_event_sampling_rate',
+            'analytics_high_risk_signup_threshold',
+        ];
+        $booleanKeys = [
+            'enable_client_analytics',
+            'enable_admin_analytics',
+            'enable_server_events',
+            'analytics_eea_consent_required',
+        ];
+
+        $errors = [];
+        $toSave = [];
+
+        foreach ($allowedKeys as $key) {
+            if (!array_key_exists($key, $_POST)) {
+                continue;
+            }
+            $value = (string) $_POST[$key];
+            // Reverse WHMCS htmlspecialchars on values that may contain JSON / quotes.
+            $value = htmlspecialchars_decode($value, ENT_QUOTES);
+
+            if (in_array($key, $booleanKeys, true)) {
+                $value = ($value === '1' || $value === 'true') ? '1' : '0';
+            }
+
+            // Validate per-field where a validator exists.
+            if ($key === 'ga4_measurement_id_client' && $value !== '' && !FpsAnalyticsConfig::isValidGa4Id($value)) {
+                $errors[] = 'GA4 measurement ID is invalid (expected G-XXXXXXXXXX).';
+                continue;
+            }
+            if ($key === 'clarity_project_id_client' && $value !== '' && !FpsAnalyticsConfig::isValidClarityId($value)) {
+                $errors[] = 'Clarity project ID is invalid (expected 8-12 lowercase alphanumerics).';
+                continue;
+            }
+            if ($key === 'ga4_service_account_json' && $value !== '' && !FpsAnalyticsConfig::isValidServiceAccountJson($value)) {
+                $errors[] = 'Service Account JSON is malformed or missing required fields.';
+                continue;
+            }
+            if ($key === 'analytics_event_sampling_rate' && $value !== '') {
+                $n = (int) $value;
+                if ($n < 1 || $n > 100) { $errors[] = 'Sampling rate must be between 1 and 100.'; continue; }
+                $value = (string) $n;
+            }
+            if ($key === 'analytics_high_risk_signup_threshold' && $value !== '') {
+                $n = (int) $value;
+                if ($n < 0 || $n > 100) { $errors[] = 'High-risk threshold must be between 0 and 100.'; continue; }
+                $value = (string) $n;
+            }
+            if ($key === 'notification_email' && $value !== '' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Notification email is not a valid address.';
+                continue;
+            }
+
+            $toSave[$key] = $value;
+        }
+
+        if (!empty($errors)) {
+            echo json_encode(['success' => false, 'error' => implode(' ', $errors)]);
+            return;
+        }
+
+        foreach ($toSave as $key => $value) {
+            \WHMCS\Database\Capsule::table('mod_fps_settings')->updateOrInsert(
+                ['setting_key' => $key],
+                ['setting_value' => $value]
+            );
+        }
+
+        FpsAnalyticsConfig::clearCache();
+
+        echo json_encode([
+            'success' => true,
+            'data'    => ['saved_count' => count($toSave)],
+        ]);
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'fps_ajaxAnalyticsWizardSave', $_POST, $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error'   => $e->getMessage(),
+        ]);
+    }
+}
