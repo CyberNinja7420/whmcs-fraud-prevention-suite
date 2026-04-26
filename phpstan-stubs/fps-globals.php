@@ -55,3 +55,68 @@ function fps_computePreCheckoutLatency(): array
 {
     return ['samples' => 0, 'p50' => 0, 'p95' => 0, 'p99' => 0, 'max' => 0];
 }
+
+/**
+ * Analytics settings reader and validator -- runtime impl in
+ * lib/Analytics/FpsAnalyticsConfig.php. Stub here so psalm does
+ * not flag cross-file static calls as UndefinedClass.
+ */
+class FpsAnalyticsConfig
+{
+    public const KEYS = [];
+    public static function get(string $key, string $default = ''): string { return $default; }
+    public static function isClientEnabled(): bool { return false; }
+    public static function isAdminEnabled(): bool { return false; }
+    public static function isServerEnabled(): bool { return false; }
+    public static function isValidGa4Id(string $id): bool { return true; }
+    public static function isValidClarityId(string $id): bool { return true; }
+    public static function isValidServiceAccountJson(string $json): bool { return true; }
+    public static function clearCache(): void {}
+}
+
+class FpsAnalyticsLog
+{
+    public const DEST_GA4_CLIENT = 'ga4_client';
+    public const DEST_GA4_SERVER = 'ga4_server';
+    public const DEST_CLARITY    = 'clarity';
+    /** @param array<string, mixed> $payload */
+    public static function record(string $eventName, array $payload, string $destination, string $status, ?string $error = null): void {}
+    public static function countEventsToday(string $eventName): int { return 0; }
+    public static function medianDailyCount(string $eventName, int $days = 14): int { return 0; }
+    /** @return array{ts: string|null, count: int} */
+    public static function statusSnapshot(string $destination): array { return ['ts' => null, 'count' => 0]; }
+    public static function purgeOlderThan(int $days = 30): int { return 0; }
+}
+
+class FpsAnalyticsAnomalyDetector
+{
+    public static function runDaily(): int { return 0; }
+}
+
+class FpsAnalyticsServerEvents
+{
+    /** @var list<string> */
+    public const EVENTS = [];
+    /** @param array<string, mixed> $params */
+    public static function send(string $name, array $params = [], string $cid = ''): void {}
+    public static function flush(): void {}
+}
+
+
+class FpsAnalyticsConsentManager {
+    public const EEA_COUNTRIES = [];
+    public static function isEeaVisitor(string $country): bool { return false; }
+    public static function shouldShowBanner(string $country): bool { return false; }
+    public static function readConsent(): ?bool { return null; }
+}
+
+class FpsAnalyticsInjector {
+    /** @param array<string, mixed> $context */
+    public static function client(string $visitorCountry, array $context = []): string { return ''; }
+    public static function admin(string $adminId = '', string $adminRole = ''): string { return ''; }
+}
+
+class FpsAnalyticsDataApi
+{
+    public static function getYesterdayCount(string $eventName): ?int { return null; }
+}

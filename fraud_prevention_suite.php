@@ -25,6 +25,13 @@ require_once __DIR__ . '/lib/Gdpr/FpsGdprHelper.php';
 require_once __DIR__ . '/lib/Gdpr/FpsAjaxGdpr.php';
 require_once __DIR__ . '/lib/Ajax/FpsAjaxBotCleanup.php';
 require_once __DIR__ . '/lib/FpsMailHelper.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConfig.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsLog.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsServerEvents.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConsentManager.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsInjector.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsDataApi.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsAnomalyDetector.php';
 
 // ---------------------------------------------------------------------------
 // VERSION (single source of truth)
@@ -33,7 +40,7 @@ require_once __DIR__ . '/lib/FpsMailHelper.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '4.2.4');
+    define("FPS_MODULE_VERSION", "4.2.5");
 }
 
 // ---------------------------------------------------------------------------
@@ -677,6 +684,31 @@ function fraud_prevention_suite_activate(): array
             });
         }
 
+        // -- v4.2.5: Analytics tables --
+
+        if (!Capsule::schema()->hasTable('mod_fps_analytics_log')) {
+            Capsule::schema()->create('mod_fps_analytics_log', function ($table) {
+                $table->increments('id');
+                $table->string('event_name', 50)->index();
+                $table->text('payload_json')->nullable();
+                $table->string('destination', 20)->default('ga4_server');
+                $table->string('status', 10)->default('queued');
+                $table->text('error')->nullable();
+                $table->timestamp('created_at')->useCurrent()->index();
+            });
+        }
+
+        if (!Capsule::schema()->hasTable('mod_fps_analytics_anomalies')) {
+            Capsule::schema()->create('mod_fps_analytics_anomalies', function ($table) {
+                $table->increments('id');
+                $table->string('event_name', 50)->index();
+                $table->integer('baseline_count')->default(0);
+                $table->integer('observed_count')->default(0);
+                $table->timestamp('detected_at')->useCurrent();
+                $table->timestamp('notified_at')->nullable();
+            });
+        }
+
         // Seed default settings (wrapped in try/catch for v1.0 compat).
         // module_version seed uses the current FPS_MODULE_VERSION so fresh installs
         // match what the config() metadata advertises; existing installs retain
@@ -720,6 +752,23 @@ function fraud_prevention_suite_activate(): array
             // throws). Set to '0' to roll back to historical inline-first
             // behaviour. See TODO-hardening.md item #1.
             'use_runner_fast_path' => '1',
+            // v4.2.5: Analytics & Tracking settings (all default OFF).
+            // Operators opt in per-side via the Analytics panel in TabSettings.
+            'enable_client_analytics'        => '0',
+            'enable_admin_analytics'         => '0',
+            'enable_server_events'           => '0',
+            'ga4_measurement_id_client'      => '',
+            'ga4_measurement_id_admin'       => '',
+            'ga4_api_secret'                 => '',
+            'ga4_service_account_json'       => '',
+            'ga4_property_id'                => '',
+            'clarity_project_id_client'      => '',
+            'clarity_project_id_admin'       => '',
+            'clarity_dsr_token'              => '',
+            'analytics_eea_consent_required' => '1',
+            'analytics_event_sampling_rate'  => '100',
+            'analytics_high_risk_signup_threshold' => '80',
+            'notification_email'                   => '',
             // Legacy details JSON column writer: '0' (default as of v4.2.4 PM).
             // Fresh installs no longer double-write the legacy details +
             // raw_response columns; the structured columns
@@ -2371,6 +2420,10 @@ function fps_ajaxSaveSettings(): array
         'use_runner_fast_path',
         'write_legacy_details_column',
         'drop_legacy_details_columns',
+        'enable_client_analytics',
+        'enable_admin_analytics',
+        'enable_server_events',
+        'analytics_eea_consent_required',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {

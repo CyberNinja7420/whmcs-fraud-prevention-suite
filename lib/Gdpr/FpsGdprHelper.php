@@ -35,7 +35,7 @@ use WHMCS\Database\Capsule;
  * @param string      $emailHash SHA-256 hash of the requester's email (canonical).
  * @param string|null $email     Raw email if available (used for fingerprints lookup).
  * @param string|null $ip        IP address if the request is also tied to one.
- * @return array{subject: array, tables: array<string, array{deleted:int, anonymised:int}>}
+ * @return array{subject: array, tables: array<string, array{deleted:int, anonymised:int}>, manual_followup?: array<string, string>}
  */
 function fps_gdprPurgeByEmail(string $emailHash, ?string $email = null, ?string $ip = null): array
 {
@@ -147,6 +147,50 @@ function fps_gdprPurgeByEmail(string $emailHash, ?string $email = null, ?string 
             $record('mod_fps_api_logs', 0, 0);
         }
     }
+
+    // 7. Microsoft Clarity DSR -- send delete request via Clarity API.
+    //    Note: Clarity's DSR API requires a project access token; we read
+    //    the same project IDs the injector uses. Logged result is appended
+    //    to the report.tables row.
+    try {
+        $clarityIds = array_filter([
+            \WHMCS\Database\Capsule::table('mod_fps_settings')
+                ->where('setting_key','clarity_project_id_client')->value('setting_value'),
+            \WHMCS\Database\Capsule::table('mod_fps_settings')
+                ->where('setting_key','clarity_project_id_admin')->value('setting_value'),
+        ]);
+        $clarityToken = \WHMCS\Database\Capsule::table('mod_fps_settings')
+            ->where('setting_key','clarity_dsr_token')->value('setting_value');
+        $sent = 0;
+        foreach (array_unique($clarityIds) as $pid) {
+            if (empty($pid) || empty($clarityToken)) continue;
+            $ch = curl_init('https://www.clarity.ms/export-data/api/v1/data-subject-requests');
+            curl_setopt_array($ch, [
+                CURLOPT_POST           => true,
+                CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Authorization: Bearer ' . $clarityToken],
+                CURLOPT_POSTFIELDS     => json_encode([
+                    'projectId' => $pid, 'requestType' => 'delete',
+                    'identifier' => $emailHash,
+                ]),
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 5,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+            ]);
+            $resp = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code >= 200 && $code < 300) $sent++;
+        }
+        $record('clarity_dsr_api', $sent, 0);
+    } catch (\Throwable $e) {
+        $record('clarity_dsr_api', 0, 0);
+    }
+
+    // 8. GA4 -- no API for user deletion exists. Add manual-instructions.
+    $report['manual_followup'] = [
+        'ga4_user_deletion' => 'No GA4 API for user deletion exists. File a request at https://support.google.com/analytics/contact/data-deletion (requires the GA4 user ID -- see your service account audit log).',
+    ];
 
     return $report;
 }

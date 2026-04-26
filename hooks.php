@@ -45,14 +45,29 @@ add_hook('AdminAreaPage', 1, function ($vars) {
 // ---------------------------------------------------------------------------
 add_hook('AdminAreaHeaderOutput', 1, function ($vars) {
     try {
+        $output = '';
+
+        // Module config page: inject admin panel CSS
         $page = $_SERVER['SCRIPT_NAME'] ?? '';
         if (strpos($page, 'configaddonmods') !== false
             && isset($_GET['module'])
             && $_GET['module'] === 'fraud_prevention_suite') {
             $bust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('css/fps-1000x.css');
-            return '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css' . $bust . '">';
+            $output .= '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css' . $bust . '">';
         }
-        return '';
+
+        // ---------- FPS Analytics (admin) ----------
+        if (class_exists('FpsAnalyticsInjector') && FpsAnalyticsConfig::isAdminEnabled()) {
+            try {
+                $adminId   = (string) ($_SESSION['adminid'] ?? '');
+                $adminRole = (string) ($_SESSION['adminrole'] ?? '');
+                $output .= FpsAnalyticsInjector::admin($adminId, $adminRole);
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'AnalyticsInject::AdminErr', '', $e->getMessage());
+            }
+        }
+
+        return $output;
     } catch (\Throwable $e) {
         return '';
     }
@@ -345,7 +360,28 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                             // Non-fatal -- don't let logging failure unblock the bot
                         }
 
+                        if (class_exists('FpsAnalyticsServerEvents')) {
+                            try {
+                                FpsAnalyticsServerEvents::send('turnstile_fail', [
+                                    'country'     => $country,
+                                    'error_codes' => implode(',', $tsResult['error_codes'] ?? []),
+                                    'ip_country'  => $country,
+                                ]);
+                            } catch (\Throwable $analyticsEx) {
+                                logModuleCall('fraud_prevention_suite', 'analytics::turnstile_fail', [], $analyticsEx->getMessage());
+                            }
+                        }
+
                         return ['Bot protection verification failed. Please refresh the page and try again. Reference: FPS-TS-' . date('ymdHi')];
+                    } else {
+                        // Turnstile passed
+                        if (class_exists('FpsAnalyticsServerEvents')) {
+                            try {
+                                FpsAnalyticsServerEvents::send('turnstile_pass', ['country' => $country]);
+                            } catch (\Throwable $analyticsEx) {
+                                logModuleCall('fraud_prevention_suite', 'analytics::turnstile_pass', [], $analyticsEx->getMessage());
+                            }
+                        }
                     }
                 }
             }
@@ -1314,6 +1350,33 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
         $output .= $js;
     }
 
+
+    // ---------- FPS Analytics (client) ----------
+    if (class_exists('FpsAnalyticsInjector') && FpsAnalyticsConfig::isClientEnabled()) {
+        try {
+            $visitorCountry = '';
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            if ($ip !== '' && class_exists('\\FraudPreventionSuite\\Lib\\FpsHookHelpers')) {
+                $visitorCountry = (string) (\FraudPreventionSuite\Lib\FpsHookHelpers::fps_lookupCountryByIp($ip) ?? '');
+            }
+            $context = [
+                'fps_country'             => $visitorCountry,
+                'fps_module_version'      => defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown',
+                'fps_is_returning_client' => isset($_SESSION['uid']) ? 1 : 0,
+            ];
+            $modVer      = defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown';
+            $bannerJsUrl = '/modules/addons/fraud_prevention_suite/assets/js/fps-consent-banner.js?v=' . urlencode($modVer);
+            $debugJsTag  = (isset($_GET['fps_analytics_debug']) && $_GET['fps_analytics_debug'] === '1')
+                ? '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-analytics-debug.js"></script>'
+                : '';
+            $output .= FpsAnalyticsInjector::client($visitorCountry, $context)
+                . "<script defer src=\"{$bannerJsUrl}\"></script>\n"
+                . $debugJsTag;
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'AnalyticsInject::ClientErr', '', $e->getMessage());
+        }
+    }
+
     return $output;
     } catch (\Throwable $e) {
         return '';
@@ -1554,6 +1617,19 @@ add_hook('ClientAdd', 1, function ($vars) {
                     logActivity("Fraud Prevention: Auto-deactivated client #{$clientId} (score: {$result->risk->score})");
                 }
             }
+
+            $highRiskThreshold = (float) FpsAnalyticsConfig::get('analytics_high_risk_signup_threshold', '80');
+            if ($result->risk->score >= $highRiskThreshold && class_exists('FpsAnalyticsServerEvents')) {
+                try {
+                    FpsAnalyticsServerEvents::send('high_risk_signup', [
+                        'risk_score'   => $result->risk->score,
+                        'country'      => $vars['country'] ?? '',
+                        'email_domain' => substr(strrchr((string) ($vars['email'] ?? ''), '@') ?: '', 1),
+                    ]);
+                } catch (\Throwable $analyticsEx) {
+                    logModuleCall('fraud_prevention_suite', 'analytics::high_risk_signup', $vars, $analyticsEx->getMessage());
+                }
+            }
         }
 
     } catch (\Throwable $e) {
@@ -1733,6 +1809,27 @@ add_hook('DailyCronJob', 1, function ($vars) {
             }
         } catch (\Throwable $e) {
             logModuleCall('fraud_prevention_suite', 'DailyCron:GlobalIntelPush', '', $e->getMessage());
+        }
+
+        if (class_exists('FpsAnalyticsAnomalyDetector')) {
+            try { FpsAnalyticsAnomalyDetector::runDaily(); }
+            catch (\Throwable $e) { logModuleCall('fraud_prevention_suite', 'AnalyticsAnomaly::ERROR', '', $e->getMessage()); }
+        }
+
+        if (class_exists('FpsAnalyticsLog')) {
+            try { FpsAnalyticsLog::purgeOlderThan(30); }
+            catch (\Throwable $e) { /* non-fatal */ }
+        }
+
+        // Daily heartbeat event so we can see the cron ran in GA4 Realtime
+        if (class_exists('FpsAnalyticsServerEvents')) {
+            try {
+                FpsAnalyticsServerEvents::send('module_health', [
+                    'module_version'    => defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown',
+                    'total_checks_24h'  => (int) \WHMCS\Database\Capsule::table('mod_fps_checks')
+                                                ->where('created_at', '>=', date('Y-m-d H:i:s', time() - 86400))->count(),
+                ]);
+            } catch (\Throwable $e) { /* non-fatal */ }
         }
 
         logModuleCall('fraud_prevention_suite', 'DailyCron',

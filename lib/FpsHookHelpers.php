@@ -500,4 +500,22 @@ class FpsHookHelpers
             logModuleCall('fraud_prevention_suite', 'LegacyCheck', '', $e->getMessage());
         }
     }
+
+    /**
+     * Resolve country code from IP via the existing mod_fps_ip_intel cache.
+     * Returns '' on cache miss or DB failure -- never throws.
+     *
+     * Used by analytics injection in ClientAreaHeaderOutput to decide
+     * whether the EEA consent banner should render.
+     */
+    public static function fps_lookupCountryByIp(string $ip): string
+    {
+        if ($ip === '') return '';
+        try {
+            $row = \WHMCS\Database\Capsule::table('mod_fps_ip_intel')
+                ->where('ip_address', $ip)->first(['country']);
+            return ($row && $row->country) ? (string) $row->country : '';
+        } catch (\Throwable $e) { return ''; }
+    }
+
 }
