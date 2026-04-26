@@ -2,7 +2,7 @@
 
 Items the production-hardening passes did NOT close. Each item lists a severity and a rough effort estimate. Items marked `Pass-2: closed` were carried over from the first pass and resolved in v4.2.4 (2026-04-21); their entries are kept for context.
 
-**Last reconciled:** 2026-04-25 (5th reconciliation -- analytics integration v4.2.5 shipped). Nothing structurally open; analytics integration complete.
+**Last reconciled:** 2026-04-26 (6th reconciliation -- analytics setup wizard v4.2.6 shipped + Clarity DSR API retraction). Nothing structurally open.
 
 ## Status legend
 
@@ -11,8 +11,25 @@ Items the production-hardening passes did NOT close. Each item lists a severity 
 - `Post-pass-2: closed` -- resolved in the 2026-04-22 follow-up session.
 - `Items-124-closed` -- resolved in the 2026-04-22 third pass (pre-checkout fast-path, legacy-write toggle, file extraction, phpstan + CI).
 - `Get-it-all-done-closed` -- resolved in the 2026-04-22 PM fourth pass (defaults flipped, P95 widget, psalm wired, second extraction batch).
-- `v4.2.5-analytics-shipped` -- resolved in the 2026-04-25 fifth pass (Google Analytics 4 + Microsoft Clarity integration with EEA consent + 12 server-side events + GDPR DSR + MCP wiring).
+- `v4.2.5-analytics-shipped` -- resolved in the 2026-04-25 fifth pass (Google Analytics 4 + Microsoft Clarity integration with EEA consent + 12 server-side events + MCP wiring). NOTE: shipped a fake Clarity DSR API call later retracted in v4.2.6.
+- `v4.2.6-wizard-shipped` -- resolved in the 2026-04-26 sixth pass (analytics setup wizard + GA4 property auto-discovery + per-field help text + Clarity DSR retraction).
 
+
+
+## Closed in v4.2.6 (2026-04-26, analytics wizard + retraction)
+
+7 commits on `feat/analytics-wizard-v426` (base `8004c6f`):
+- Retracted the v4.2.5 fake Clarity DSR API call (no such endpoint exists per Microsoft Learn); replaced with correct manual-instructions
+- Added `FpsAnalyticsDataApi::discoverProperties()` calling GA4 Admin API
+- Added 7-step `FpsAnalyticsWizard` modal + state-machine JS
+- Enriched help text on every analytics field
+- Added `FpsAdmin.openModal()` (was missing)
+- 2 new AJAX handlers (`fps_ajaxAnalyticsDiscoverProperties`, `fps_ajaxAnalyticsWizardSave`)
+- Removed `clarity_dsr_token` setting (no API uses it)
+
+**Validation:** all quality gates clean; battle-test pending.
+
+---
 
 ## Closed in v4.2.5 (2026-04-25, analytics integration)
 

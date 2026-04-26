@@ -54,13 +54,12 @@ final class FpsAnalyticsConfig
         'clarity_project_id_client', 'clarity_project_id_admin',
         'analytics_eea_consent_required', 'analytics_event_sampling_rate',
         'analytics_high_risk_signup_threshold',
-        'clarity_dsr_token',
         'notification_email',
     ];
 
     // -----------------------------------------------------------------------
     // Safe defaults -- eagerly loaded before the DB query so the cache
-    // always contains all 12 keys regardless of which rows exist in the DB.
+    // always contains all 14 keys regardless of which rows exist in the DB.
     // -----------------------------------------------------------------------
 
     private const DEFAULTS = [
@@ -78,7 +77,6 @@ final class FpsAnalyticsConfig
         'analytics_event_sampling_rate'        => '100',
         'analytics_high_risk_signup_threshold' => '80',
         'notification_email'                   => '',
-        'clarity_dsr_token'              => '',
     ];
 
     // -----------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 Welcome to the FPS comprehensive documentation. Use this index to find the right guide for your role or task.
 
-**Module version:** v4.2.5 (2026-04-25)
+**Module version:** v4.2.6 (2026-04-26)
 
 ## Documentation Overview
 

@@ -392,4 +392,75 @@ final class FpsAnalyticsDataApi
     {
         return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
     }
+
+    // -----------------------------------------------------------------------
+    // Property discovery helper -- used by the analytics setup wizard
+    // -----------------------------------------------------------------------
+
+    /**
+     * List all GA4 properties accessible to the given Service Account.
+     *
+     * Calls https://analyticsadmin.googleapis.com/v1beta/accountSummaries
+     * with the same JWT->OAuth flow used by getYesterdayCount(). Returns a
+     * flat array of [{property_id: string, display_name: string, account_name: string}]
+     * suitable for populating a dropdown in the wizard.
+     *
+     * Graceful: returns empty array on any failure; logs via logModuleCall.
+     *
+     * @param string $saJson Service Account JSON (operator pasted into wizard)
+     * @return array<int, array{property_id:string, display_name:string, account_name:string}>
+     */
+    public static function discoverProperties(string $saJson): array
+    {
+        if ($saJson === '') return [];
+        try {
+            $decoded = json_decode($saJson, true);
+            if (!is_array($decoded) || empty($decoded['client_email']) || empty($decoded['private_key']) || empty($decoded['project_id'])) {
+                return [];
+            }
+            $jwt = self::fps_mintJwt($decoded['client_email'], $decoded['private_key']);
+            if ($jwt === null) return [];
+            $token = self::fps_exchangeJwt($jwt);
+            if ($token === null) return [];
+
+            $ch = curl_init('https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200');
+            curl_setopt_array($ch, [
+                CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $token, 'Accept: application/json'],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => self::HTTP_TIMEOUT,
+                CURLOPT_CONNECTTIMEOUT => self::HTTP_CONNECT,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+            ]);
+            $resp = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code < 200 || $code >= 300 || !is_string($resp)) {
+                logModuleCall('fraud_prevention_suite', 'FpsAnalyticsDataApi::discoverProperties::ERROR', $decoded['client_email'], "HTTP $code: " . substr((string) $resp, 0, 200));
+                return [];
+            }
+            $data = json_decode($resp, true);
+            if (!is_array($data) || empty($data['accountSummaries'])) return [];
+
+            $out = [];
+            foreach ($data['accountSummaries'] as $acct) {
+                $acctName = (string) ($acct['displayName'] ?? '');
+                foreach ((array) ($acct['propertySummaries'] ?? []) as $prop) {
+                    // property is 'properties/123456789'; we want just the numeric tail
+                    $propResource = (string) ($prop['property'] ?? '');
+                    $propId = preg_replace('|^properties/|', '', $propResource);
+                    if ($propId === '' || $propId === $propResource) continue; // malformed
+                    $out[] = [
+                        'property_id'  => $propId,
+                        'display_name' => (string) ($prop['displayName'] ?? '(unnamed)'),
+                        'account_name' => $acctName,
+                    ];
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'FpsAnalyticsDataApi::discoverProperties::ERROR', '', $e->getMessage());
+            return [];
+        }
+    }
 }

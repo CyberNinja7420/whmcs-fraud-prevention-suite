@@ -5,7 +5,7 @@
 [![WHMCS 8.x | 9.x](https://img.shields.io/badge/WHMCS-8.x%20%7C%209.x-0052CC?style=for-the-badge)](https://whmcs.com)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-![Version](https://img.shields.io/badge/Version-4.2.5-2563eb?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-4.2.6-2563eb?style=for-the-badge)
 
 [Live Demo](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite) | [API Plans](https://enterprisevpssolutions.com/store/fraud-intelligence-api) | [Threat Map](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite&page=topology) | [Documentation](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Home)
 
@@ -22,6 +22,13 @@ Fraud Prevention Suite (FPS) is a comprehensive fraud detection addon module for
 - **WHMCS-native** -- Built specifically for WHMCS using Capsule ORM, Smarty templates, and the hook system
 - **Zero runtime CDN dependency** -- ApexCharts, three.js and globe.gl are all vendored under `assets/vendor/` (refreshed quarterly via `scripts/refresh-vendor-assets.sh`)
 - **Accessibility-first** -- Built-in colorblind mode toggle and high-contrast support
+
+### What's new in v4.2.6 (2026-04-26)
+
+- **Analytics Setup Wizard** -- new "Run setup wizard" link in the Analytics & Tracking card opens a 7-step modal that walks operators through (1) what to enable, (2) GA4 measurement ID with deep-link to the GA4 console, (3) GA4 server-side credentials with auto-discovery of property IDs from a pasted Service Account JSON, (4) Clarity project ID, (5) consent + privacy + DPA reminders, (6) optional extras (notification email, sampling, threshold), (7) save + verify. Reduces setup time from ~30 min to ~5 min and removes the need to manually look up the numeric GA4 property ID.
+- **GA4 property auto-discovery** -- `FpsAnalyticsDataApi::discoverProperties()` calls the GA4 Admin API (`accountSummaries.list`) using the same Service Account JWT flow as the dashboard widget; wizard step 3 presents discovered properties as a dropdown so operators pick "Acme Corp Production" instead of hunting for `123456789`.
+- **Enriched per-field help text** in the Analytics & Tracking card -- every input now has a description, format hint, and "where to find" link directly to the right section of the GA4 / Clarity console.
+- **RETRACTION**: v4.2.5 shipped a `fps_gdprPurgeByEmail()` extension that POSTed to `https://www.clarity.ms/export-data/api/v1/data-subject-requests` -- this endpoint does not exist (per [Microsoft Learn](https://learn.microsoft.com/en-us/clarity/faq), Clarity has no per-user deletion API). The fake call has been removed; `manual_followup.clarity_user_deletion` instructions now correctly state that the operator must either rely on Clarity's 30-day rolling retention or email clarityMS@microsoft.com manually. The `clarity_dsr_token` setting has been removed from the Settings card since no API exists to use it for.
 
 ### What's new in v4.2.5 (2026-04-25)
 
