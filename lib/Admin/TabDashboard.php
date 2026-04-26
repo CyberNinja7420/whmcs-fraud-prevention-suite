@@ -371,6 +371,23 @@ HTML;
         $body .=      '<div class="fps-text-muted" style="font-size:.8rem;">Last server event: ' . htmlspecialchars($ga4Status["ts"] ?? '&mdash;', ENT_QUOTES, 'UTF-8') . ' &middot; '
                     . (int) $ga4Status['count'] . ' in last 24h</div>';
         $body .=      '<a href="https://analytics.google.com/" target="_blank" rel="noopener">Open GA4 Realtime &#x2197;</a></div>';
+
+        // Task 17: append yesterday's pre-checkout-block count when SA JSON +
+        // property ID are both configured. Calls go through the cached Data
+        // API client; widget shows '--' when null (graceful degradation).
+        if (class_exists('\FpsAnalyticsDataApi')
+            && \FpsAnalyticsConfig::get('ga4_service_account_json') !== ''
+            && \FpsAnalyticsConfig::get('ga4_property_id') !== ''
+        ) {
+            $ydayCount = \FpsAnalyticsDataApi::getYesterdayCount('fps_pre_checkout_block');
+            $ydayLabel = $ydayCount === null ? '&mdash;' : (string) $ydayCount;
+            $body  = (string) preg_replace(
+                '#(Open GA4 Realtime &\#x2197;</a>)</div>#',
+                '$1<div class="fps-text-muted" style="font-size:.8rem;margin-top:4px;">Yesterday: ' . $ydayLabel . ' pre-checkout blocks</div></div>',
+                $body,
+                1
+            );
+        }
         $body .= '  <div><strong>' . $dot($clientOn, $clarityStatus["ts"]) . ' Microsoft Clarity</strong>';
         $body .=      '<div class="fps-text-muted" style="font-size:.8rem;">Sessions tagged via fps_* properties &middot; '
                     . (int) $clarityStatus['count'] . ' in last 24h</div>';

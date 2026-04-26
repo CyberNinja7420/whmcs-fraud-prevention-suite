@@ -36,6 +36,7 @@ final class FpsAnalyticsConfig
     public const KEY_GA4_MEASUREMENT_ID_ADMIN   = 'ga4_measurement_id_admin';
     public const KEY_GA4_API_SECRET             = 'ga4_api_secret';
     public const KEY_GA4_SERVICE_ACCOUNT_JSON   = 'ga4_service_account_json';
+    public const KEY_GA4_PROPERTY_ID            = 'ga4_property_id';
     public const KEY_CLARITY_PROJECT_ID_CLIENT  = 'clarity_project_id_client';
     public const KEY_CLARITY_PROJECT_ID_ADMIN   = 'clarity_project_id_admin';
     public const KEY_EEA_CONSENT_REQUIRED       = 'analytics_eea_consent_required';
@@ -49,7 +50,7 @@ final class FpsAnalyticsConfig
     public const KEYS = [
         'enable_client_analytics', 'enable_admin_analytics', 'enable_server_events',
         'ga4_measurement_id_client', 'ga4_measurement_id_admin', 'ga4_api_secret',
-        'ga4_service_account_json',
+        'ga4_service_account_json', 'ga4_property_id',
         'clarity_project_id_client', 'clarity_project_id_admin',
         'analytics_eea_consent_required', 'analytics_event_sampling_rate',
         'analytics_high_risk_signup_threshold',
@@ -68,6 +69,7 @@ final class FpsAnalyticsConfig
         'ga4_measurement_id_admin'       => '',
         'ga4_api_secret'                 => '',
         'ga4_service_account_json'       => '',
+        'ga4_property_id'                => '',
         'clarity_project_id_client'      => '',
         'clarity_project_id_admin'       => '',
         'analytics_eea_consent_required' => '1',

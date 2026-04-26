@@ -456,6 +456,7 @@ HTML;
                     ['type' => 'text',   'name' => 'ga4_measurement_id_client', 'label' => 'GA4 measurement ID (client)', 'placeholder' => 'G-XXXXXXXXXX'],
                     ['type' => 'text',   'name' => 'ga4_measurement_id_admin',  'label' => 'GA4 measurement ID (admin, optional)', 'placeholder' => 'falls back to client ID if blank'],
                     ['type' => 'text',   'name' => 'ga4_api_secret', 'label' => 'GA4 Measurement Protocol secret', 'placeholder' => '(required for server-side events)'],
+                    ['type' => 'text',   'name' => 'ga4_property_id', 'label' => 'GA4 numeric property ID (Data API)', 'placeholder' => 'numeric GA4 property ID, e.g. 123456789'],
                     ['type' => 'textarea','name' => 'ga4_service_account_json', 'label' => 'GA4 Data API service account JSON (optional)', 'placeholder' => 'Paste service-account JSON; enables yesterday-count widget'],
                     ['type' => 'text',   'name' => 'clarity_project_id_client', 'label' => 'Clarity project ID (client)', 'placeholder' => '10-char alphanumeric'],
                     ['type' => 'text',   'name' => 'clarity_project_id_admin',  'label' => 'Clarity project ID (admin, optional)'],

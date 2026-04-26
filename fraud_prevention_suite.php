@@ -30,6 +30,7 @@ require_once __DIR__ . '/lib/Analytics/FpsAnalyticsLog.php';
 require_once __DIR__ . '/lib/Analytics/FpsAnalyticsServerEvents.php';
 require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConsentManager.php';
 require_once __DIR__ . '/lib/Analytics/FpsAnalyticsInjector.php';
+require_once __DIR__ . '/lib/Analytics/FpsAnalyticsDataApi.php';
 
 // ---------------------------------------------------------------------------
 // VERSION (single source of truth)
@@ -759,6 +760,7 @@ function fraud_prevention_suite_activate(): array
             'ga4_measurement_id_admin'       => '',
             'ga4_api_secret'                 => '',
             'ga4_service_account_json'       => '',
+            'ga4_property_id'                => '',
             'clarity_project_id_client'      => '',
             'clarity_project_id_admin'       => '',
             'analytics_eea_consent_required' => '1',
