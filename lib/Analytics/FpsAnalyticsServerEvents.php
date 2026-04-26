@@ -108,6 +108,8 @@ final class FpsAnalyticsServerEvents
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT        => 5,
                     CURLOPT_CONNECTTIMEOUT => 2,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                    CURLOPT_SSL_VERIFYHOST => 2,
                 ]);
                 $resp = curl_exec($ch);
                 $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
