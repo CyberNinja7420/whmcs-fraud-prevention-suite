@@ -444,6 +444,26 @@ HTML;
                     ['type' => 'toggle', 'name' => 'drop_legacy_details_columns', 'label' => 'IRREVERSIBLE: drop the legacy details + raw_response columns on next module reactivation (only flip after write_legacy_details_column has been off long enough)'],
                 ],
             ],
+            [
+                'key'     => 'analytics_tracking',
+                'title'   => 'Analytics & Tracking',
+                'icon'    => 'fa-chart-line',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'Enable Google Analytics 4 + Microsoft Clarity tracking. You must sign Google\'s GA4 DPA + Microsoft\'s Clarity DPA separately. Both default OFF; enable per side after entering credentials.'],
+                    ['type' => 'toggle', 'name' => 'enable_client_analytics', 'label' => 'Enable client-side tracking (storefront + cart)'],
+                    ['type' => 'toggle', 'name' => 'enable_admin_analytics',  'label' => 'Enable admin-side tracking (FPS admin tabs)'],
+                    ['type' => 'toggle', 'name' => 'enable_server_events',    'label' => 'Enable server-side custom events (Measurement Protocol)'],
+                    ['type' => 'text',   'name' => 'ga4_measurement_id_client', 'label' => 'GA4 measurement ID (client)', 'placeholder' => 'G-XXXXXXXXXX'],
+                    ['type' => 'text',   'name' => 'ga4_measurement_id_admin',  'label' => 'GA4 measurement ID (admin, optional)', 'placeholder' => 'falls back to client ID if blank'],
+                    ['type' => 'text',   'name' => 'ga4_api_secret', 'label' => 'GA4 Measurement Protocol secret', 'placeholder' => '(required for server-side events)'],
+                    ['type' => 'textarea','name' => 'ga4_service_account_json', 'label' => 'GA4 Data API service account JSON (optional)', 'placeholder' => 'Paste service-account JSON; enables yesterday-count widget'],
+                    ['type' => 'text',   'name' => 'clarity_project_id_client', 'label' => 'Clarity project ID (client)', 'placeholder' => '10-char alphanumeric'],
+                    ['type' => 'text',   'name' => 'clarity_project_id_admin',  'label' => 'Clarity project ID (admin, optional)'],
+                    ['type' => 'toggle', 'name' => 'analytics_eea_consent_required', 'label' => 'Show consent banner only to EEA visitors (recommended); off = banner for everyone'],
+                    ['type' => 'text',   'name' => 'analytics_event_sampling_rate', 'label' => 'Server event sampling rate (1-100, default 100)', 'placeholder' => '100'],
+                    ['type' => 'text',   'name' => 'analytics_high_risk_signup_threshold', 'label' => 'High-risk signup analytics threshold (0-100, default 80)', 'placeholder' => '80'],
+                ],
+            ],
         ];
 
         $content = '<div class="fps-accordion" id="fps-provider-accordion">';
@@ -887,6 +907,13 @@ HTML;
                 $html .= '  </select>';
                 $html .= '</div>';
                 break;
+
+            case 'textarea':
+                $val = htmlspecialchars($config->getCustom($field['name'], ''), ENT_QUOTES, 'UTF-8');
+                $name = htmlspecialchars($field['name'], ENT_QUOTES, 'UTF-8');
+                $label = htmlspecialchars($field['label'], ENT_QUOTES, 'UTF-8');
+                $placeholder = htmlspecialchars($field['placeholder'] ?? '', ENT_QUOTES, 'UTF-8');
+                return "<div class=\"fps-form-group\"><label>{$label}</label><textarea name=\"{$name}\" rows=\"6\" class=\"fps-input fps-textarea\" placeholder=\"{$placeholder}\">{$val}</textarea></div>";
 
             case 'info':
                 $html .= '<div class="fps-form-info">';
