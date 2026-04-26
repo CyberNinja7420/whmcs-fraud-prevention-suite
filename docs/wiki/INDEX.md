@@ -295,7 +295,7 @@ Use these search terms to find sections:
 
 ## Contributing & Updates
 
-These docs are maintained alongside the FPS v4.2.4 codebase. To update:
+These docs are maintained alongside the FPS v4.2.5 codebase. To update:
 
 1. Read the source files in `/lib/` and `fraud_prevention_suite.php`
 2. Update relevant .md file with changes
@@ -315,5 +315,5 @@ These docs are maintained alongside the FPS v4.2.4 codebase. To update:
 ---
 
 **Last Updated**: 2026-04-22
-**Module Version**: v4.2.4
+**Module Version**: v4.2.5
 **Docs Version**: 1.2

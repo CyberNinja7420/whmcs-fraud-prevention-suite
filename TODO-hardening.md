@@ -2,7 +2,7 @@
 
 Items the production-hardening passes did NOT close. Each item lists a severity and a rough effort estimate. Items marked `Pass-2: closed` were carried over from the first pass and resolved in v4.2.4 (2026-04-21); their entries are kept for context.
 
-**Last reconciled:** 2026-04-26 (6th reconciliation -- analytics setup wizard v4.2.6 shipped + Clarity DSR API retraction). Nothing structurally open.
+**Last reconciled:** 2026-04-26 (7th reconciliation -- audit-findings sweep applied on top of v4.2.6 wizard merge). Audit closed: version drift (version.json 4.2.4 -> 4.2.6), analytics loader bootstrap, server-module packaging, raw API key persistence, request-mutation cleanup, network-validation tightening, and CI release-integrity gates -- see fix/reconcile-audit-findings-v425. PSR-4 migration of lib/Analytics/ deferred (see below).
 
 ## Status legend
 
