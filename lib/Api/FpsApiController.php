@@ -183,6 +183,20 @@ class FpsApiController
      * GET /v1/topology/events -- Anonymized event feed
      * Accepts: hours (int), since (datetime), limit (int)
      */
+    /**
+     * Clamp a user-supplied numeric value into [$min, $max]. Pure
+     * helper so callers can pass the value explicitly rather than
+     * re-reading $_GET inside business code.
+     */
+    private static function fps_clampInt(mixed $raw, int $min, int $max, int $default): int
+    {
+        if ($raw === null || $raw === '') {
+            return $default;
+        }
+        $value = (int) $raw;
+        return max($min, min($max, $value));
+    }
+
     public function topologyEvents(): array
     {
         // Support: hours (int), since (datetime). hours=0 means all time.
@@ -194,7 +208,7 @@ class FpsApiController
         } else {
             $since = $_GET['since'] ?? date('Y-m-d H:i:s', time() - 86400);
         }
-        $limit = min((int)($_GET['limit'] ?? 100), 500);
+        $limit = self::fps_clampInt($_GET['limit'] ?? null, 1, 500, 100);
 
         $events = Capsule::table('mod_fps_geo_events')
             ->where('created_at', '>=', $since)
