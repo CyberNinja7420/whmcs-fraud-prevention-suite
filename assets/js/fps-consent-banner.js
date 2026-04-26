@@ -19,6 +19,8 @@
 
   const getCookie = n => (document.cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith(n+'='))||'').split('=')[1];
   const setCookie = (n,v) => { document.cookie = `${n}=${v};Max-Age=${MAX};path=/;SameSite=Lax`; };
+  const safeGet   = (st,k) => { try { return st && st.getItem(k); } catch (_) { return null; } };
+  const safeSet   = (st,k,v) => { try { if (st) st.setItem(k,v); } catch (_) {} };
   const cssVar    = (n,fb) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb;
   const isDark    = () => /dark/i.test(document.body.className||'') ||
                           !!(window.matchMedia && matchMedia('(prefers-color-scheme:dark)').matches);
@@ -54,10 +56,10 @@
     const el = document.getElementById(ID);
     if (!el || el.dataset.active !== '1') return;
 
-    const ls = localStorage.getItem(LS), ck = getCookie(LS);
+    const ls = safeGet(window.localStorage, LS), ck = getCookie(LS);
 
     if (ls === '1' || ck === '1') {                        // previously accepted
-      if (!sessionStorage.getItem(SF)) { sessionStorage.setItem(SF,'1'); assertConsent(); }
+      if (!safeGet(window.sessionStorage, SF)) { safeSet(window.sessionStorage, SF, '1'); assertConsent(); }
       return;
     }
     if (ls === '0' || ck === '0') return;                  // previously declined
@@ -68,10 +70,10 @@
     function dismiss(accept) {
       if (accept) {
         assertConsent();
-        localStorage.setItem(LS,'1'); setCookie(LS,'1');
+        safeSet(window.localStorage, LS, '1'); setCookie(LS,'1');
       } else {
         // Default-deny stays. No gtag/clarity calls.
-        localStorage.setItem(LS,'0'); setCookie(LS,'0');
+        safeSet(window.localStorage, LS, '0'); setCookie(LS,'0');
       }
       el.hidden = true; el.innerHTML = '';
       document.removeEventListener('keydown', onKey);
