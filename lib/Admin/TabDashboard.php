@@ -24,6 +24,7 @@ class TabDashboard
         $this->fpsRenderSetupWizard($modulelink);
         $this->fpsRenderStatsRow($modulelink);
         $this->fpsRenderLatencyWidget($modulelink);
+        $this->fpsRenderAnalyticsStatus($modulelink);
         $this->fpsRenderManualCheckForm($modulelink);
         $this->fpsRenderRecentChecks($modulelink);
     }
@@ -334,4 +335,49 @@ HTML;
 
         echo FpsAdminRenderer::renderCard('Recent Fraud Checks (Last 20)', 'fa-clock-rotate-left', $tableHtml);
     }
+
+    /**
+     * Analytics Connection Status widget.
+     *
+     * Shows GA4 + Clarity connection health (last server-event timestamp,
+     * 24h-count, status dot) when at least one of the three analytics
+     * toggles is on. Hidden entirely when nothing is configured -- avoids
+     * cluttering the dashboard for operators who haven't opted in.
+     *
+     * Closes Task 15 of docs/plans/2026-04-22-analytics-integration.md.
+     */
+    private function fpsRenderAnalyticsStatus(string $modulelink): void
+    {
+        if (!class_exists('\FpsAnalyticsConfig') || !class_exists('\FpsAnalyticsLog')) return;
+
+        $clientOn = \FpsAnalyticsConfig::isClientEnabled();
+        $adminOn  = \FpsAnalyticsConfig::isAdminEnabled();
+        $serverOn = \FpsAnalyticsConfig::isServerEnabled();
+
+        if (!$clientOn && !$adminOn && !$serverOn) return;
+
+        $ga4Status     = \FpsAnalyticsLog::statusSnapshot(\FpsAnalyticsLog::DEST_GA4_SERVER);
+        $clarityStatus = \FpsAnalyticsLog::statusSnapshot(\FpsAnalyticsLog::DEST_CLARITY);
+
+        $dot = function (bool $configured, ?string $lastTs): string {
+            if (!$configured) return '<span style="color:#888;">&#x26AA;</span>';
+            if ($lastTs === null) return '<span style="color:#f59e0b;">&#x1F7E1;</span>';
+            $age = time() - strtotime($lastTs);
+            return $age < 3600 ? '<span style="color:#16a34a;">&#x1F7E2;</span>' : '<span style="color:#ef4444;">&#x1F534;</span>';
+        };
+
+        $body  = '<div class="fps-analytics-status-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">';
+        $body .= '  <div><strong>' . $dot($serverOn, $ga4Status["ts"]) . ' Google Analytics 4</strong>';
+        $body .=      '<div class="fps-text-muted" style="font-size:.8rem;">Last server event: ' . htmlspecialchars($ga4Status["ts"] ?? '&mdash;', ENT_QUOTES, 'UTF-8') . ' &middot; '
+                    . (int) $ga4Status['count'] . ' in last 24h</div>';
+        $body .=      '<a href="https://analytics.google.com/" target="_blank" rel="noopener">Open GA4 Realtime &#x2197;</a></div>';
+        $body .= '  <div><strong>' . $dot($clientOn, $clarityStatus["ts"]) . ' Microsoft Clarity</strong>';
+        $body .=      '<div class="fps-text-muted" style="font-size:.8rem;">Sessions tagged via fps_* properties &middot; '
+                    . (int) $clarityStatus['count'] . ' in last 24h</div>';
+        $body .=      '<a href="https://clarity.microsoft.com/" target="_blank" rel="noopener">Open Clarity Dashboard &#x2197;</a></div>';
+        $body .= '</div>';
+
+        echo FpsAdminRenderer::renderCard('Analytics Connection Status', 'fa-chart-line', $body);
+    }
+
 }
