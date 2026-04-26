@@ -54,6 +54,7 @@ final class FpsAnalyticsConfig
         'clarity_project_id_client', 'clarity_project_id_admin',
         'analytics_eea_consent_required', 'analytics_event_sampling_rate',
         'analytics_high_risk_signup_threshold',
+        'clarity_dsr_token',
     ];
 
     // -----------------------------------------------------------------------
@@ -75,6 +76,7 @@ final class FpsAnalyticsConfig
         'analytics_eea_consent_required' => '1',
         'analytics_event_sampling_rate'        => '100',
         'analytics_high_risk_signup_threshold' => '80',
+        'clarity_dsr_token'              => '',
     ];
 
     // -----------------------------------------------------------------------
