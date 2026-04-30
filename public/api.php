@@ -23,10 +23,6 @@ if (file_exists($autoloaderPath)) {
     require_once $autoloaderPath;
 }
 
-$fpsAnalyticsBootstrap = dirname(__DIR__) . '/lib/AnalyticsBootstrap.php';
-if (file_exists($fpsAnalyticsBootstrap)) {
-    require_once $fpsAnalyticsBootstrap;
-}
 
 // Ensure the FPS_MODULE_VERSION constant is available in this entry point.
 // The constant is normally defined at the top of fraud_prevention_suite.php,

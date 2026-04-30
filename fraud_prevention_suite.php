@@ -17,7 +17,6 @@ use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsAnomalyDetector;
 // ---------------------------------------------------------------------------
 
 require_once __DIR__ . '/lib/Autoloader.php';
-require_once __DIR__ . '/lib/AnalyticsBootstrap.php';
 
 // ---------------------------------------------------------------------------
 // EXTRACTED HELPERS (TODO-hardening.md item #4 -- light extraction)
@@ -33,13 +32,6 @@ require_once __DIR__ . '/lib/Gdpr/FpsGdprHelper.php';
 require_once __DIR__ . '/lib/Gdpr/FpsAjaxGdpr.php';
 require_once __DIR__ . '/lib/Ajax/FpsAjaxBotCleanup.php';
 require_once __DIR__ . '/lib/FpsMailHelper.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConfig.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsLog.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsServerEvents.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConsentManager.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsInjector.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsDataApi.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsAnomalyDetector.php';
 
 // ---------------------------------------------------------------------------
 // VERSION (single source of truth)
