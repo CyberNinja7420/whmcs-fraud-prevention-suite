@@ -7,9 +7,12 @@
  * is in the list AND analytics_eea_consent_required = '1', the banner
  * is rendered and Consent Mode v2 default-deny is set.
  */
+namespace FraudPreventionSuite\Lib\Analytics;
+
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+
 if (!defined('WHMCS')) { die('This file cannot be accessed directly'); }
 
-require_once __DIR__ . '/FpsAnalyticsConfig.php';
 
 final class FpsAnalyticsConsentManager
 {

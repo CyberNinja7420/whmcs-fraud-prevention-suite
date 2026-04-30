@@ -4,6 +4,11 @@ if (!defined("WHMCS")) {
 }
 
 use WHMCS\Database\Capsule;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsLog;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsInjector;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsServerEvents;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsAnomalyDetector;
 
 // Load autoloader for lib/ classes
 $autoloaderPath = __DIR__ . '/lib/Autoloader.php';
@@ -11,13 +16,6 @@ if (file_exists($autoloaderPath)) {
     require_once $autoloaderPath;
 }
 
-// Load global-namespace analytics helpers (FpsAnalytics*) -- the autoloader
-// only resolves the FraudPreventionSuite\Lib\ prefix, so these are pulled
-// in explicitly. See lib/AnalyticsBootstrap.php for rationale.
-$fpsAnalyticsBootstrap = __DIR__ . '/lib/AnalyticsBootstrap.php';
-if (file_exists($fpsAnalyticsBootstrap)) {
-    require_once $fpsAnalyticsBootstrap;
-}
 
 // ---------------------------------------------------------------------------
 // 0. Load AI Assistant hooks (if module is installed but WHMCS isn't loading them)
@@ -65,7 +63,7 @@ add_hook('AdminAreaHeaderOutput', 1, function ($vars) {
         }
 
         // ---------- FPS Analytics (admin) ----------
-        if (class_exists('FpsAnalyticsInjector') && FpsAnalyticsConfig::isAdminEnabled()) {
+        if (class_exists(FpsAnalyticsInjector::class) && FpsAnalyticsConfig::isAdminEnabled()) {
             try {
                 $adminId   = (string) ($_SESSION['adminid'] ?? '');
                 $adminRole = (string) ($_SESSION['adminrole'] ?? '');
@@ -368,7 +366,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                             // Non-fatal -- don't let logging failure unblock the bot
                         }
 
-                        if (class_exists('FpsAnalyticsServerEvents')) {
+                        if (class_exists(FpsAnalyticsServerEvents::class)) {
                             try {
                                 FpsAnalyticsServerEvents::send('turnstile_fail', [
                                     'country'     => $country,
@@ -383,7 +381,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                         return ['Bot protection verification failed. Please refresh the page and try again. Reference: FPS-TS-' . date('ymdHi')];
                     } else {
                         // Turnstile passed
-                        if (class_exists('FpsAnalyticsServerEvents')) {
+                        if (class_exists(FpsAnalyticsServerEvents::class)) {
                             try {
                                 FpsAnalyticsServerEvents::send('turnstile_pass', ['country' => $country]);
                             } catch (\Throwable $analyticsEx) {
@@ -1360,7 +1358,7 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
 
 
     // ---------- FPS Analytics (client) ----------
-    if (class_exists('FpsAnalyticsInjector') && FpsAnalyticsConfig::isClientEnabled()) {
+    if (class_exists(FpsAnalyticsInjector::class) && FpsAnalyticsConfig::isClientEnabled()) {
         try {
             $visitorCountry = '';
             $ip = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -1627,7 +1625,7 @@ add_hook('ClientAdd', 1, function ($vars) {
             }
 
             $highRiskThreshold = (float) FpsAnalyticsConfig::get('analytics_high_risk_signup_threshold', '80');
-            if ($result->risk->score >= $highRiskThreshold && class_exists('FpsAnalyticsServerEvents')) {
+            if ($result->risk->score >= $highRiskThreshold && class_exists(FpsAnalyticsServerEvents::class)) {
                 try {
                     FpsAnalyticsServerEvents::send('high_risk_signup', [
                         'risk_score'   => $result->risk->score,
@@ -1819,18 +1817,18 @@ add_hook('DailyCronJob', 1, function ($vars) {
             logModuleCall('fraud_prevention_suite', 'DailyCron:GlobalIntelPush', '', $e->getMessage());
         }
 
-        if (class_exists('FpsAnalyticsAnomalyDetector')) {
+        if (class_exists(FpsAnalyticsAnomalyDetector::class)) {
             try { FpsAnalyticsAnomalyDetector::runDaily(); }
             catch (\Throwable $e) { logModuleCall('fraud_prevention_suite', 'AnalyticsAnomaly::ERROR', '', $e->getMessage()); }
         }
 
-        if (class_exists('FpsAnalyticsLog')) {
+        if (class_exists(FpsAnalyticsLog::class)) {
             try { FpsAnalyticsLog::purgeOlderThan(30); }
             catch (\Throwable $e) { /* non-fatal */ }
         }
 
         // Daily heartbeat event so we can see the cron ran in GA4 Realtime
-        if (class_exists('FpsAnalyticsServerEvents')) {
+        if (class_exists(FpsAnalyticsServerEvents::class)) {
             try {
                 FpsAnalyticsServerEvents::send('module_health', [
                     'module_version'    => defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'unknown',

@@ -64,11 +64,47 @@ Three products are pre-configured:
 Triggered when a new order is accepted or manually provisioned.
 
 - Generates a unique 52-character API key (`fps_` prefix + 48 hex chars)
-- Stores SHA-256 hash in `mod_fps_api_keys` (raw key never stored)
+- Stores **SHA-256 hash** in `mod_fps_api_keys` -- used by the REST API to
+  authenticate incoming requests. The raw key is never persisted to this table.
 - Sets `client_id` and `service_id` for tracking
 - Applies tier-based rate limits (or custom overrides from config options)
-- Stores key in `tblhosting.dedicatedip` for client area display
+- Stores **bcrypt hash** of the raw key in `tblhosting.dedicatedip` (since v4.2.6)
+  -- used to verify display attempts in the client area without ever persisting
+  cleartext. The raw key itself is shown to the customer **exactly once** via a
+  one-shot session flash (`fps_api_flashRawKey`), then dropped from the session
+  on read by `fps_api_consumeFlashRawKey`.
 - Logs creation to WHMCS module log
+
+### API Key Storage Model (v4.2.6+)
+
+There are two distinct hash families because they protect against different
+threats:
+
+| Surface | Table | Hash | Why |
+|---|---|---|---|
+| REST API auth (every request) | `mod_fps_api_keys.api_key` | SHA-256 | Per-request lookup must be O(log n); SHA-256 is constant-time keyed by the supplied raw key |
+| Client area display | `tblhosting.dedicatedip` | bcrypt | One-time-only verification at re-display moments; resistant to offline attack if the dedicatedip column is leaked |
+
+Helper functions in `modules/servers/fps_api/fps_api.php`:
+
+- `fps_api_isLegacyRawKey(string $stored): bool` -- detects pre-v4.2.6 cleartext
+  storage (matches `^fps_[a-zA-Z0-9]+$`)
+- `fps_api_verifyRawKey(string $supplied, string $stored): bool` -- pure
+  verifier; uses `password_verify()` for bcrypt rows and `hash_equals()` as
+  legacy fallback. Does NOT auto-upgrade.
+- `fps_api_upgradeLegacyKey(int $serviceId, string $verifiedRawKey): bool`
+  (since v4.2.6.1) -- explicit, opt-in helper that callers may invoke after a
+  successful legacy verify to migrate the row to bcrypt. Idempotent. Logs via
+  `logModuleCall('fps_api', 'UpgradeLegacyKey', ...)`.
+- `fps_api_flashRawKey(int $serviceId, string $rawKey): void` -- stash the raw
+  key in the WHMCS session for one-shot display.
+- `fps_api_consumeFlashRawKey(int $serviceId): string` -- read-and-clear; the
+  raw key is removed from the session as soon as it is read.
+
+The `ClientArea()` callback uses `fps_api_consumeFlashRawKey` immediately after
+provisioning, then falls back to a "regenerate to view" message for any
+subsequent visit. Pre-v4.2.6 installs that still have a cleartext value in
+`dedicatedip` get a banner prompting the operator to rotate.
 
 ### SuspendAccount
 Triggered on non-payment or admin action.

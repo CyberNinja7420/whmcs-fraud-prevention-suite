@@ -7,6 +7,58 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.7] - 2026-04-27
+
+Three independent items shipped together as v4.2.7:
+
+  1. **PSR-4 migration** of the seven `lib/Analytics/FpsAnalytics*` helper
+     classes. The classes now live under the
+     `FraudPreventionSuite\Lib\Analytics` namespace and are resolved by
+     the existing `lib/Autoloader.php`. **No behavior change** -- pure
+     refactor to align the analytics layer with the rest of the codebase
+     and remove the explicit `lib/AnalyticsBootstrap.php` include shim.
+  2. **Legacy raw API key one-shot migration** in `activate()` -- walks
+     `tblhosting` for any rows whose `dedicatedip` is still in the strict
+     legacy `^fps_[a-zA-Z0-9]+\$` cleartext format and rewrites them to
+     a bcrypt hash. Existing customer API keys keep working (the verifier
+     accepts both formats; `password_verify(\$rawKey, \$bcryptHash)`
+     returns true for the same input we just hashed).
+  3. **Documentation accuracy fixes** to the wiki Server-Module-Guide
+     (corrected the API-key-storage section that still claimed cleartext
+     storage in `dedicatedip`) and INDEX (stale v4.2.5 footer stamp).
+
+### Added
+- One-shot legacy raw API key migration in
+  `fraud_prevention_suite_activate()`. Idempotent: rows already in bcrypt
+  format are skipped, and a strict regex check refuses to overwrite any
+  value that does not unambiguously look like a raw FPS key. Logs the
+  migrated count via `logModuleCall('fraud_prevention_suite',
+  'LegacyApiKeyMigration', ...)`.
+- New "API Key Storage Model (v4.2.6+)" section in
+  `docs/wiki/Server-Module-Guide.md` documenting both storage surfaces
+  (`mod_fps_api_keys` SHA-256 for REST auth vs `tblhosting.dedicatedip`
+  bcrypt for client-area display) and the five `fps_api_*` helpers.
+
+### Changed
+- `lib/Analytics/FpsAnalytics{Config,Log,Injector,DataApi,ServerEvents,ConsentManager,AnomalyDetector}.php`
+  now declare `namespace FraudPreventionSuite\Lib\Analytics;` and
+  reference each other via `use` statements instead of `require_once`.
+- All call sites (`hooks.php`, `fraud_prevention_suite.php`,
+  `lib/Admin/TabDashboard.php`, `lib/FpsCheckRunner.php`) now `use` the
+  fully-qualified class names; `class_exists()` checks switched to the
+  `::class` constant form.
+
+### Removed
+- `lib/AnalyticsBootstrap.php` -- no longer needed; the PSR-4 autoloader
+  handles all analytics-class resolution. Removed the corresponding
+  `require_once` calls from `hooks.php`, `fraud_prevention_suite.php`,
+  and `public/api.php`.
+- The seven analytics-class stub blocks from
+  `phpstan-stubs/fps-globals.php`. Static analysis now reads the real
+  PSR-4 classes directly.
+
+---
+
 ## [4.2.6.1] - 2026-04-26
 
 Audit follow-up patch on top of v4.2.6. No version bump on

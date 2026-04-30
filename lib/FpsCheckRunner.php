@@ -15,6 +15,7 @@ use FraudPreventionSuite\Lib\Models\FpsRiskResult;
 use FraudPreventionSuite\Lib\Models\FpsRuleResult;
 use FraudPreventionSuite\Lib\Providers\TorDatacenterProvider;
 use FraudPreventionSuite\Lib\Providers\SmtpVerificationProvider;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsServerEvents;
 
 /**
  * FpsCheckRunner -- the fraud check orchestrator.
@@ -467,12 +468,12 @@ class FpsCheckRunner
 
             // Server-side analytics event (see docs/plans/2026-04-22-analytics-integration-design.md).
             // Fire-and-forget: gated by enable_server_events; auto-flushes at shutdown.
-            if (class_exists('FpsAnalyticsServerEvents')) {
+            if (class_exists(FpsAnalyticsServerEvents::class)) {
                 try {
                     $thresholds = FpsHookHelpers::fps_resolvePreCheckoutThresholds();
                     $analyticsEvent = ($result->risk->score >= (float) $thresholds['block'])
                         ? 'pre_checkout_block' : 'pre_checkout_allow';
-                    \FpsAnalyticsServerEvents::send($analyticsEvent, [
+                    FpsAnalyticsServerEvents::send($analyticsEvent, [
                         'risk_score'  => round((float) $result->risk->score, 2),
                         'risk_level'  => $result->risk->level,
                         'country'     => $context->country,

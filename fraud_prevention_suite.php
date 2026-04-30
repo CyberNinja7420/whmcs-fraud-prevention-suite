@@ -4,13 +4,19 @@ if (!defined("WHMCS")) {
 }
 
 use WHMCS\Database\Capsule;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsLog;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsInjector;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsDataApi;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsServerEvents;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConsentManager;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsAnomalyDetector;
 
 // ---------------------------------------------------------------------------
 // AUTOLOADER
 // ---------------------------------------------------------------------------
 
 require_once __DIR__ . '/lib/Autoloader.php';
-require_once __DIR__ . '/lib/AnalyticsBootstrap.php';
 
 // ---------------------------------------------------------------------------
 // EXTRACTED HELPERS (TODO-hardening.md item #4 -- light extraction)
@@ -26,13 +32,6 @@ require_once __DIR__ . '/lib/Gdpr/FpsGdprHelper.php';
 require_once __DIR__ . '/lib/Gdpr/FpsAjaxGdpr.php';
 require_once __DIR__ . '/lib/Ajax/FpsAjaxBotCleanup.php';
 require_once __DIR__ . '/lib/FpsMailHelper.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConfig.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsLog.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsServerEvents.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsConsentManager.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsInjector.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsDataApi.php';
-require_once __DIR__ . '/lib/Analytics/FpsAnalyticsAnomalyDetector.php';
 
 // ---------------------------------------------------------------------------
 // VERSION (single source of truth)
@@ -41,7 +40,7 @@ require_once __DIR__ . '/lib/Analytics/FpsAnalyticsAnomalyDetector.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define("FPS_MODULE_VERSION", "4.2.6");
+    define("FPS_MODULE_VERSION", "4.2.7");
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +230,55 @@ function fraud_prevention_suite_activate(): array
             Capsule::table('mod_fps_settings')->where('setting_key', 'clarity_dsr_token')->delete();
         } catch (\Throwable $e) {
             logModuleCall('fraud_prevention_suite', 'ClarityDsrCleanup::ERROR', '', $e->getMessage());
+        }
+
+        // v4.2.7 one-time legacy raw API key migration.
+        // The fps_api server module shipped pre-v4.2.6 stored the cleartext
+        // customer API key in tblhosting.dedicatedip. v4.2.6 switched the
+        // CreateAccount/RegenerateKey paths to write a bcrypt hash + show
+        // the raw key once via session flash. v4.2.7 closes the migration
+        // gap by rewriting any rows whose dedicatedip is still in the
+        // legacy ^fps_[a-zA-Z0-9]+$ format to a bcrypt hash of that same
+        // value -- existing customer API keys keep working unchanged
+        // because the verifier accepts both formats.
+        // Idempotent: only rows whose stored value still matches the
+        // legacy regex AND is not already bcrypt are touched. Rows that
+        // are already bcrypt, empty, or non-FPS are skipped.
+        try {
+            $rows = Capsule::table('tblhosting')
+                ->whereNotNull('dedicatedip')
+                ->where('dedicatedip', '<>', '')
+                ->where('dedicatedip', 'like', 'fps\\_%')
+                ->select(['id', 'dedicatedip'])
+                ->get();
+            $migrated = 0;
+            foreach ($rows as $row) {
+                $stored = (string) $row->dedicatedip;
+                // Skip if already bcrypt (defensive -- LIKE match is on prefix only).
+                if (str_starts_with($stored, '$2y$') || str_starts_with($stored, '$2a$') || str_starts_with($stored, '$2b$')) {
+                    continue;
+                }
+                // Skip if not the strict legacy format -- only migrate values
+                // that are unambiguously raw FPS keys.
+                if (!preg_match('/^fps_[a-zA-Z0-9]+$/', $stored)) {
+                    continue;
+                }
+                $hash = password_hash($stored, PASSWORD_BCRYPT);
+                Capsule::table('tblhosting')
+                    ->where('id', $row->id)
+                    ->update(['dedicatedip' => $hash]);
+                $migrated++;
+            }
+            if ($migrated > 0) {
+                logModuleCall(
+                    'fraud_prevention_suite',
+                    'LegacyApiKeyMigration',
+                    ['migrated_count' => $migrated],
+                    'Migrated ' . $migrated . ' legacy raw API key row(s) to bcrypt'
+                );
+            }
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'LegacyApiKeyMigration::ERROR', '', $e->getMessage());
         }
 
         if (!Capsule::schema()->hasTable('mod_fps_reports')) {

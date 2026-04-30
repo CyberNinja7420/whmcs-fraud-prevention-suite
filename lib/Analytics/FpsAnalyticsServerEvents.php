@@ -7,10 +7,13 @@
  * 12 known event names live in self::EVENTS as constants for lint-time
  * typo protection.
  */
+namespace FraudPreventionSuite\Lib\Analytics;
+
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsLog;
+
 if (!defined('WHMCS')) { die('This file cannot be accessed directly'); }
 
-require_once __DIR__ . '/FpsAnalyticsConfig.php';
-require_once __DIR__ . '/FpsAnalyticsLog.php';
 
 final class FpsAnalyticsServerEvents
 {

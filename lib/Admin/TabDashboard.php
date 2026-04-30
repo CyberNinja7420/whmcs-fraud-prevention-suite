@@ -9,6 +9,9 @@ if (!defined("WHMCS")) {
 
 
 use WHMCS\Database\Capsule;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsLog;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsDataApi;
 
 /**
  * TabDashboard -- main dashboard with 8 animated stat cards, manual check form,
@@ -348,16 +351,16 @@ HTML;
      */
     private function fpsRenderAnalyticsStatus(string $modulelink): void
     {
-        if (!class_exists('\FpsAnalyticsConfig') || !class_exists('\FpsAnalyticsLog')) return;
+        if (!class_exists(FpsAnalyticsConfig::class) || !class_exists(FpsAnalyticsLog::class)) return;
 
-        $clientOn = \FpsAnalyticsConfig::isClientEnabled();
-        $adminOn  = \FpsAnalyticsConfig::isAdminEnabled();
-        $serverOn = \FpsAnalyticsConfig::isServerEnabled();
+        $clientOn = FpsAnalyticsConfig::isClientEnabled();
+        $adminOn  = FpsAnalyticsConfig::isAdminEnabled();
+        $serverOn = FpsAnalyticsConfig::isServerEnabled();
 
         if (!$clientOn && !$adminOn && !$serverOn) return;
 
-        $ga4Status     = \FpsAnalyticsLog::statusSnapshot(\FpsAnalyticsLog::DEST_GA4_SERVER);
-        $clarityStatus = \FpsAnalyticsLog::statusSnapshot(\FpsAnalyticsLog::DEST_CLARITY);
+        $ga4Status     = FpsAnalyticsLog::statusSnapshot(FpsAnalyticsLog::DEST_GA4_SERVER);
+        $clarityStatus = FpsAnalyticsLog::statusSnapshot(FpsAnalyticsLog::DEST_CLARITY);
 
         $dot = function (bool $configured, ?string $lastTs): string {
             if (!$configured) return '<span style="color:#888;">&#x26AA;</span>';
@@ -375,11 +378,11 @@ HTML;
         // Task 17: append yesterday's pre-checkout-block count when SA JSON +
         // property ID are both configured. Calls go through the cached Data
         // API client; widget shows '--' when null (graceful degradation).
-        if (class_exists('\FpsAnalyticsDataApi')
-            && \FpsAnalyticsConfig::get('ga4_service_account_json') !== ''
-            && \FpsAnalyticsConfig::get('ga4_property_id') !== ''
+        if (class_exists(FpsAnalyticsDataApi::class)
+            && FpsAnalyticsConfig::get('ga4_service_account_json') !== ''
+            && FpsAnalyticsConfig::get('ga4_property_id') !== ''
         ) {
-            $ydayCount = \FpsAnalyticsDataApi::getYesterdayCount('fps_pre_checkout_block');
+            $ydayCount = FpsAnalyticsDataApi::getYesterdayCount('fps_pre_checkout_block');
             $ydayLabel = $ydayCount === null ? '&mdash;' : (string) $ydayCount;
             $body  = (string) preg_replace(
                 '#(Open GA4 Realtime &\#x2197;</a>)</div>#',
