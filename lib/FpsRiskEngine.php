@@ -51,6 +51,11 @@ class FpsRiskEngine
         'bot_detection'      => 2.0,
         'bot_pattern'        => 2.0,  // Legacy alias for fast-path bot detection
         'global_intel'       => 1.5,
+        // v4.2.7.4 -- newly-wired providers
+        'breach_check'       => 1.4,  // HIBP hits are strong signal
+        'social_presence'    => 0.7,  // Soft signal (real users may opt out of socials)
+        'phone_validation'   => 0.9,  // Carrier/line-type is moderately predictive
+        'bin_lookup'         => 1.0,  // BIN-vs-billing-country mismatch is a flag
     ];
 
     public function __construct(?FpsConfig $config = null)

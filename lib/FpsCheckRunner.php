@@ -859,6 +859,92 @@ class FpsCheckRunner
             }
         }
 
+        // v4.2.7.4 Provider: Breach Check (HIBP) -- email seen in known breaches
+        if ($context->email !== '') {
+            try {
+                $breachProvider = new \FraudPreventionSuite\Lib\Providers\BreachCheckProvider();
+                if ($breachProvider->isEnabled()) {
+                    $breachResult = $breachProvider->check($context->toArray());
+                    $results[] = [
+                        'provider' => 'breach_check',
+                        'score'    => (float) ($breachResult['score'] ?? 0),
+                        'details'  => is_array($breachResult['details'] ?? null)
+                            ? implode('; ', array_map('strval', $breachResult['details']))
+                            : (string) ($breachResult['details'] ?? ''),
+                        'factors'  => [['factor' => 'breach_check', 'score' => (float) ($breachResult['score'] ?? 0)]],
+                        'success'  => true,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'BreachCheckProvider::ERROR', '', $e->getMessage());
+            }
+        }
+
+        // v4.2.7.4 Provider: Social Presence -- email's footprint across social platforms
+        if ($context->email !== '') {
+            try {
+                $socialProvider = new \FraudPreventionSuite\Lib\Providers\SocialPresenceProvider();
+                if ($socialProvider->isEnabled()) {
+                    $socialResult = $socialProvider->check($context->toArray());
+                    $results[] = [
+                        'provider' => 'social_presence',
+                        'score'    => (float) ($socialResult['score'] ?? 0),
+                        'details'  => is_array($socialResult['details'] ?? null)
+                            ? implode('; ', array_map('strval', $socialResult['details']))
+                            : (string) ($socialResult['details'] ?? ''),
+                        'factors'  => [['factor' => 'social_presence', 'score' => (float) ($socialResult['score'] ?? 0)]],
+                        'success'  => true,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'SocialPresenceProvider::ERROR', '', $e->getMessage());
+            }
+        }
+
+        // v4.2.7.4 Provider: Phone Validation -- format / carrier / line-type
+        if ($context->phone !== '') {
+            try {
+                $phoneProvider = new \FraudPreventionSuite\Lib\Providers\PhoneValidationProvider();
+                if ($phoneProvider->isEnabled()) {
+                    $phoneResult = $phoneProvider->check($context->toArray());
+                    $results[] = [
+                        'provider' => 'phone_validation',
+                        'score'    => (float) ($phoneResult['score'] ?? 0),
+                        'details'  => is_array($phoneResult['details'] ?? null)
+                            ? implode('; ', array_map('strval', $phoneResult['details']))
+                            : (string) ($phoneResult['details'] ?? ''),
+                        'factors'  => [['factor' => 'phone_validation', 'score' => (float) ($phoneResult['score'] ?? 0)]],
+                        'success'  => true,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'PhoneValidationProvider::ERROR', '', $e->getMessage());
+            }
+        }
+
+        // v4.2.7.4 Provider: BIN Lookup -- credit-card BIN/issuer/country
+        // Reads card_first6 from context meta (extended via toArray()).
+        $cardFirst6 = (string) ($context->meta['card_first6'] ?? '');
+        if ($cardFirst6 !== '' && preg_match('/^[0-9]{6,8}$/', $cardFirst6)) {
+            try {
+                $binProvider = new \FraudPreventionSuite\Lib\Providers\BinLookupProvider();
+                if ($binProvider->isEnabled()) {
+                    $binResult = $binProvider->check($context->toArray());
+                    $results[] = [
+                        'provider' => 'bin_lookup',
+                        'score'    => (float) ($binResult['score'] ?? 0),
+                        'details'  => is_array($binResult['details'] ?? null)
+                            ? implode('; ', array_map('strval', $binResult['details']))
+                            : (string) ($binResult['details'] ?? ''),
+                        'factors'  => [['factor' => 'bin_lookup', 'score' => (float) ($binResult['score'] ?? 0)]],
+                        'success'  => true,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'BinLookupProvider::ERROR', '', $e->getMessage());
+            }
+        }
+
         // v3.0 Provider: Behavioral scoring (if fingerprint data includes behavioral signals)
         if (!empty($context->meta['behavioral_data'])) {
             $behavioralData = $context->meta['behavioral_data'];
