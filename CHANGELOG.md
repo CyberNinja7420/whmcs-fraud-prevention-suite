@@ -7,6 +7,36 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.6.1] - 2026-04-26
+
+Audit follow-up patch on top of v4.2.6. No version bump on
+fraud_prevention_suite.php / version.json -- this is a docs + helper
+patch only, intended to keep the integrity gate green and to close two
+caveats from the prior release report.
+
+### Added
+- `fps_api_upgradeLegacyKey(int $serviceId, string $verifiedRawKey): bool`
+  in modules/servers/fps_api/fps_api.php. Explicit, opt-in helper that
+  callers may invoke after a successful `fps_api_verifyRawKey()` against a
+  legacy raw-format value to migrate storage to a bcrypt hash. Logged via
+  `logModuleCall('fps_api', 'UpgradeLegacyKey', ...)` on success and
+  `'UpgradeLegacyKey::ERROR'` on failure. Non-fatal: a DB-write failure
+  does not affect the verify result the caller already received.
+
+### Changed
+- `scripts/check-release-integrity.sh` now resolves repo root via three
+  strategies: `--repo-root <path>` flag, walk-up sentinel detection
+  (looking for fraud_prevention_suite.php with FPS_MODULE_VERSION), and
+  finally the legacy `dirname/..` fallback. Fixes the case where the
+  script was copied outside `<repo>/scripts/` (e.g. to /tmp on a live
+  install) and silently failed.
+
+### Documentation
+- `fps_api_verifyRawKey()` docblock tightened: explicitly states the
+  function does NOT auto-upgrade legacy keys. The v4.2.6 PR body
+  overclaimed an automatic-upgrade behaviour that did not exist; the
+  new helper above gives callers an explicit, opt-in path.
+
 ## [4.2.6] - 2026-04-26
 
 ### Added

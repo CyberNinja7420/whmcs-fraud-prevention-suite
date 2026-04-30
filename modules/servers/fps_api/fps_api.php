@@ -99,8 +99,13 @@ function fps_api_isLegacyRawKey(string $stored): bool
 /**
  * Verify a client-supplied raw key against the bcrypt hash we keep in
  * tblhosting.dedicatedip. Falls back to a constant-time compare against
- * the legacy raw value so existing installs still work until they
- * regenerate.
+ * the legacy raw value so existing installs still work.
+ *
+ * This function is intentionally pure -- it does NOT write back to the
+ * database. Callers that have just successfully verified a legacy raw
+ * key (fps_api_isLegacyRawKey($stored) returned true) and want to
+ * migrate storage to a bcrypt hash should call
+ * fps_api_upgradeLegacyKey($serviceId, $supplied) explicitly.
  */
 function fps_api_verifyRawKey(string $supplied, string $stored): bool
 {
@@ -138,6 +143,76 @@ function fps_api_consumeFlashRawKey(int $serviceId): string
         \WHMCS\Session::delete('fps_api_raw_key_' . $serviceId);
     }
     return $value;
+}
+
+/**
+ * Opt-in upgrade for a legacy raw-format key.
+ *
+ * fps_api_verifyRawKey() is intentionally pure -- it returns bool and does
+ * not write back to the database. Callers that have just successfully
+ * verified a $supplied key against a $stored value KNOWN to be in the
+ * legacy raw format (i.e. fps_api_isLegacyRawKey($stored) returned true)
+ * MAY call this function to migrate the storage to a bcrypt hash. This
+ * is opt-in because:
+ *   -  Auto-upgrading inside verify() turns a verifier into a writer,
+ *      which is surprising and creates a race when two requests arrive
+ *      with the same legacy key concurrently.
+ *   -  The caller is best positioned to decide whether the current
+ *      transaction is the right moment to write (e.g. read-only API
+ *      paths should NOT silently issue an UPDATE).
+ *
+ * Returns true on a successful storage rewrite, false if the row was
+ * not in legacy format (already bcrypt -- no-op) or if the DB write
+ * raised an exception (logged via logModuleCall, non-fatal so verify
+ * still returns success).
+ *
+ * Idempotent: a second call after upgrade is a no-op.
+ */
+function fps_api_upgradeLegacyKey(int $serviceId, string $verifiedRawKey): bool
+{
+    if ($serviceId <= 0 || $verifiedRawKey === '') {
+        return false;
+    }
+    try {
+        $row = Capsule::table('tblhosting')->where('id', $serviceId)->first();
+        if (!$row || empty($row->dedicatedip)) {
+            return false;
+        }
+        // Already bcrypt? Nothing to do.
+        if (str_starts_with((string) $row->dedicatedip, '$2y$')
+            || str_starts_with((string) $row->dedicatedip, '$2a$')
+            || str_starts_with((string) $row->dedicatedip, '$2b$')) {
+            return false;
+        }
+        // Final defence: only upgrade if the stored value really IS the legacy
+        // raw key we just verified -- never silently overwrite anything else.
+        if (!hash_equals((string) $row->dedicatedip, $verifiedRawKey)) {
+            return false;
+        }
+        $newHash = password_hash($verifiedRawKey, PASSWORD_BCRYPT);
+        Capsule::table('tblhosting')
+            ->where('id', $serviceId)
+            ->update(['dedicatedip' => $newHash]);
+        if (function_exists('logModuleCall')) {
+            logModuleCall(
+                'fps_api',
+                'UpgradeLegacyKey',
+                ['service_id' => $serviceId],
+                'OK -- legacy raw key migrated to bcrypt hash'
+            );
+        }
+        return true;
+    } catch (\Throwable $e) {
+        if (function_exists('logModuleCall')) {
+            logModuleCall(
+                'fps_api',
+                'UpgradeLegacyKey::ERROR',
+                ['service_id' => $serviceId],
+                $e->getMessage()
+            );
+        }
+        return false;
+    }
 }
 
 // ---------------------------------------------------------------------------
