@@ -201,14 +201,54 @@ HTML;
      * @param float|null $score Optional numeric score to show in parentheses
      * @return string
      */
-    public static function renderBadge(string $level, ?float $score = null): string
+    public static function renderBadge(string $level, ?float $score = null, ?string $providerScoresJson = null): string
     {
         $safeLevel = htmlspecialchars($level, ENT_QUOTES, 'UTF-8');
         $text = strtoupper($safeLevel);
         if ($score !== null) {
             $text .= ' (' . number_format($score, 1) . ')';
         }
-        return '<span class="fps-badge fps-badge-' . $safeLevel . '">' . $text . '</span>';
+
+        // No provider_scores -> plain badge (backward compatible).
+        if ($providerScoresJson === null || $providerScoresJson === '') {
+            return '<span class="fps-badge fps-badge-' . $safeLevel . '">' . $text . '</span>';
+        }
+
+        // With provider_scores JSON: render an interactive badge that, on
+        // hover, exposes a breakdown of which providers contributed to the
+        // displayed risk score. Lets admins see WHY a check scored what it
+        // did without leaving the review queue.
+        $decoded = json_decode($providerScoresJson, true);
+        if (!is_array($decoded) || empty($decoded)) {
+            return '<span class="fps-badge fps-badge-' . $safeLevel . '">' . $text . '</span>';
+        }
+
+        // Sort components highest-first so the worst contributors are at the
+        // top of the tooltip -- matches what the admin needs to know first.
+        arsort($decoded, SORT_NUMERIC);
+
+        $rows = '';
+        foreach ($decoded as $provider => $providerScore) {
+            $providerLabel = htmlspecialchars(str_replace('_', ' ', (string) $provider), ENT_QUOTES, 'UTF-8');
+            $providerVal   = is_numeric($providerScore) ? number_format((float) $providerScore, 1) : htmlspecialchars((string) $providerScore, ENT_QUOTES, 'UTF-8');
+            $weightClass   = is_numeric($providerScore) && $providerScore >= 50 ? 'fps-score-row-hot'
+                           : (is_numeric($providerScore) && $providerScore >= 20 ? 'fps-score-row-warm' : 'fps-score-row-cool');
+            $rows .= '<div class="fps-score-row ' . $weightClass . '"><span class="fps-score-provider">' . $providerLabel . '</span>'
+                  . '<span class="fps-score-value">' . $providerVal . '</span></div>';
+        }
+
+        $title = 'Risk score breakdown';
+        if ($score !== null) {
+            $title .= ' &mdash; final ' . number_format($score, 1);
+        }
+
+        return '<span class="fps-badge-wrap" tabindex="0">'
+             . '<span class="fps-badge fps-badge-' . $safeLevel . '" data-has-breakdown="1">' . $text . '</span>'
+             . '<span class="fps-score-breakdown" role="tooltip" aria-label="Risk score breakdown">'
+             . '<span class="fps-score-breakdown-title">' . $title . '</span>'
+             . $rows
+             . '</span>'
+             . '</span>';
     }
 
     /**
