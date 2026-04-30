@@ -19,8 +19,58 @@ say() { printf "%s\n" "$*"; }
 warn() { printf "[FAIL] %s\n" "$*" >&2; fail=1; }
 ok()   { printf "[ OK ] %s\n" "$*"; }
 
-# Move to repo root regardless of where the script is invoked from.
-cd "$(dirname "$0")/.." || exit 2
+# ---------------------------------------------------------------------
+# Locate the repo root. Three resolution strategies, in order:
+#   1.  --repo-root <path> on the command line (explicit override).
+#   2.  Walk up from $PWD looking for the canonical sentinel file
+#       (fraud_prevention_suite.php with the FPS_MODULE_VERSION define).
+#   3.  Fall back to <script-dir>/.. (original behaviour, preserved
+#       so the in-repo path keeps working when invoked via
+#       `bash scripts/check-release-integrity.sh`).
+# This makes the script callable from anywhere -- including from a
+# tarball-deploy on a live install where the script may have been
+# copied outside its original `<repo>/scripts/` location.
+# ---------------------------------------------------------------------
+REPO_ROOT=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --repo-root) REPO_ROOT="${2:-}"; shift 2 ;;
+        --repo-root=*) REPO_ROOT="${1#--repo-root=}"; shift ;;
+        -h|--help)
+            echo "Usage: $0 [--repo-root <path>]"
+            echo "  --repo-root <path>   Explicit repo root (else auto-detected)"
+            exit 0 ;;
+        *) echo "Unknown argument: $1" >&2; exit 2 ;;
+    esac
+done
+
+fps_find_repo_root() {
+    local d="$1"
+    while [ "$d" != "/" ] && [ -n "$d" ]; do
+        if [ -f "$d/fraud_prevention_suite.php" ] \
+            && grep -q 'FPS_MODULE_VERSION' "$d/fraud_prevention_suite.php" 2>/dev/null; then
+            printf "%s\n" "$d"
+            return 0
+        fi
+        d="$(dirname "$d")"
+    done
+    return 1
+}
+
+if [ -z "$REPO_ROOT" ]; then
+    REPO_ROOT="$(fps_find_repo_root "$PWD" || true)"
+fi
+if [ -z "$REPO_ROOT" ]; then
+    # Last-ditch fallback: assume the in-repo install location.
+    REPO_ROOT="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd || true)"
+fi
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/fraud_prevention_suite.php" ]; then
+    echo "[FAIL] could not locate repo root containing fraud_prevention_suite.php" >&2
+    echo "       try: $0 --repo-root <path-to-repo-or-install>" >&2
+    exit 2
+fi
+cd "$REPO_ROOT" || exit 2
+say "Repo root: $REPO_ROOT"
 
 # 1. Extract canonical version from fraud_prevention_suite.php
 php_version="$(grep -oE 'define\("FPS_MODULE_VERSION", "[0-9]+\.[0-9]+\.[0-9]+"\)' fraud_prevention_suite.php \
