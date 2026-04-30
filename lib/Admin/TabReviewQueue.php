@@ -183,7 +183,7 @@ class TabReviewQueue
                     : '<span class="fps-text-muted">—</span>';
 
                 // ---- Risk badge ----
-                $badge = FpsAdminRenderer::renderBadge($check->risk_level, (float)$check->risk_score);
+                $badge = FpsAdminRenderer::renderBadge($check->risk_level, (float)$check->risk_score, $check->provider_scores ?? null);
 
                 // ---- IP / Country ----
                 $ip      = htmlspecialchars($check->ip_address ?? '—', ENT_QUOTES, 'UTF-8');

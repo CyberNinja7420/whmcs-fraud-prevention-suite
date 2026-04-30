@@ -2912,3 +2912,67 @@ input:checked + .fps-toggle-slider::after { transform: translateX(16px); }
   .fps-modal-overlay { display: none !important; }
   .fps-card { box-shadow: none; border: 1px solid #ddd; }
 }
+
+
+/* Risk score breakdown tooltip (v4.2.7.1) -- hover or focus on the
+   wrapped badge to reveal which providers contributed to the score. */
+.fps-badge-wrap {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+.fps-badge-wrap .fps-score-breakdown {
+    display: none;
+    position: absolute;
+    z-index: 1500;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 240px;
+    max-width: 360px;
+    padding: 10px 12px;
+    background: var(--fps-bg-overlay, #ffffff);
+    color: var(--fps-text, #111);
+    border: 1px solid var(--fps-border, #d0d4d9);
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal;
+    pointer-events: auto;
+}
+.fps-badge-wrap:hover .fps-score-breakdown,
+.fps-badge-wrap:focus-within .fps-score-breakdown,
+.fps-badge-wrap:focus .fps-score-breakdown {
+    display: block;
+}
+.fps-score-breakdown-title {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--fps-border-light, #e5e7eb);
+    color: var(--fps-text-muted, #4b5563);
+}
+.fps-score-breakdown .fps-score-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 0;
+}
+.fps-score-breakdown .fps-score-provider {
+    text-transform: capitalize;
+    color: var(--fps-text, #111);
+}
+.fps-score-breakdown .fps-score-value {
+    font-family: var(--fps-mono, ui-monospace, "SF Mono", monospace);
+    font-weight: 600;
+}
+.fps-score-row.fps-score-row-hot  .fps-score-value { color: #dc2626; }
+.fps-score-row.fps-score-row-warm .fps-score-value { color: #d97706; }
+.fps-score-row.fps-score-row-cool .fps-score-value { color: #6b7280; }
+.fps-badge[data-has-breakdown="1"] {
+    border-bottom: 1px dotted currentColor;
+    padding-bottom: 0;
+}
