@@ -4,10 +4,13 @@
  * admin-side analytics. Pure string output, no side effects. Caller
  * (hooks.php) decides where to echo the result.
  */
+namespace FraudPreventionSuite\Lib\Analytics;
+
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConsentManager;
+
 if (!defined('WHMCS')) { die('This file cannot be accessed directly'); }
 
-require_once __DIR__ . '/FpsAnalyticsConfig.php';
-require_once __DIR__ . '/FpsAnalyticsConsentManager.php';
 
 final class FpsAnalyticsInjector
 {

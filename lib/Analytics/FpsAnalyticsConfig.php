@@ -17,6 +17,9 @@
  * Part of the Analytics Integration (v4.2.5).
  */
 
+namespace FraudPreventionSuite\Lib\Analytics;
+
+
 if (!defined('WHMCS')) {
     die('This file cannot be accessed directly');
 }

@@ -5,6 +5,8 @@
  * (logging failures must never break a real request); reads are
  * cheap (indexed on event_name + created_at).
  */
+namespace FraudPreventionSuite\Lib\Analytics;
+
 if (!defined('WHMCS')) { die('This file cannot be accessed directly'); }
 
 use WHMCS\Database\Capsule;

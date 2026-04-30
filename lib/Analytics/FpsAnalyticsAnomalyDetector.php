@@ -9,9 +9,12 @@
  *
  * Closes Task 18 of docs/plans/2026-04-22-analytics-integration.md.
  */
+namespace FraudPreventionSuite\Lib\Analytics;
+
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsLog;
+
 if (!defined('WHMCS')) { die('This file cannot be accessed directly'); }
 
-require_once __DIR__ . '/FpsAnalyticsLog.php';
 
 final class FpsAnalyticsAnomalyDetector
 {

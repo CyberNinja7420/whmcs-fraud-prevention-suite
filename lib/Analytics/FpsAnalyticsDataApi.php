@@ -13,11 +13,14 @@
  *
  * Closes Task 17 of docs/plans/2026-04-22-analytics-integration.md.
  */
+namespace FraudPreventionSuite\Lib\Analytics;
+
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+
 if (!defined('WHMCS')) {
     die('This file cannot be accessed directly');
 }
 
-require_once __DIR__ . '/FpsAnalyticsConfig.php';
 
 use WHMCS\Database\Capsule;
 
