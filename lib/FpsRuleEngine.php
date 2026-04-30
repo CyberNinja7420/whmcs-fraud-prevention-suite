@@ -166,7 +166,7 @@ class FpsRuleEngine
             'country_block'     => $this->fps_matchCountryBlock($rule->rule_value, $context->country),
             'velocity'          => $this->fps_matchVelocity($rule->rule_value, $context),
             'amount'            => $this->fps_matchAmount($rule->rule_value, $context->amount),
-            'domain_age'        => $this->fps_matchDomainAge($rule->rule_value, $context->domain),
+            'domain_age'        => $this->fps_matchDomainAge($rule->rule_value, $context),
             'fingerprint_match' => $this->fps_matchFingerprint($rule->rule_value, $context->fingerprintHash),
             default             => false,
         };
@@ -212,8 +212,30 @@ class FpsRuleEngine
         if ($email === '' || $ruleValue === '') {
             return false;
         }
-        // Suppress regex errors from bad patterns
-        $result = @preg_match('/' . $ruleValue . '/i', $email);
+
+        // Support three input styles:
+        //   1. /raw-regex/flags  -- power-user raw regex, used as-is
+        //   2. glob with * or ?  -- e.g. *@tempmail.com (the documented UI
+        //      example) -- converted to anchored regex
+        //   3. otherwise         -- treated as literal substring (case-insensitive)
+        // The previous implementation passed every input verbatim into
+        // preg_match, which made the documented glob example silently fail.
+        $value   = trim($ruleValue);
+        $pattern = '';
+        if ($value !== '' && $value[0] === '/' && (substr_count($value, '/') >= 2)) {
+            // Raw regex form: /pattern/flags
+            $pattern = $value;
+        } elseif (str_contains($value, '*') || str_contains($value, '?')) {
+            // Glob form: convert * and ? to regex equivalents and anchor.
+            $escaped = preg_quote($value, '/');
+            $regex   = str_replace(['\\*', '\\?'], ['.*', '.'], $escaped);
+            $pattern = '/^' . $regex . '$/i';
+        } else {
+            // Literal substring (case-insensitive).
+            $pattern = '/' . preg_quote($value, '/') . '/i';
+        }
+
+        $result = @preg_match($pattern, $email);
         return $result === 1;
     }
 
@@ -294,30 +316,74 @@ class FpsRuleEngine
      *
      * Rule value: minimum age in days (e.g. "30")
      */
-    private function fps_matchDomainAge(string $ruleValue, string $domain): bool
+    private function fps_matchDomainAge(string $ruleValue, FpsCheckContext $context): bool
     {
+        $domain     = strtolower(trim($context->domain));
+        $minAgeDays = (int) $ruleValue;
+
+        // (1) If the caller pre-populated context meta with a fresh
+        //     domain_age_days value (e.g. the FpsCheckRunner that just
+        //     called the email-validation provider), use it directly.
+        //     This avoids a DB round-trip per evaluation.
+        if (isset($context->meta['domain_age_days']) && is_numeric($context->meta['domain_age_days'])) {
+            return ((int) $context->meta['domain_age_days']) < $minAgeDays;
+        }
+
         if ($domain === '') {
             return false;
         }
 
-        // Check against known disposable domain list
+        // (2) Admin-configured disposable-domain allowlist always matches
+        //     (treated as "young / disposable"), regardless of actual age.
         $disposableList = $this->config->getCustom('disposable_domains', '');
         if ($disposableList !== '') {
             $disposable = array_map('trim', explode(',', strtolower($disposableList)));
-            if (in_array(strtolower($domain), $disposable, true)) {
+            if (in_array($domain, $disposable, true)) {
                 return true;
             }
         }
 
-        // Check cached domain age from mod_fps_settings
-        $cachedAge = $this->config->getCustom('domain_age_' . md5($domain), '');
-        if ($cachedAge !== '') {
-            $minAgeDays = (int) $ruleValue;
-            $ageDays    = (int) $cachedAge;
+        // (3) Resolve via canonical data sources:
+        //       - mod_fps_email_intel.domain_age_days (populated by
+        //         DomainReputationProvider + EmailValidationProvider)
+        //       - legacy mod_fps_settings cache key (kept for backward compat)
+        $ageDays = $this->fps_resolveDomainAgeDays($domain);
+        if ($ageDays !== null) {
             return $ageDays < $minAgeDays;
         }
 
+        // No data available -- do NOT block on missing data.
         return false;
+    }
+
+    /**
+     * Resolve a domain's age in days from canonical data sources.
+     * Returns null if no source has data for this domain.
+     */
+    private function fps_resolveDomainAgeDays(string $domain): ?int
+    {
+        try {
+            $row = \WHMCS\Database\Capsule::table('mod_fps_email_intel')
+                ->where('domain', strtolower($domain))
+                ->whereNotNull('domain_age_days')
+                ->where('domain_age_days', '>', 0)
+                ->orderByDesc('id')
+                ->limit(1)
+                ->value('domain_age_days');
+            if ($row !== null && $row !== false && $row !== '') {
+                return (int) $row;
+            }
+        } catch (\Throwable $e) {
+            // Table or column might not exist on a freshly-installed instance;
+            // fall through to the legacy settings cache.
+        }
+
+        $cachedAge = $this->config->getCustom('domain_age_' . md5($domain), '');
+        if ($cachedAge !== '') {
+            return (int) $cachedAge;
+        }
+
+        return null;
     }
 
     /**
@@ -372,7 +438,7 @@ class FpsRuleEngine
                 'email_pattern'     => $this->fps_matchEmailPattern($value, $context->email),
                 'country_block'     => $this->fps_matchCountryBlock($value, $context->country),
                 'amount'            => $this->fps_matchAmount($value, $context->amount),
-                'domain_age'        => $this->fps_matchDomainAge($value, $context->domain),
+                'domain_age'        => $this->fps_matchDomainAge($value, $context),
                 'fingerprint_match' => $this->fps_matchFingerprint($value, $context->fingerprintHash),
                 default             => false,
             };
