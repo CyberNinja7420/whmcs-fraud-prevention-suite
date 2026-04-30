@@ -7,6 +7,35 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.2.7] - 2026-04-27
+
+PSR-4 migration of the seven `lib/Analytics/FpsAnalytics*` helper classes.
+The classes now live under the `FraudPreventionSuite\Lib\Analytics`
+namespace and are resolved by the existing `lib/Autoloader.php`. There is
+**no behavior change** -- this is a pure refactor to align the analytics
+layer with the rest of the codebase and to remove the explicit
+`lib/AnalyticsBootstrap.php` include shim.
+
+### Changed
+- `lib/Analytics/FpsAnalytics{Config,Log,Injector,DataApi,ServerEvents,ConsentManager,AnomalyDetector}.php`
+  now declare `namespace FraudPreventionSuite\Lib\Analytics;` and
+  reference each other via `use` statements instead of `require_once`.
+- All call sites (`hooks.php`, `fraud_prevention_suite.php`,
+  `lib/Admin/TabDashboard.php`, `lib/FpsCheckRunner.php`) now `use` the
+  fully-qualified class names; `class_exists()` checks switched to the
+  `::class` constant form.
+
+### Removed
+- `lib/AnalyticsBootstrap.php` -- no longer needed; the PSR-4 autoloader
+  handles all analytics-class resolution. Removed the corresponding
+  `require_once` calls from `hooks.php`, `fraud_prevention_suite.php`,
+  and `public/api.php`.
+- The seven analytics-class stub blocks from
+  `phpstan-stubs/fps-globals.php`. Static analysis now reads the real
+  PSR-4 classes directly.
+
+---
+
 ## [4.2.6.1] - 2026-04-26
 
 Audit follow-up patch on top of v4.2.6. No version bump on

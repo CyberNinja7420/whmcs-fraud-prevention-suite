@@ -2,7 +2,7 @@
 
 Items the production-hardening passes did NOT close. Each item lists a severity and a rough effort estimate. Items marked `Pass-2: closed` were carried over from the first pass and resolved in v4.2.4 (2026-04-21); their entries are kept for context.
 
-**Last reconciled:** 2026-04-26 (7th reconciliation -- audit-findings sweep applied on top of v4.2.6 wizard merge). Audit closed: version drift (version.json 4.2.4 -> 4.2.6), analytics loader bootstrap, server-module packaging, raw API key persistence, request-mutation cleanup, network-validation tightening, and CI release-integrity gates -- see fix/reconcile-audit-findings-v425. PSR-4 migration of lib/Analytics/ deferred (see below).
+**Last reconciled:** 2026-04-27 (8th reconciliation -- PSR-4 migration of `lib/Analytics/` shipped in v4.2.7). Audit closed: version drift, analytics loader bootstrap, server-module packaging, raw API key persistence, request-mutation cleanup, network-validation tightening, CI release-integrity gates, and analytics namespace migration.
 
 ## Status legend
 
@@ -13,6 +13,7 @@ Items the production-hardening passes did NOT close. Each item lists a severity 
 - `Get-it-all-done-closed` -- resolved in the 2026-04-22 PM fourth pass (defaults flipped, P95 widget, psalm wired, second extraction batch).
 - `v4.2.5-analytics-shipped` -- resolved in the 2026-04-25 fifth pass (Google Analytics 4 + Microsoft Clarity integration with EEA consent + 12 server-side events + MCP wiring). NOTE: shipped a fake Clarity DSR API call later retracted in v4.2.6.
 - `v4.2.6-wizard-shipped` -- resolved in the 2026-04-26 sixth pass (analytics setup wizard + GA4 property auto-discovery + per-field help text + Clarity DSR retraction).
+- `v4.2.7-psr4-shipped` -- resolved in the 2026-04-27 seventh pass (PSR-4 migration of the seven `lib/Analytics/FpsAnalytics*` helpers; `lib/AnalyticsBootstrap.php` removed).
 
 
 
@@ -305,17 +306,15 @@ Items from the original audit that investigation showed don't need a fix:
 - **#8 Cached IP intel naming**: Code inspection confirmed the naming matches the behavior. The cache layer IS actually used.
 - **#10 FraudRecord consistency**: Verified working in the previous session (test report successfully submitted with correct 5-arg signature).
 
-## Deferred from v4.2.5 audit reconciliation (2026-04-25)
+## Closed in v4.2.7 (2026-04-27, PSR-4 analytics migration)
 
-- **PSR-4 migration of lib/Analytics/ globals** (severity: low, effort: 1 day):
-  The seven FpsAnalytics* helpers in lib/Analytics/ live in the global
-  namespace by design (see header comment in FpsAnalyticsConfig.php). The
-  v4.2.5 audit pass added lib/AnalyticsBootstrap.php as an explicit include
-  layer instead of moving them under FraudPreventionSuite\Lib\Analytics --
-  full PSR-4 conversion would touch every call site (hooks, admin tabs,
-  cron, public/api.php) plus update phpstan/psalm baselines. Bootstrap is
-  the safe, mechanical fix; namespace migration is the proper long-term
-  path. Pick up after v4.3.0.
+- `v4.2.7-psr4-shipped` Full PSR-4 migration of `lib/Analytics/`. The seven
+  `FpsAnalytics*` helpers now live under the
+  `FraudPreventionSuite\Lib\Analytics` namespace and are resolved by
+  `lib/Autoloader.php`. `lib/AnalyticsBootstrap.php` was deleted; the
+  seven stub blocks were removed from `phpstan-stubs/fps-globals.php`;
+  every call site (hooks, admin tabs, runner, main file) was updated
+  to `use` the fully-qualified names. Pure refactor, no behavior change.
 
 ---
 

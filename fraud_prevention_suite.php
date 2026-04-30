@@ -40,7 +40,7 @@ require_once __DIR__ . '/lib/FpsMailHelper.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define("FPS_MODULE_VERSION", "4.2.6");
+    define("FPS_MODULE_VERSION", "4.2.7");
 }
 
 // ---------------------------------------------------------------------------
