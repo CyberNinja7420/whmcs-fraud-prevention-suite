@@ -49,6 +49,7 @@ class FpsRiskEngine
         'abuse_signals'      => 1.1,
         'domain_reputation'  => 1.0,
         'bot_detection'      => 2.0,
+        'bot_pattern'        => 2.0,  // Legacy alias for fast-path bot detection
         'global_intel'       => 1.5,
     ];
 
@@ -130,7 +131,14 @@ class FpsRiskEngine
 
         // Score floor overrides: if specific high-signal providers fire, enforce minimum score
         // This prevents score dilution from many zero-scoring providers
-        $botScore = $providerScores['bot_detection'] ?? 0;
+        // Accept both canonical 'bot_detection' and legacy 'bot_pattern' keys.
+        // The fast-path pre-checkout pipeline historically wrote bot_pattern;
+        // the runner pipeline writes bot_detection. Take the max so either
+        // emission triggers the score floor.
+        $botScore = max(
+            (float) ($providerScores['bot_detection'] ?? 0),
+            (float) ($providerScores['bot_pattern']   ?? 0)
+        );
         $torDcScore = $providerScores['tor_datacenter'] ?? 0;
         $globalScore = $providerScores['global_intel'] ?? 0;
 
@@ -146,8 +154,9 @@ class FpsRiskEngine
         if ($abuseIpScore >= 30) $scoreFloor = max($scoreFloor, 40.0); // AbuseIPDB high -> at least MEDIUM
 
         if ($scoreFloor > $finalScore) {
+            $origScore  = $finalScore;
             $finalScore = $scoreFloor;
-            $details[] = "[score_floor] Score raised from " . round($finalScore - $scoreFloor + $scoreFloor, 1) . " to {$scoreFloor} due to high-confidence signal";
+            $details[] = "[score_floor] Score raised from " . round($origScore, 1) . " to " . round($scoreFloor, 1) . " due to high-confidence signal";
         }
 
         // Determine risk level from thresholds

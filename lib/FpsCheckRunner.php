@@ -512,7 +512,7 @@ class FpsCheckRunner
 
         if ($email === '' || strpos($email, '@') === false) {
             return [
-                'provider' => 'bot_pattern',
+                'provider' => 'bot_detection',
                 'score'    => 0.0,
                 'details'  => 'No email to inspect',
                 'factors'  => [],
@@ -551,7 +551,7 @@ class FpsCheckRunner
         $weighted = $score * 2.0;
 
         return [
-            'provider' => 'bot_pattern',
+            'provider' => 'bot_detection',
             'score'    => (float) $weighted,
             'details'  => $factors === [] ? 'No bot patterns detected' : implode('; ', $factors),
             'factors'  => array_map(static fn(string $f): array => ['factor' => $f], $factors),

@@ -573,7 +573,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $botContribution = $botScore * 2.0; // Weight 2.0 for bot detection
             $score += $botContribution;
             if ($botContribution > 0) {
-                $providerScores['bot_pattern'] = (float) $botContribution;
+                $providerScores['bot_detection'] = (float) $botContribution;
             }
         }
 
