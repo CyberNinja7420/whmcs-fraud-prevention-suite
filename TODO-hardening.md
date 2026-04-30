@@ -2,7 +2,7 @@
 
 Items the production-hardening passes did NOT close. Each item lists a severity and a rough effort estimate. Items marked `Pass-2: closed` were carried over from the first pass and resolved in v4.2.4 (2026-04-21); their entries are kept for context.
 
-**Last reconciled:** 2026-04-27 (8th reconciliation -- PSR-4 migration of `lib/Analytics/` shipped in v4.2.7). Audit closed: version drift, analytics loader bootstrap, server-module packaging, raw API key persistence, request-mutation cleanup, network-validation tightening, CI release-integrity gates, and analytics namespace migration.
+**Last reconciled:** 2026-04-27 (8th reconciliation -- v4.2.7 PSR-4 migration of lib/Analytics/, legacy raw API key one-shot migration, and documentation accuracy fixes). Two carried-over deferrals from the v4.2.6 audit are now closed: PSR-4 migration of lib/Analytics/ shipped this release, and existing legacy raw API key rows are now auto-migrated on activate() in addition to the v4.2.6.1 opt-in fps_api_upgradeLegacyKey helper.
 
 ## Status legend
 
