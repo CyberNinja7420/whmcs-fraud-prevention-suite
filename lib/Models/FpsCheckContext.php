@@ -140,7 +140,13 @@ class FpsCheckContext
      */
     public function toArray(): array
     {
-        return [
+        // Fixed canonical fields always come first; meta is merged on top
+        // with array_merge so meta CANNOT override a canonical field by
+        // accident (canonical wins when keys collide). This lets providers
+        // that need extra fields (BinLookupProvider expects card_first6,
+        // BehavioralScoringEngine expects behavioral_data, etc.) read them
+        // out of the array form without having to know about $context->meta.
+        $base = [
             'email'            => $this->email,
             'ip'               => $this->ip,
             'phone'            => $this->phone,
@@ -152,5 +158,8 @@ class FpsCheckContext
             'fingerprint_hash' => $this->fingerprintHash,
             'check_type'       => $this->checkType,
         ];
+        // Merge meta first, then base, so canonical fields win over any
+        // meta entry that happens to share a name.
+        return array_merge($this->meta, $base);
     }
 }
