@@ -43,7 +43,7 @@ Implement FPS features in your applications:
    - [AJAX-Reference.md](AJAX-Reference.md) - 70+ admin dashboard actions
 
 2. **Architecture & Customization**
-   - [Architecture-Overview.md](Architecture-Overview.md) - System design, 16 detection engines, data flow
+   - [Architecture-Overview.md](Architecture-Overview.md) - System design, 22 detection engines, data flow
    - [Adding-Providers.md](Adding-Providers.md) - Build custom providers
    - [Database-Schema.md](Database-Schema.md) - 28 tables with full column reference
 

@@ -1,6 +1,6 @@
 # Fraud Prevention Suite for WHMCS
 
-**Enterprise-grade fraud detection platform for WHMCS with 16+ detection engines, real-time bot blocking, device fingerprinting, and shared global threat intelligence.**
+**Enterprise-grade fraud detection platform for WHMCS with 22+ detection engines, real-time bot blocking, device fingerprinting, and shared global threat intelligence.**
 
 [![WHMCS 8.x | 9.x](https://img.shields.io/badge/WHMCS-8.x%20%7C%209.x-0052CC?style=for-the-badge)](https://whmcs.com)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
@@ -13,7 +13,7 @@
 
 ## What is FPS?
 
-Fraud Prevention Suite (FPS) is a comprehensive fraud detection addon module for WHMCS that protects hosting providers from fraudulent signups, bot attacks, and payment fraud. It integrates 16+ detection engines, provides a REST API for fraud intelligence lookups, and features a real-time 3D threat visualization globe.
+Fraud Prevention Suite (FPS) is a comprehensive fraud detection addon module for WHMCS that protects hosting providers from fraudulent signups, bot attacks, and payment fraud. It integrates 22+ detection engines, provides a REST API for fraud intelligence lookups, and features a real-time 3D threat visualization globe.
 
 **Key differentiators:**
 
@@ -54,7 +54,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full change history.
 
 ## Features
 
-### Detection Engines (16)
+### Detection Engines (22 total)
 
 | Engine | Description | Data Source |
 |--------|-------------|-------------|
@@ -159,7 +159,7 @@ fraud_prevention_suite/
                                 #  Mass Scan, Trust Management, Global Intel)
     Api/                        # REST API (router, auth, controller, rate limiter)
     Models/                     # Typed data models (FpsCheckContext, FpsRiskResult, ...)
-    Providers/                  # 16 detection engine providers + 1 interface
+    Providers/                  # 15 detection engine providers in lib/Providers/ + 1 interface
     FpsCheckRunner.php          # Orchestrates the full + pre-checkout pipelines
     FpsConfig.php               # Configuration manager
     FpsHookHelpers.php          # Shared helpers: currency resolver, threshold

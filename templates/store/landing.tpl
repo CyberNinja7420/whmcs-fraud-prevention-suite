@@ -74,9 +74,9 @@
 <!-- Hero -->
 <div class="fps-hero">
   <h1>Fraud Prevention Suite</h1>
-  <p class="sub">Enterprise-grade fraud detection API with 16+ detection engines, real-time threat intelligence, and global data sharing across WHMCS instances.</p>
+  <p class="sub">Enterprise-grade fraud detection API with 22+ detection engines, real-time threat intelligence, and global data sharing across WHMCS instances.</p>
   <div class="badges">
-    <span><i class="fas fa-shield-halved"></i> 16 Detection Engines</span>
+    <span><i class="fas fa-shield-halved"></i> 22 Detection Engines</span>
     <span><i class="fas fa-globe"></i> Global Threat Intel</span>
     <span><i class="fas fa-bolt"></i> Real-time Blocking</span>
     <span><i class="fas fa-lock"></i> GDPR Compliant</span>
@@ -184,7 +184,7 @@
   <div class="fps-fg">
     <div class="fps-fi">
       <div class="ic" style="background:rgba(102,126,234,0.12);color:#667eea;"><i class="fas fa-network-wired"></i></div>
-      <h4>16 Detection Engines</h4>
+      <h4>22 Detection Engines</h4>
       <p>IP intelligence, email validation, device fingerprinting, bot detection, velocity analysis, OFAC screening, and more.</p>
     </div>
     <div class="fps-fi">

@@ -4005,15 +4005,42 @@ function fps_getPublicStats(): array
         try { $countries = array_merge($countries, Capsule::table('mod_fps_global_intel')
             ->whereNotNull('country')->where('country', '!=', '')->distinct()->pluck('country')->toArray()); } catch (\Throwable $e) {}
         $countriesMonitored = count(array_unique($countries));
-        // Count confirmed bots: use mod_fps_stats.checks_blocked (persistent, includes
-        // Turnstile blocks + scoring engine blocks) plus high-risk bot intel from the hub.
-        // This avoids inflating the count with low-risk orphan_user flags (which have
-        // bot_detected:true but risk_score=0 and aren't confirmed bot activity).
-        $botsDetected = (int)(Capsule::table('mod_fps_stats')->sum('checks_blocked') ?? 0);
+        // Count confirmed BOTS specifically (distinct from generic threats_blocked).
+        //   1. mod_fps_checks rows whose check_type marks them as bot-related
+        //      (bot_signup_block, bot_detection, bot_*).
+        //   2. mod_fps_checks rows whose provider_scores JSON contains a non-zero
+        //      bot signal under either canonical key bot_detection or the legacy
+        //      alias bot_pattern (kept reading both for v4.2.7.2 backward compat).
+        //   3. plus high-confidence bot signals from global_intel
+        //      (score >= 50 and evidence_flags has bot_detected:true).
+        // This gives admins a metric that diverges from threats_blocked instead of
+        // the previous (essentially-identical) sum where every blocked order was
+        // counted as a bot regardless of WHY it was blocked.
+        $botsDetected = 0;
+        try {
+            $botsDetected += (int) Capsule::table('mod_fps_checks')
+                ->where(function ($q) {
+                    $q->where('check_type', 'LIKE', 'bot_%')
+                      ->orWhere('check_type', '=', 'bot_signup_block')
+                      ->orWhere('check_type', '=', 'bot_detection');
+                })
+                ->count();
+            // Provider-score signal -- match either canonical or legacy key.
+            $botsDetected += (int) Capsule::table('mod_fps_checks')
+                ->where('check_type', 'NOT LIKE', 'bot_%')
+                ->where(function ($q) {
+                    $q->where('provider_scores', 'LIKE', '%"bot_detection":%')
+                      ->orWhere('provider_scores', 'LIKE', '%"bot_pattern":%');
+                })
+                // exclude rows where the bot score was literally 0
+                ->where('provider_scores', 'NOT LIKE', '%"bot_detection":0%')
+                ->where('provider_scores', 'NOT LIKE', '%"bot_pattern":0%')
+                ->count();
+        } catch (\Throwable $e) {}
         try {
             if (Capsule::schema()->hasTable('mod_fps_global_intel')) {
-                // Only count high-risk confirmed bots from global intel (score >= 50)
-                $criticalBots = (int)Capsule::table('mod_fps_global_intel')
+                // Only count high-confidence confirmed bots from the global hub.
+                $criticalBots = (int) Capsule::table('mod_fps_global_intel')
                     ->where('evidence_flags', 'LIKE', '%"bot_detected":true%')
                     ->where('risk_score', '>=', 50)
                     ->count();
@@ -4123,21 +4150,73 @@ function fps_getPublicStats(): array
             }
         } catch (\Throwable $e) { /* non-fatal */ }
 
-        // Enabled providers
+        // Enabled providers + always-on engines.
+        //
+        // Two categories matter for the public stats:
+        //   A) Settings-gated detection providers/engines -- count only if
+        //      the corresponding mod_fps_settings.setting_value is '1' OR
+        //      the gating api-key is non-empty (where the provider's
+        //      isEnabled() requires both).
+        //   B) Always-on engines that run on every check regardless of
+        //      admin toggles (or that have no toggle in the UI).
+        //
+        // Replaces the old hardcoded "+4" fudge that double-counted phone
+        // (which now has its own phone_validation_enabled toggle from
+        // v4.2.7.4) and missed 8 fully-wired providers.
         $providerCount = 0;
         $enabledProviders = [];
-        $providerChecks = [
-            'Turnstile' => 'turnstile_enabled', 'AbuseIPDB' => 'abuseipdb_enabled',
-            'IPQualityScore' => 'ipqs_enabled', 'StopForumSpam' => 'abuse_signal_enabled',
-            'Domain Reputation' => 'domain_reputation_enabled', 'IP Intelligence' => 'ip_intel_enabled',
-            'Email Validation' => 'email_validation_enabled', 'Bot Detection' => 'bot_signup_blocking',
-            'Device Fingerprinting' => 'fingerprint_enabled',
+
+        // (A) settings-gated -- count only when the toggle is on
+        $gatedToggles = [
+            'Turnstile'              => 'turnstile_enabled',
+            'AbuseIPDB'              => 'abuseipdb_enabled',
+            'IPQualityScore'         => 'ipqs_enabled',
+            'StopForumSpam'          => 'abuse_signal_enabled',
+            'Domain Reputation'      => 'domain_reputation_enabled',
+            'IP Intelligence'        => 'ip_intel_enabled',
+            'Email Validation'       => 'email_validation_enabled',
+            'Bot Detection'          => 'bot_signup_blocking',
+            'Device Fingerprinting'  => 'fingerprint_enabled',
+            'Social Presence'        => 'social_presence_enabled',
+            'Phone Validation'       => 'phone_validation_enabled',
+            'BIN Lookup'             => 'bin_lookup_enabled',
+            'OFAC Screening'         => 'ofac_screening_enabled',
+            'SMTP Verification'      => 'smtp_verification_enabled',
         ];
-        foreach ($providerChecks as $name => $key) {
+        foreach ($gatedToggles as $name => $key) {
             $val = Capsule::table('mod_fps_settings')->where('setting_key', $key)->value('setting_value');
             if ($val === '1') { $providerCount++; $enabledProviders[] = $name; }
         }
-        $providerCount += 4; // velocity, geo-impossibility, behavioral, phone
+
+        // (A2) settings-gated -- by api-key presence (no toggle row, just key)
+        $keyGated = [
+            'FraudRecord'  => 'fraudrecord_api_key',
+            'Breach Check' => 'hibp_api_key',
+        ];
+        foreach ($keyGated as $name => $key) {
+            $val = trim((string) Capsule::table('mod_fps_settings')->where('setting_key', $key)->value('setting_value'));
+            if ($val !== '') { $providerCount++; $enabledProviders[] = $name; }
+        }
+
+        // (B) always-on engines (run on every check, no admin toggle)
+        $alwaysOn = [
+            'Velocity Engine',
+            'Geo-Impossibility',
+            'Behavioral Scoring',
+            'Custom Rules',
+            'Tor/Datacenter Detection',
+            'Global Intel',
+        ];
+        foreach ($alwaysOn as $name) {
+            $providerCount++;
+            $enabledProviders[] = $name;
+        }
+        // engines_total holds the canonical total of ENGINES THAT EXIST regardless of
+        // whether each one is currently enabled in this install -- used by README +
+        // landing page for the marketing claim, and as an upper bound for any UI
+        // that wants to show "X of Y engines active". Counts every entry in the
+        // three lists above plus FraudRecord + Breach Check (key-gated).
+        $engineTotal = count($gatedToggles) + count($keyGated) + count($alwaysOn);
 
         return [
             'total_checks'        => $totalChecks,
@@ -4156,13 +4235,14 @@ function fps_getPublicStats(): array
             'top_countries'       => $topCountries,
             'avg_risk_score'      => $avgScore,
             'global_intel_count'  => $globalIntelCount,
+            'engines_total'       => $engineTotal,
         ];
     } catch (\Throwable $e) {
         return ['total_checks' => 0, 'threats_blocked' => 0, 'unique_ips' => 0,
             'countries_monitored' => 0, 'bots_detected' => 0, 'provider_count' => 0, 'enabled_providers' => [],
             'vpn_detected' => 0, 'tor_detected' => 0, 'proxy_detected' => 0, 'datacenter_detected' => 0,
             'disposable_emails' => 0, 'risk_distribution' => [], 'top_countries' => [],
-            'avg_risk_score' => 0, 'global_intel_count' => 0];
+            'avg_risk_score' => 0, 'global_intel_count' => 0, 'engines_total' => 22];
     }
 }
 
