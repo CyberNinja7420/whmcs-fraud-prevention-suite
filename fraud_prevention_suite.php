@@ -4,6 +4,13 @@ if (!defined("WHMCS")) {
 }
 
 use WHMCS\Database\Capsule;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsLog;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsInjector;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsDataApi;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsServerEvents;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConsentManager;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsAnomalyDetector;
 
 // ---------------------------------------------------------------------------
 // AUTOLOADER
