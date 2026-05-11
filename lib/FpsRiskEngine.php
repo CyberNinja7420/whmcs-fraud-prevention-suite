@@ -32,24 +32,28 @@ class FpsRiskEngine
 
     /** @var array<string, float> Default weight per known provider */
     private const DEFAULT_WEIGHTS = [
-        'fraudrecord'        => 1.0,
-        'ip_intel'           => 1.0,
-        'email_verify'       => 1.0,
-        'fingerprint'        => 1.0,
-        'geo_mismatch'       => 1.0,
-        'custom_rules'       => 1.0,
-        'velocity'           => 1.0,
-        'domain_age'         => 1.0,
-        'tor_datacenter'     => 1.3,
-        'smtp_verify'        => 0.8,
-        'geo_impossibility'  => 1.1,
-        'behavioral'         => 0.9,
-        'abuseipdb'          => 1.2,
-        'ipqualityscore'     => 1.3,
-        'abuse_signals'      => 1.1,
-        'domain_reputation'  => 1.0,
-        'bot_detection'      => 2.0,
-        'global_intel'       => 1.5,
+        'fraudrecord'          => 1.0,
+        'ip_intel'             => 1.0,
+        'email_verify'         => 1.0,
+        'fingerprint'          => 1.0,
+        'missing_fingerprint'  => 1.0,
+        'geo_mismatch'         => 1.0,
+        'custom_rules'         => 1.0,
+        'velocity'             => 1.0,
+        'domain_age'           => 1.0,
+        'tor_datacenter'       => 1.3,
+        'smtp_verify'          => 0.8,
+        'geo_impossibility'    => 1.1,
+        'behavioral'           => 0.9,
+        'abuseipdb'            => 1.2,
+        'ipqualityscore'       => 1.3,
+        'abuse_signals'        => 1.1,
+        'abuse_signal'         => 1.2,
+        'domain_reputation'    => 1.0,
+        'bot_detection'        => 2.0,
+        'bot_pattern'          => 2.0,
+        'user_agent'           => 1.5,
+        'global_intel'         => 1.5,
     ];
 
     public function __construct(?FpsConfig $config = null)
@@ -128,22 +132,44 @@ class FpsRiskEngine
             $finalScore = min(100.0, $weightedSum / $totalWeight);
         }
 
-        // Score floor overrides: if specific high-signal providers fire, enforce minimum score
-        // This prevents score dilution from many zero-scoring providers
-        $botScore = $providerScores['bot_detection'] ?? 0;
+        // Score floor overrides: if specific high-signal providers fire, enforce minimum score.
+        // This prevents score dilution from many zero-scoring providers in the weighted average.
+        // Check BOTH legacy provider names (bot_detection, abuseipdb) AND current fast-path
+        // names (bot_pattern, user_agent, abuse_signal, missing_fingerprint) so floors fire
+        // regardless of which pipeline produced the results.
+        $botScore = max(
+            $providerScores['bot_detection'] ?? 0,
+            $providerScores['bot_pattern'] ?? 0
+        );
+        $uaScore = $providerScores['user_agent'] ?? 0;
+        $combinedBotSignal = $botScore + $uaScore;
+        $missingFp = $providerScores['missing_fingerprint'] ?? 0;
         $torDcScore = $providerScores['tor_datacenter'] ?? 0;
         $globalScore = $providerScores['global_intel'] ?? 0;
-
         $geoScore = $providerScores['geo_impossibility'] ?? 0;
-        $abuseIpScore = $providerScores['abuseipdb'] ?? 0;
+        $abuseIpScore = max(
+            $providerScores['abuseipdb'] ?? 0,
+            $providerScores['abuse_signal'] ?? 0
+        );
 
         $scoreFloor = 0.0;
-        if ($botScore >= 30) $scoreFloor = max($scoreFloor, 40.0);   // Bot pattern -> at least MEDIUM
-        if ($botScore >= 50) $scoreFloor = max($scoreFloor, 60.0);   // Strong bot -> at least HIGH
-        if ($torDcScore >= 20) $scoreFloor = max($scoreFloor, 30.0); // Datacenter IP -> at least MEDIUM
-        if ($torDcScore >= 20 && $geoScore >= 15) $scoreFloor = max($scoreFloor, 40.0); // DC + geo mismatch -> MEDIUM
-        if ($globalScore >= 15) $scoreFloor = max($scoreFloor, 35.0); // Known in global DB -> at least MEDIUM
-        if ($abuseIpScore >= 30) $scoreFloor = max($scoreFloor, 40.0); // AbuseIPDB high -> at least MEDIUM
+        // Bot signals (combined email patterns + user agent)
+        if ($combinedBotSignal >= 30) $scoreFloor = max($scoreFloor, 45.0);   // Moderate bot -> MEDIUM
+        if ($combinedBotSignal >= 50) $scoreFloor = max($scoreFloor, 65.0);   // Strong bot -> BLOCKED
+        if ($combinedBotSignal >= 70) $scoreFloor = max($scoreFloor, 80.0);   // Very strong bot -> CRITICAL
+        // Missing fingerprint + any bot signal = likely bot
+        if ($missingFp >= 15 && $combinedBotSignal >= 20) $scoreFloor = max($scoreFloor, 55.0);
+        if ($missingFp >= 15 && $uaScore >= 35) $scoreFloor = max($scoreFloor, 65.0); // No FP + bot UA -> BLOCKED
+        // Tor/datacenter
+        if ($torDcScore >= 20) $scoreFloor = max($scoreFloor, 35.0); // Datacenter IP -> MEDIUM
+        if ($torDcScore >= 20 && $geoScore >= 15) $scoreFloor = max($scoreFloor, 45.0);
+        if ($torDcScore >= 20 && $missingFp >= 15) $scoreFloor = max($scoreFloor, 55.0); // DC + no FP -> HIGH
+        // Global intel
+        if ($globalScore >= 15) $scoreFloor = max($scoreFloor, 40.0); // Known in global DB -> MEDIUM
+        // Abuse signals (AbuseIPDB + StopForumSpam/SpamHaus)
+        if ($abuseIpScore >= 30) $scoreFloor = max($scoreFloor, 45.0);
+        if ($abuseIpScore >= 50) $scoreFloor = max($scoreFloor, 60.0);
+        if ($abuseIpScore >= 50 && $missingFp >= 15) $scoreFloor = max($scoreFloor, 70.0); // Abuse + no FP -> BLOCKED
 
         if ($scoreFloor > $finalScore) {
             $finalScore = $scoreFloor;
