@@ -80,7 +80,12 @@ class IpIntelProvider implements FpsProviderInterface
             }
 
             if ($intel === null) {
-                return $blank;
+                logModuleCall('fraud_prevention_suite', 'IpIntel::BothAPIsFailed', $ip, 'ip-api.com and ipinfo.io both returned null');
+                return [
+                    'score'   => 15.0,
+                    'details' => ['lookup_failed' => true, 'source' => 'uncertainty_penalty'],
+                    'raw'     => null,
+                ];
             }
 
             // Cache the result

@@ -111,7 +111,7 @@ class FpsCheckRunner
                     if ($context->orderId > 0) {
                         $this->fps_lockOrder($context->orderId);
                     }
-                    $checkId = $this->fps_persistCheck($context, $riskResult, \FraudPreventionSuite\Lib\Models\FpsRuleResult::noMatch(), 'cancelled', true);
+                    $checkId = $this->fps_persistCheck($context, $riskResult, \FraudPreventionSuite\Lib\Models\FpsRuleResult::noMatch(), 'cancelled', true, $executionMs);
                     $result = new FpsCheckResult(
                         checkId:     $checkId,
                         risk:        $riskResult,
@@ -175,7 +175,7 @@ class FpsCheckRunner
             $executionMs = (microtime(true) - $startTime) * 1000;
 
             // Step 8: Persist
-            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, $locked);
+            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, $locked, $executionMs);
 
             $result = new FpsCheckResult(
                 checkId:     $checkId,
@@ -303,7 +303,7 @@ class FpsCheckRunner
             $executionMs = (microtime(true) - $startTime) * 1000;
 
             // Pre-checkout does NOT lock orders, only reports the risk
-            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, false);
+            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, false, $executionMs);
 
             $result = new FpsCheckResult(
                 checkId:     $checkId,
@@ -330,6 +330,353 @@ class FpsCheckRunner
 
             return FpsCheckResult::fromError($context, $e->getMessage(), $executionMs);
         }
+    }
+
+    /**
+     * runPreCheckoutFast() -- the full fast-path pre-checkout pipeline that
+     * mirrors the inline ShoppingCartValidateCheckout hook in hooks.php.
+     *
+     * This is the v4.2.4 unification target for TODO-hardening.md item #1.
+     * It runs the SAME provider set as the inline hook (IP intel, email
+     * domain checks, fingerprint, bot patterns, global intel, custom rules,
+     * velocity, Tor/DC) so operators can flip a single feature flag
+     * (`use_runner_fast_path`) and get identical scoring without
+     * touching hot-path code.
+     *
+     * Why a separate method (not just runPreCheckout()):
+     *   - runPreCheckout() is the historical "minimal fast" path that's been
+     *     used by other callers; changing its provider set is a breaking
+     *     change for anyone calling it directly.
+     *   - runPreCheckoutFast() is purpose-built to BE the inline hook
+     *     replacement; its surface is shaped to match what hooks.php emits.
+     *
+     * Latency budget: same <2s as the inline hook. All providers used here
+     * are already in the inline hook, so the call-graph is equivalent.
+     *
+     * @param FpsCheckContext $context
+     * @return FpsCheckResult
+     */
+    public function runPreCheckoutFast(FpsCheckContext $context): FpsCheckResult
+    {
+        $startTime = microtime(true);
+
+        try {
+            // IP whitelist bypass -- skip all scoring for whitelisted IPs
+            if ($context->ip !== '') {
+                try {
+                    $wlRaw = $this->config->getCustom('whitelisted_ips', '');
+                    if ($wlRaw !== '') {
+                        $wlIps = array_map('trim', explode(',', $wlRaw));
+                        if (in_array($context->ip, $wlIps, true)) {
+                            $executionMs = (microtime(true) - $startTime) * 1000;
+                            return new FpsCheckResult(
+                                checkId:     0,
+                                risk:        new FpsRiskResult(score: 0.0, level: 'low', providerScores: [], details: ['IP whitelisted'], factors: []),
+                                rules:       new FpsRuleResult(action: 'allow', matchedRules: [], ruleScore: 0, details: [], rulesEvaluated: 0),
+                                actionTaken: 'allowed',
+                                locked:      false,
+                                context:     $context,
+                                executionMs: $executionMs,
+                            );
+                        }
+                    }
+                } catch (\Throwable $e) { /* non-fatal */ }
+            }
+
+            $providerResults = [];
+
+            // Provider 1: cached IP intelligence (instant DB lookup)
+            $providerResults[] = $this->fps_runCachedIpIntel($context);
+
+            // Provider 2: email domain checks (no external API)
+            $providerResults[] = $this->fps_runEmailDomainCheck($context);
+
+            // Provider 3: fingerprint matching (DB lookup only)
+            if ($context->fingerprintHash !== '') {
+                $providerResults[] = $this->fps_runFingerprintCheck($context);
+            } else {
+                $providerResults[] = [
+                    'provider' => 'missing_fingerprint',
+                    'score'    => 20.0,
+                    'details'  => 'No browser fingerprint submitted (possible bot)',
+                    'factors'  => [['factor' => 'missing_fingerprint', 'score' => 20.0]],
+                    'success'  => true,
+                ];
+            }
+
+            // Provider 4: bot pattern detection (instant -- no API calls).
+            // Mirrors the inline hook's plus-tag / SMS gateway / numeric-local-part
+            // / random-local-part heuristics with the same weight (2.0).
+            $botProviderResult = $this->fps_runBotPatternCheck($context);
+            if (($botProviderResult['score'] ?? 0) > 0) {
+                $providerResults[] = $botProviderResult;
+            }
+
+            // Provider 5: global intel cross-reference (local DB only)
+            $globalProviderResult = $this->fps_runGlobalIntelCheck($context);
+            if (($globalProviderResult['score'] ?? 0) > 0) {
+                $providerResults[] = $globalProviderResult;
+            }
+
+            // Provider 6: custom rules
+            $ruleResult = $this->ruleEngine->evaluate($context);
+            if ($ruleResult->hasMatches()) {
+                $providerResults[] = $this->riskEngine->fps_ruleScoreToProviderFormat(
+                    $ruleResult->ruleScore,
+                    $ruleResult->details,
+                    []
+                );
+            }
+
+            // Provider 7: velocity engine (BEFORE persistence so score is complete)
+            if ($context->ip !== '') {
+                try {
+                    $this->velocityEngine->recordEvent('checkout_attempt', $context->ip, $context->clientId);
+                    $velResult = $this->velocityEngine->checkVelocity($context->toArray());
+                    $velScore  = (float) ($velResult['score'] ?? 0);
+                    if ($velScore > 0) {
+                        $providerResults[] = [
+                            'provider' => 'velocity',
+                            'score'    => $velScore,
+                            'details'  => is_string($velResult['details'] ?? null) ? $velResult['details'] : (string) ($velResult['details'] ?? ''),
+                            'factors'  => [],
+                            'success'  => true,
+                        ];
+                    }
+                } catch (\Throwable $e) { /* non-fatal -- continue */ }
+            }
+
+            // Provider 8: Tor exit node / datacenter check
+            if ($context->ip !== '' && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\TorDatacenterProvider')) {
+                try {
+                    $torProvider = new \FraudPreventionSuite\Lib\Providers\TorDatacenterProvider();
+                    $torResult   = $torProvider->check($context->toArray());
+                    $torScore    = (float) ($torResult['score'] ?? 0);
+                    if ($torScore > 0) {
+                        $providerResults[] = [
+                            'provider' => 'tor_datacenter',
+                            'score'    => $torScore,
+                            'details'  => is_array($torResult['details'] ?? null) ? json_encode($torResult['details']) : (string) ($torResult['details'] ?? ''),
+                            'factors'  => [],
+                            'success'  => true,
+                        ];
+                    }
+                } catch (\Throwable $e) { /* non-fatal -- continue */ }
+            }
+
+            // Provider 9: AbuseSignalProvider (StopForumSpam + SpamHaus, no API key needed)
+            if (($context->ip !== '' || $context->email !== '')
+                && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\AbuseSignalProvider')) {
+                try {
+                    $abuseProvider = new \FraudPreventionSuite\Lib\Providers\AbuseSignalProvider();
+                    if ($abuseProvider->isEnabled()) {
+                        $abuseResult = $abuseProvider->check($context->toArray());
+                        $abuseScore  = (float) ($abuseResult['score'] ?? 0);
+                        if ($abuseScore > 0) {
+                            $providerResults[] = [
+                                'provider' => 'abuse_signal',
+                                'score'    => $abuseScore * $abuseProvider->getWeight(),
+                                'details'  => implode('; ', $abuseResult['details'] ?? []),
+                                'factors'  => [['factor' => 'abuse_signal', 'score' => $abuseScore]],
+                                'success'  => true,
+                            ];
+                        }
+                    }
+                } catch (\Throwable $e) { /* non-fatal */ }
+            }
+
+            // Provider 10: User-Agent bot detection (instant, no API)
+            $uaScore = $this->fps_runUserAgentCheck();
+            if ($uaScore > 0) {
+                $providerResults[] = [
+                    'provider' => 'user_agent',
+                    'score'    => (float) $uaScore,
+                    'details'  => 'Suspicious or missing User-Agent',
+                    'factors'  => [['factor' => 'bot_user_agent', 'score' => (float) $uaScore]],
+                    'success'  => true,
+                ];
+            }
+
+            // Aggregate
+            $riskResult = $this->riskEngine->aggregate($providerResults);
+
+            if ($ruleResult->isBlocking()) {
+                $riskResult = new FpsRiskResult(
+                    score:          max($riskResult->score, 95.0),
+                    level:          'critical',
+                    providerScores: $riskResult->providerScores,
+                    details:        array_merge($riskResult->details, ['Pre-checkout (fast): rule engine blocked']),
+                    factors:        $riskResult->factors,
+                );
+            }
+
+            $actionTaken = $this->fps_determineAction($riskResult, $ruleResult);
+            $executionMs = (microtime(true) - $startTime) * 1000;
+
+            // Pre-checkout does NOT lock orders, only reports the risk
+            $checkId = $this->fps_persistCheck($context, $riskResult, $ruleResult, $actionTaken, false, $executionMs);
+
+            $result = new FpsCheckResult(
+                checkId:     $checkId,
+                risk:        $riskResult,
+                rules:       $ruleResult,
+                actionTaken: $actionTaken,
+                locked:      false,
+                context:     $context,
+                executionMs: $executionMs,
+            );
+
+            $this->stats->recordCheck($result);
+            return $result;
+        } catch (\Throwable $e) {
+            $executionMs = (microtime(true) - $startTime) * 1000;
+            logModuleCall(
+                'fraud_prevention_suite',
+                'FpsCheckRunner::runPreCheckoutFast::ERROR',
+                json_encode($context->toArray()),
+                $e->getMessage()
+            );
+            return FpsCheckResult::fromError($context, $e->getMessage(), $executionMs);
+        }
+    }
+
+    /**
+     * Bot pattern detection helper -- same heuristics as the inline hook
+     * (plus-tag email, SMS gateway domains, numeric-only local part,
+     * high-digit-density local part). Returns a provider-format result.
+     */
+    private function fps_runBotPatternCheck(FpsCheckContext $context): array
+    {
+        $email   = $context->email;
+        $score   = 0.0;
+        $factors = [];
+
+        if ($email === '' || strpos($email, '@') === false) {
+            return [
+                'provider' => 'bot_pattern',
+                'score'    => 0.0,
+                'details'  => 'No email to inspect',
+                'factors'  => [],
+                'success'  => true,
+            ];
+        }
+
+        $localPart = substr($email, 0, strpos($email, '@') ?: strlen($email));
+        $domain    = strtolower(substr($email, strpos($email, '@') + 1));
+
+        if (strpos($email, '+') !== false) {
+            $score    += 50.0;
+            $factors[] = 'plus_tag';
+        }
+
+        $smsGateways = ['vtext.com','tmomail.net','txt.att.net','messaging.sprintpcs.com',
+            'pm.sprint.com','text.republicwireless.com','msg.fi.google.com','mymetropcs.com',
+            'sms.mycricket.com','mmst5.tracfone.com'];
+        if (in_array($domain, $smsGateways, true)) {
+            $score    += 80.0;
+            $factors[] = 'sms_gateway';
+        }
+
+        if (preg_match('/^\d{7,}$/', $localPart)) {
+            $score    += 40.0;
+            $factors[] = 'numeric_local';
+        }
+
+        $digitCount = (int) preg_match_all('/[0-9]/', $localPart);
+        if (strlen($localPart) > 6 && $digitCount > 4 && $digitCount / strlen($localPart) > 0.4) {
+            $score    += 20.0;
+            $factors[] = 'high_digit_density';
+        }
+
+        // Same 2.0 weight applied in the inline hook.
+        $weighted = $score * 2.0;
+
+        return [
+            'provider' => 'bot_pattern',
+            'score'    => (float) $weighted,
+            'details'  => $factors === [] ? 'No bot patterns detected' : implode('; ', $factors),
+            'factors'  => array_map(static fn(string $f): array => ['factor' => $f], $factors),
+            'success'  => true,
+        ];
+    }
+
+    /**
+     * User-Agent bot detection (instant, no API).
+     * Returns a score > 0 if the UA is empty or matches known bot patterns.
+     */
+    private function fps_runUserAgentCheck(): int
+    {
+        $ua = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+        if ($ua === '') {
+            return 35;
+        }
+        $botPatterns = [
+            'python-requests', 'python/', 'python-urllib',
+            'curl/', 'wget/', 'go-http-client', 'okhttp',
+            'axios/', 'node-fetch', 'java/', 'httpie/',
+            'scrapy', 'mechanize', 'aiohttp', 'httpx',
+        ];
+        foreach ($botPatterns as $pattern) {
+            if (str_contains($ua, $pattern)) {
+                return 50;
+            }
+        }
+        if (!str_contains($ua, 'mozilla') && !str_contains($ua, 'chrome')
+            && !str_contains($ua, 'safari') && !str_contains($ua, 'firefox')
+            && !str_contains($ua, 'edge') && !str_contains($ua, 'opera')) {
+            return 15;
+        }
+        return 0;
+    }
+
+    /**
+     * Global intel cross-reference helper -- mirrors the inline hook's
+     * FpsGlobalIntelChecker call for the fast-path pipeline.
+     */
+    private function fps_runGlobalIntelCheck(FpsCheckContext $context): array
+    {
+        if ($context->email === '' && $context->ip === '') {
+            return [
+                'provider' => 'global_intel',
+                'score'    => 0.0,
+                'details'  => 'No email/ip to look up',
+                'factors'  => [],
+                'success'  => true,
+            ];
+        }
+
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsGlobalIntelChecker')) {
+            return [
+                'provider' => 'global_intel',
+                'score'    => 0.0,
+                'details'  => 'Global intel checker unavailable',
+                'factors'  => [],
+                'success'  => false,
+            ];
+        }
+
+        try {
+            $checker = new \FraudPreventionSuite\Lib\FpsGlobalIntelChecker();
+            $result  = $checker->check($context->email, $context->ip);
+            if (!empty($result['found'])) {
+                $adj = (float) $checker->getScoreAdjustment($result);
+                return [
+                    'provider' => 'global_intel',
+                    'score'    => $adj,
+                    'details'  => 'Known in global fraud DB (seen ' . ($result['seen_count'] ?? '?') . 'x)',
+                    'factors'  => [['factor' => 'global_intel_hit', 'score' => $adj]],
+                    'success'  => true,
+                ];
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
+        return [
+            'provider' => 'global_intel',
+            'score'    => 0.0,
+            'details'  => 'No global intel match',
+            'factors'  => [],
+            'success'  => true,
+        ];
     }
 
     /**
@@ -794,14 +1141,22 @@ class FpsCheckRunner
             $score  = 0.0;
             $factors = [];
 
-            // Check disposable domain list
+            // Check disposable domain list (admin-configured + bundled file)
+            $disposable = [];
             $disposableList = $this->config->getCustom('disposable_domains', '');
             if ($disposableList !== '') {
                 $disposable = array_map('trim', explode(',', strtolower($disposableList)));
-                if (in_array(strtolower($domain), $disposable, true)) {
-                    $score = 40.0;
-                    $factors[] = ['factor' => 'disposable_email_domain', 'score' => 40.0];
+            }
+            $bundledFile = dirname(__DIR__) . '/data/disposable_domains.txt';
+            if (file_exists($bundledFile)) {
+                $bundledDomains = file($bundledFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                if (is_array($bundledDomains)) {
+                    $disposable = array_unique(array_merge($disposable, array_map('strtolower', array_map('trim', $bundledDomains))));
                 }
+            }
+            if (!empty($disposable) && in_array(strtolower($domain), $disposable, true)) {
+                $score = 40.0;
+                $factors[] = ['factor' => 'disposable_email_domain', 'score' => 40.0];
             }
 
             // Check how many times this email has been flagged
@@ -869,18 +1224,35 @@ class FpsCheckRunner
 
     /**
      * Geo-mismatch check -- compares IP geolocation country to billing country.
+     *
+     * Required data:
+     *   - $context->ip non-empty
+     *   - cached IP->country mapping under FpsConfig key "ipcountry_<md5(ip)>".
+     *     This cache is populated by IP-intel-style providers when they look
+     *     up an IP. If no provider has cached the IP yet (typical for the
+     *     very first check on a fresh install) this method returns score=0
+     *     with success=false so the downstream aggregator excludes it
+     *     instead of penalising.
+     *
+     * Result: success=false + score=0 when geolocation history is missing.
      */
     private function fps_runGeoMismatchCheck(FpsCheckContext $context): array
     {
         try {
-            // Check cached IP-to-country mapping
+            // Read the cached IP->country mapping populated by upstream IP-intel
+            // providers. Returns '' (treated as "no history") when uncached.
             $ipCountry = $this->config->getCustom('ipcountry_' . md5($context->ip), '');
 
-            if ($ipCountry === '') {
+            if ($ipCountry === '' || $context->country === '') {
+                // Safe no-op: missing either side of the comparison means we
+                // can't make a reliable claim. Returning success=false makes
+                // the aggregator skip this signal entirely.
                 return [
                     'provider' => 'geo_mismatch',
                     'score'    => 0.0,
-                    'details'  => 'No IP geolocation data cached',
+                    'details'  => $ipCountry === ''
+                        ? 'No IP geolocation data cached for this IP yet'
+                        : 'Billing country missing from context',
                     'factors'  => [],
                     'success'  => false,
                 ];
@@ -1123,6 +1495,14 @@ class FpsCheckRunner
     /**
      * Persist a check result to mod_fps_checks.
      *
+     * Writes BOTH the legacy raw_response/details JSON blobs (for
+     * backward compatibility with older readers) AND the structured
+     * columns (provider_scores, check_context, is_pre_checkout,
+     * check_duration_ms, updated_at) introduced in v4.x so newer
+     * readers can avoid JSON-decoding the whole row.
+     *
+     * @param float|null $durationMs Measured pipeline duration in
+     *                               milliseconds; null = unknown.
      * @return int|null The inserted check ID
      */
     private function fps_persistCheck(
@@ -1130,35 +1510,97 @@ class FpsCheckRunner
         FpsRiskResult $risk,
         FpsRuleResult $rules,
         string $actionTaken,
-        bool $locked
+        bool $locked,
+        ?float $durationMs = null
     ): ?int {
         try {
-            $checkId = Capsule::table('mod_fps_checks')->insertGetId([
-                'order_id'       => $context->orderId,
-                'client_id'      => $context->clientId,
-                'check_type'     => $context->checkType,
-                'risk_score'     => $risk->score,
-                'risk_level'     => $risk->level,
-                'ip_address'     => $context->ip ?: null,
-                'email'          => $context->email ?: null,
-                'phone'          => $context->phone ?: null,
-                'country'        => $context->country ?: null,
-                'fraudrecord_id' => ($risk->providerScores['fraudrecord'] ?? 0) > 0
+            $now = date('Y-m-d H:i:s');
+
+            // Normalised provider score map suitable for direct DB consumption.
+            // Strip non-scalar values so the JSON column stays small + scannable.
+            $providerScores = [];
+            foreach ($risk->providerScores as $name => $score) {
+                $providerScores[(string) $name] = is_numeric($score) ? (float) $score : 0.0;
+            }
+
+            // Normalised, lightweight context blob (no fingerprint payloads).
+            $checkContextArr = [
+                'check_type'  => $context->checkType,
+                'order_id'    => $context->orderId,
+                'client_id'   => $context->clientId,
+                'has_email'   => $context->email !== '',
+                'has_phone'   => $context->phone !== '',
+                'has_country' => $context->country !== '',
+                'has_fp'      => $context->fingerprintHash !== '',
+                'amount'      => $context->amount,
+                'domain'      => $context->domain,
+                'rules'       => [
+                    'matched' => count($rules->matchedRules ?? []),
+                    'action'  => $rules->action ?? 'none',
+                ],
+            ];
+
+            $isPreCheckout = ($context->checkType === 'pre_checkout') ? 1 : 0;
+
+            // Legacy details/raw_response writes are gated by the
+            // write_legacy_details_column setting (default '1' = preserve
+            // current behaviour). Operators flip to '0' AFTER a 60-day
+            // soak with the structured-column readers in place. See
+            // TODO-hardening.md item #2.
+            //
+            // Direct DB lookup (not FpsConfig::getCustom) so an admin who
+            // just flipped the flag via the Settings tab sees the new
+            // value on the very next check, not after FpsConfig's
+            // request-scoped cache happens to refresh.
+            $writeLegacy = true;
+            try {
+                $flagVal = Capsule::table('mod_fps_settings')
+                    ->where('setting_key', 'write_legacy_details_column')
+                    ->value('setting_value');
+                if ($flagVal !== null) {
+                    $writeLegacy = ((string) $flagVal) !== '0';
+                }
+            } catch (\Throwable $e) { /* default true (preserves legacy behaviour) */ }
+
+            $insertData = [
+                'order_id'          => $context->orderId,
+                'client_id'         => $context->clientId,
+                'check_type'        => $context->checkType,
+                'risk_score'        => $risk->score,
+                'risk_level'        => $risk->level,
+                'ip_address'        => $context->ip ?: null,
+                'email'             => $context->email ?: null,
+                'phone'             => $context->phone ?: null,
+                'country'           => $context->country ?: null,
+                'fraudrecord_id'    => ($risk->providerScores['fraudrecord'] ?? 0) > 0
                     ? 'checked'
                     : null,
-                'raw_response'   => json_encode($risk->toArray()),
-                'details'        => json_encode([
+                // Structured columns (v4.x) -- preferred path for new readers.
+                'provider_scores'   => json_encode($providerScores),
+                'check_context'     => json_encode($checkContextArr),
+                'is_pre_checkout'   => $isPreCheckout,
+                'check_duration_ms' => $durationMs !== null ? (int) round($durationMs) : null,
+                'action_taken'      => $actionTaken,
+                'locked'            => $locked ? 1 : 0,
+                'reported'          => 0,
+                'reviewed_by'       => null,
+                'reviewed_at'       => null,
+                'created_at'        => $now,
+                'updated_at'        => $now,
+            ];
+
+            // Conditional legacy JSON writes -- backward-compat for unmigrated
+            // readers (Client Profile tab, Statistics, webhook notifier, export).
+            if ($writeLegacy) {
+                $insertData['raw_response'] = json_encode($risk->toArray());
+                $insertData['details']      = json_encode([
                     'risk'    => $risk->toArray(),
                     'rules'   => $rules->toArray(),
                     'context' => $context->toArray(),
-                ]),
-                'action_taken'   => $actionTaken,
-                'locked'         => $locked ? 1 : 0,
-                'reported'       => 0,
-                'reviewed_by'    => null,
-                'reviewed_at'    => null,
-                'created_at'     => date('Y-m-d H:i:s'),
-            ]);
+                ]);
+            }
+
+            $checkId = Capsule::table('mod_fps_checks')->insertGetId($insertData);
 
             return (int) $checkId;
         } catch (\Throwable $e) {
