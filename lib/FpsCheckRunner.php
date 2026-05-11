@@ -615,6 +615,7 @@ class FpsCheckRunner
             'curl/', 'wget/', 'go-http-client', 'okhttp',
             'axios/', 'node-fetch', 'java/', 'httpie/',
             'scrapy', 'mechanize', 'aiohttp', 'httpx',
+            'headless', 'phantomjs', 'selenium', 'puppeteer', 'playwright',
         ];
         foreach ($botPatterns as $pattern) {
             if (str_contains($ua, $pattern)) {

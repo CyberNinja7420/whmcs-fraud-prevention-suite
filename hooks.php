@@ -563,7 +563,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $providerScores['user_agent'] = 35.0;
             $details[] = 'Missing HTTP User-Agent header';
         } else {
-            $fpsBotUaPatterns = ['python-requests','python/','python-urllib','curl/','wget/','go-http-client','okhttp','axios/','node-fetch','java/','httpie/','scrapy','mechanize','aiohttp','httpx'];
+            $fpsBotUaPatterns = ['python-requests','python/','python-urllib','curl/','wget/','go-http-client','okhttp','axios/','node-fetch','java/','httpie/','scrapy','mechanize','aiohttp','httpx','headless','phantomjs','selenium','puppeteer','playwright'];
             foreach ($fpsBotUaPatterns as $fpsUaPat) {
                 if (strpos($fpsUa, $fpsUaPat) !== false) {
                     $score += 50;
