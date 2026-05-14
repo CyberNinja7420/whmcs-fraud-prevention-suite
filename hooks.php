@@ -364,7 +364,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                 }
             }
         } catch (\Throwable $e) {
-            logModuleCall('fraud_prevention_suite', 'PreCheckout::TurnstileException', $ip ?? '', $e->getMessage());
+            logModuleCall('fraud_prevention_suite', 'PreCheckout::TurnstileException', (string)($ip ?? ''), $e->getMessage());
         }
 
         // Process fingerprint data if submitted

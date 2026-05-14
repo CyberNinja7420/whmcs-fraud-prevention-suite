@@ -34,3 +34,27 @@ function getModuleName(): string { return ''; }
 
 /** @return void */
 function add_hook(string $hookName, int $priority, $callback): void {}
+
+namespace WHMCS\Module {
+    abstract class AbstractWidget {
+        /** @var string */
+        protected $title = '';
+        /** @var string */
+        protected $description = '';
+        /** @var int */
+        protected $weight = 0;
+        /** @var int */
+        protected $columns = 1;
+        /** @var bool */
+        protected $cache = false;
+        /** @var int */
+        protected $cacheExpiry = 120;
+        /** @var string */
+        protected $requiredPermission = '';
+
+        /** @return array<string, mixed> */
+        abstract public function getData();
+        /** @param array<string, mixed> $data */
+        abstract public function generateOutput($data);
+    }
+}

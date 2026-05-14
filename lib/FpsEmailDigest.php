@@ -269,7 +269,7 @@ class FpsEmailDigest
                 ->whereNotNull('ip_address')
                 ->where('ip_address', '!=', '')
                 ->groupBy('ip_address')
-                ->orderByDesc(Capsule::raw('AVG(risk_score)'))
+                ->orderByRaw('AVG(risk_score) DESC')
                 ->limit(5)
                 ->get()
                 ->toArray();
@@ -287,7 +287,7 @@ class FpsEmailDigest
                 ->whereNotNull('email')
                 ->where('email', '!=', '')
                 ->groupBy('email')
-                ->orderByDesc(Capsule::raw('AVG(risk_score)'))
+                ->orderByRaw('AVG(risk_score) DESC')
                 ->limit(5)
                 ->get()
                 ->toArray();

@@ -166,7 +166,7 @@ class FpsPdfReport
                 ->whereNotNull('ip_address')
                 ->where('ip_address', '!=', '')
                 ->groupBy('ip_address')
-                ->orderByDesc(Capsule::raw('COUNT(*)'))
+                ->orderByRaw('COUNT(*) DESC')
                 ->limit(10)
                 ->get()
                 ->toArray();
@@ -188,7 +188,7 @@ class FpsPdfReport
                 ->whereNotNull('email')
                 ->where('email', '!=', '')
                 ->groupBy('email')
-                ->orderByDesc(Capsule::raw('COUNT(*)'))
+                ->orderByRaw('COUNT(*) DESC')
                 ->limit(10)
                 ->get()
                 ->toArray();
