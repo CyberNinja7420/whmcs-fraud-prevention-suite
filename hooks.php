@@ -532,6 +532,73 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             $details[] = 'Honeypot field filled (bot indicator)';
         }
 
+        // 3c. Proof-of-Work challenge verification
+        // Real browsers solve the PoW in fps-pow.js and submit the solution.
+        // Invalid solutions add +25; missing solutions (JS not executed) add +10.
+        $powJson = $_POST['fps_pow_solution'] ?? '';
+        if ($powJson !== '') {
+            try {
+                $pow = json_decode($powJson, true);
+                if (is_array($pow) && isset($pow['hash'], $pow['nonce'], $pow['challenge'])) {
+                    // Recompute SHA-256(challenge + ':' + nonce) and verify
+                    $input = $pow['challenge'] . ':' . $pow['nonce'];
+                    $computed = hash('sha256', $input);
+                    // Difficulty 16 bits = 4 leading hex zeros
+                    if ($computed !== $pow['hash'] || substr($computed, 0, 4) !== '0000') {
+                        $score += 25;
+                        $providerScores['pow_invalid'] = 25.0;
+                        $details[] = 'Invalid proof-of-work solution';
+                    }
+                } else {
+                    // Malformed PoW payload
+                    $score += 15;
+                    $providerScores['pow_invalid'] = 15.0;
+                    $details[] = 'Malformed proof-of-work payload';
+                }
+            } catch (\Throwable $e) {
+                // JSON decode failed -- treat as missing
+                $score += 10;
+                $providerScores['pow_missing'] = 10.0;
+                $details[] = 'Proof-of-work decode error';
+            }
+        } else {
+            // No PoW solution submitted = bot that does not execute JavaScript
+            $score += 10;
+            $providerScores['pow_missing'] = 10.0;
+            $details[] = 'No proof-of-work solution submitted';
+        }
+
+        // 3d. Behavioral fingerprint scoring
+        // Decoded JSON from fps-behavioral.js is passed to FpsBehavioralScoringEngine
+        // which scores mouse entropy, form fill speed, paste events, keypress cadence, etc.
+        $behavioralJson = $_POST['fps_behavioral'] ?? '';
+        if ($behavioralJson !== '' && class_exists('\\FraudPreventionSuite\\Lib\\FpsBehavioralScoringEngine')) {
+            try {
+                $behavioralData = json_decode($behavioralJson, true);
+                if (is_array($behavioralData)) {
+                    $behavioralEngine = new \FraudPreventionSuite\Lib\FpsBehavioralScoringEngine();
+                    $behavResult = $behavioralEngine->analyze($behavioralData);
+                    $behavScore = (float) ($behavResult['score'] ?? 0);
+                    if ($behavScore > 0) {
+                        $score += $behavScore;
+                        $providerScores['behavioral'] = $behavScore;
+                        if (is_string($behavResult['details'] ?? null) && ($behavResult['details'] ?? '') !== '') {
+                            $details[] = $behavResult['details'];
+                        }
+                    }
+                    // Persist behavioral event for historical trend analysis
+                    try {
+                        $behavioralEngine->recordBehavioralEvent(
+                            $clientId,
+                            session_id() ?: 'unknown',
+                            $behavioralData,
+                            $behavScore
+                        );
+                    } catch (\Throwable $e) { /* non-fatal */ }
+                }
+            } catch (\Throwable $e) { /* non-fatal -- behavioral scoring must never block checkout */ }
+        }
+
         // 4. Bot pattern detection (instant -- no API calls)
         if ($email !== '') {
             $botScore = 0;
@@ -1442,7 +1509,7 @@ add_hook('ClientAreaFooterOutput', 0, function ($vars) {
         // Inject hidden honeypot fields via safe DOM construction.
         // These fields are invisible to humans (off-screen, zero height)
         // but bots that parse forms will fill them, triggering +30 score.
-        return '<script>'
+        $html = '<script>'
             . '(function(){'
             . 'var f=document.querySelectorAll("form[method=post]");'
             . 'if(!f.length)return;'
@@ -1458,6 +1525,16 @@ add_hook('ClientAreaFooterOutput', 0, function ($vars) {
             . '}'
             . '})();'
             . '</script>';
+
+        // Inject Proof-of-Work challenge JS (solves in background, ~100-300ms)
+        $powBust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('js/fps-pow.js');
+        $html .= '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-pow.js' . $powBust . '" defer></script>';
+
+        // Inject Behavioral fingerprint collector JS (mouse, keyboard, timing)
+        $behBust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('js/fps-behavioral.js');
+        $html .= '<script src="/modules/addons/fraud_prevention_suite/assets/js/fps-behavioral.js' . $behBust . '" defer></script>';
+
+        return $html;
     } catch (\Throwable $e) {
         return '';
     }

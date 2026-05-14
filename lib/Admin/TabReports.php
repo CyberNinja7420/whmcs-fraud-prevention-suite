@@ -23,6 +23,7 @@ class TabReports
         $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
 
         $this->fpsRenderGenerateReport($ajaxUrl);
+        $this->fpsRenderAuditTrailExport($ajaxUrl);
         $this->fpsRenderReportStats();
         $this->fpsRenderReportsTable($modulelink, $ajaxUrl);
         $this->fpsRenderSubmitForm($ajaxUrl);
@@ -178,6 +179,106 @@ document.getElementById('fps-report-period').addEventListener('change', function
 HTML;
 
         echo FpsAdminRenderer::renderCard('Generate Fraud Report', 'fa-file-pdf', $content);
+    }
+
+    /**
+     * Audit trail CSV export card with date range picker.
+     */
+    private function fpsRenderAuditTrailExport(string $ajaxUrl): void
+    {
+        // Build base URL for GET download (CSV streams directly)
+        $baseDownloadUrl = str_replace('&amp;', '&', $ajaxUrl) . '&a=export_audit_csv';
+        $safeBaseUrl = htmlspecialchars($baseDownloadUrl, ENT_QUOTES, 'UTF-8');
+
+        // Count total checks for display
+        $totalChecks = 0;
+        $oldestCheck = '--';
+        try {
+            $totalChecks = Capsule::table('mod_fps_checks')->count();
+            $oldest = Capsule::table('mod_fps_checks')->orderBy('created_at', 'asc')->value('created_at');
+            if ($oldest) {
+                $oldestCheck = date('Y-m-d', strtotime($oldest));
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        $defaultFrom = date('Y-m-d', strtotime('-30 days'));
+        $defaultTo = date('Y-m-d');
+
+        $content = <<<HTML
+<div style="display:flex;gap:1.5rem;align-items:flex-end;flex-wrap:wrap;">
+  <div style="flex:0 0 auto;">
+    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+      <div style="
+          background:linear-gradient(135deg,#667eea,#764ba2);
+          width:40px;height:40px;border-radius:10px;
+          display:flex;align-items:center;justify-content:center;
+          box-shadow:0 4px 12px rgba(102,126,234,0.3);
+      ">
+        <i class="fas fa-file-csv" style="color:#fff;font-size:1.1rem;"></i>
+      </div>
+      <div>
+        <div style="font-size:0.7rem;color:#667eea;text-transform:uppercase;letter-spacing:0.08em;">Audit Records</div>
+        <div style="font-size:1.3rem;font-weight:800;color:#fff;">{$totalChecks}</div>
+      </div>
+    </div>
+    <div style="font-size:0.75rem;color:#718096;">Data from: {$oldestCheck}</div>
+  </div>
+  <div class="fps-form-group" style="flex:0 0 auto;">
+    <label style="font-size:0.8rem;"><i class="fas fa-calendar-alt" style="color:#667eea;"></i> From</label>
+    <input type="date" id="fps-audit-csv-from" class="fps-input" value="{$defaultFrom}" style="margin-top:4px;">
+  </div>
+  <div class="fps-form-group" style="flex:0 0 auto;">
+    <label style="font-size:0.8rem;"><i class="fas fa-calendar-alt" style="color:#667eea;"></i> To</label>
+    <input type="date" id="fps-audit-csv-to" class="fps-input" value="{$defaultTo}" style="margin-top:4px;">
+  </div>
+  <div style="flex:0 0 auto;padding-bottom:2px;">
+    <button type="button" class="fps-btn fps-btn-md fps-btn-success" onclick="FpsAuditExport.downloadCsv('{$safeBaseUrl}')">
+      <i class="fas fa-download"></i> Download Audit CSV
+    </button>
+  </div>
+  <div style="flex:0 0 auto;padding-bottom:2px;">
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAuditExport.setRange('7d')">7d</button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAuditExport.setRange('30d')">30d</button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAuditExport.setRange('90d')">90d</button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAuditExport.setRange('all')">All</button>
+  </div>
+</div>
+<script>
+var FpsAuditExport = FpsAuditExport || {};
+FpsAuditExport.downloadCsv = function(baseUrl) {
+    var from = document.getElementById('fps-audit-csv-from').value;
+    var to = document.getElementById('fps-audit-csv-to').value;
+    if (!from || !to) {
+        if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) {
+            FpsAdmin.showToast('Please select both From and To dates', 'warning');
+        } else {
+            alert('Please select both From and To dates');
+        }
+        return;
+    }
+    window.location.href = baseUrl + '&from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to);
+};
+FpsAuditExport.setRange = function(range) {
+    var fromEl = document.getElementById('fps-audit-csv-from');
+    var toEl = document.getElementById('fps-audit-csv-to');
+    var now = new Date();
+    toEl.value = now.toISOString().split('T')[0];
+    if (range === '7d') {
+        fromEl.value = new Date(now.getTime() - 7*86400000).toISOString().split('T')[0];
+    } else if (range === '30d') {
+        fromEl.value = new Date(now.getTime() - 30*86400000).toISOString().split('T')[0];
+    } else if (range === '90d') {
+        fromEl.value = new Date(now.getTime() - 90*86400000).toISOString().split('T')[0];
+    } else {
+        fromEl.value = '2020-01-01';
+    }
+};
+</script>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Export Audit Trail (CSV)', 'fa-file-csv', $content);
     }
 
     /**

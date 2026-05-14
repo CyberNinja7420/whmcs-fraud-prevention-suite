@@ -961,6 +961,45 @@ function fraud_prevention_suite_upgrade($vars): void
             }
         }
 
+        // v4.3: Multi-tier API rate limiting -- sliding-window table + per-key counters.
+        if (!Capsule::schema()->hasTable('mod_fps_api_rate_limits')) {
+            Capsule::schema()->create('mod_fps_api_rate_limits', function ($table) {
+                $table->increments('id');
+                $table->integer('api_key_id')->index();
+                $table->dateTime('window_start');
+                $table->integer('request_count')->default(1);
+                $table->index(['api_key_id', 'window_start']);
+            });
+        }
+        // v4.3: Add per-key daily/monthly counters and overage alert tracking.
+        if (Capsule::schema()->hasTable('mod_fps_api_keys')) {
+            if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'requests_today')) {
+                Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                    $table->integer('requests_today')->default(0)->after('total_requests');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'requests_today_date')) {
+                Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                    $table->date('requests_today_date')->nullable()->after('requests_today');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'requests_month')) {
+                Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                    $table->integer('requests_month')->default(0)->after('requests_today_date');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'requests_month_start')) {
+                Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                    $table->date('requests_month_start')->nullable()->after('requests_month');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_api_keys', 'last_overage_alert')) {
+                Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                    $table->dateTime('last_overage_alert')->nullable()->after('requests_month_start');
+                });
+            }
+        }
+
         // v4.2.4: Add reviewed_by/reviewed_at to mod_fps_reports so existing
         // installs can run fps_ajaxUpdateReportStatus without "Unknown column".
         // (Fresh installs get these via create() above.)
@@ -1774,6 +1813,94 @@ function fps_handleAjax(string $modulelink): void
             case 'global_intel_purge':
                 echo json_encode(fps_ajaxGlobalIntelPurge());
                 break;
+
+            // v4.3: GDPR one-click export & erasure (admin, per-client)
+            case 'gdpr_export_client':
+                $gdprClientId = (int)($_GET['client_id'] ?? $_POST['client_id'] ?? 0);
+                if ($gdprClientId < 1) {
+                    echo json_encode(['error' => 'Invalid client ID']);
+                    return;
+                }
+                try {
+                    $jsonExport = fps_exportClientDataJson($gdprClientId);
+                    header('Content-Type: application/json; charset=UTF-8');
+                    header('Content-Disposition: attachment; filename="fps-gdpr-export-client-' . $gdprClientId . '-' . date('Y-m-d') . '.json"');
+                    header('Content-Length: ' . strlen($jsonExport));
+                    echo $jsonExport;
+                } catch (\Throwable $e) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['error' => 'GDPR export failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'gdpr_erase_client':
+                $gdprClientId = (int)($_POST['client_id'] ?? 0);
+                $confirmToken = trim($_POST['confirm_token'] ?? '');
+                if ($gdprClientId < 1) {
+                    echo json_encode(['error' => 'Invalid client ID']);
+                    return;
+                }
+                // Require confirmation token to prevent accidental erasure
+                if ($confirmToken !== 'CONFIRM-ERASE-' . $gdprClientId) {
+                    echo json_encode(['error' => 'Invalid confirmation token. Expected: CONFIRM-ERASE-' . $gdprClientId]);
+                    return;
+                }
+                try {
+                    $adminId = (int)($_SESSION['adminid'] ?? 0);
+                    if ($adminId < 1) {
+                        echo json_encode(['error' => 'Admin session required']);
+                        return;
+                    }
+                    $result = fps_eraseClientData($gdprClientId, $adminId);
+                    echo json_encode([
+                        'success' => true,
+                        'message' => sprintf(
+                            'GDPR erasure complete for Client #%d: %d records deleted, %d anonymised across %d tables.',
+                            $gdprClientId,
+                            $result['total_deleted'],
+                            $result['total_anonymised'],
+                            count($result['tables'])
+                        ),
+                        'summary' => $result,
+                    ]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'GDPR erasure failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            // v4.3: Audit trail CSV export with date range
+            case 'export_audit_csv':
+                try {
+                    $from = preg_replace('/[^0-9\-]/', '', $_GET['from'] ?? '');
+                    $to = preg_replace('/[^0-9\-]/', '', $_GET['to'] ?? '');
+                    if ($from === '') $from = date('Y-m-d', strtotime('-30 days'));
+                    if ($to === '') $to = date('Y-m-d');
+
+                    $checks = Capsule::table('mod_fps_checks')
+                        ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+                        ->orderBy('created_at', 'desc')
+                        ->limit(50000)
+                        ->get(['id', 'client_id', 'order_id', 'check_type', 'risk_score', 'risk_level',
+                               'ip_address', 'email', 'country', 'action_taken', 'created_at']);
+
+                    header('Content-Type: text/csv; charset=UTF-8');
+                    header('Content-Disposition: attachment; filename="fps-audit-' . $from . '-to-' . $to . '.csv"');
+
+                    $out = fopen('php://output', 'w');
+                    fputcsv($out, ['ID', 'Client ID', 'Order ID', 'Type', 'Score', 'Level', 'IP', 'Email', 'Country', 'Action', 'Date']);
+                    foreach ($checks as $c) {
+                        fputcsv($out, [
+                            $c->id, $c->client_id, $c->order_id, $c->check_type,
+                            $c->risk_score, $c->risk_level, $c->ip_address, $c->email,
+                            $c->country, $c->action_taken, $c->created_at,
+                        ]);
+                    }
+                    fclose($out);
+                } catch (\Throwable $e) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['error' => 'Audit CSV export failed: ' . $e->getMessage()]);
+                }
+                return;
 
             // v4.1: GDPR Data Removal Requests (admin)
             case 'gdpr_get_requests':

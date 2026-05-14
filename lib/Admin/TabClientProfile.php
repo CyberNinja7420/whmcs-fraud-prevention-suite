@@ -1740,5 +1740,137 @@ HTML;
             'Export Profile', 'fa-file-export', "FpsAdmin.exportClientProfile({$clientId}, '{$ajaxUrl}')", 'info', 'md'
         );
         echo '</div>';
+
+        // GDPR actions panel
+        $this->fpsRenderGdprActions($clientId, $ajaxUrl);
+    }
+
+    /**
+     * GDPR action buttons: Export Data (Article 15/20) and Erase Data (Article 17).
+     */
+    private function fpsRenderGdprActions(int $clientId, string $ajaxUrl): void
+    {
+        // Build the export URL (GET request triggers file download)
+        $exportUrl = str_replace('&amp;', '&', $ajaxUrl) . '&a=gdpr_export_client&client_id=' . $clientId;
+        $safeExportUrl = htmlspecialchars($exportUrl, ENT_QUOTES, 'UTF-8');
+
+        $content = <<<HTML
+<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+  <div style="flex:1;min-width:200px;">
+    <p style="margin:0 0 0.5rem 0;font-size:0.85rem;color:#a0aec0;">
+      <i class="fas fa-info-circle" style="color:#667eea;margin-right:4px;"></i>
+      <strong>GDPR Article 15/20:</strong> Export all FPS data held for this client as a portable JSON file.
+      <strong>Article 17:</strong> Permanently erase all FPS data for this client (fraud check records are anonymised, not deleted, under Art 17(3)(e)).
+    </p>
+  </div>
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+    <a href="{$safeExportUrl}" class="fps-btn fps-btn-md fps-btn-info" style="text-decoration:none;">
+      <i class="fas fa-download"></i> Export GDPR Data
+    </a>
+    <button type="button" class="fps-btn fps-btn-md fps-btn-danger" onclick="FpsGdpr.confirmErase({$clientId}, '{$ajaxUrl}')">
+      <i class="fas fa-eraser"></i> Erase All Data
+    </button>
+  </div>
+</div>
+
+<!-- Erasure confirmation modal -->
+<div id="fps-gdpr-erase-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);justify-content:center;align-items:center;">
+  <div style="background:#1a1f3a;border:1px solid rgba(235,51,73,0.4);border-radius:16px;padding:2rem;max-width:520px;width:90%;box-shadow:0 16px 64px rgba(0,0,0,0.6);">
+    <h3 style="margin:0 0 1rem 0;color:#eb3349;font-size:1.2rem;">
+      <i class="fas fa-exclamation-triangle"></i> Confirm GDPR Data Erasure
+    </h3>
+    <p style="color:#e2e8f0;font-size:0.9rem;margin:0 0 1rem 0;">
+      This will <strong>permanently delete</strong> all FPS data associated with Client #{$clientId}.
+      Fraud check records will be anonymised (PII removed) rather than deleted.
+      This action <strong>cannot be undone</strong>.
+    </p>
+    <div style="margin-bottom:1rem;">
+      <label style="color:#a0aec0;font-size:0.8rem;display:block;margin-bottom:4px;">
+        Type <code style="color:#eb3349;background:rgba(235,51,73,0.15);padding:2px 6px;border-radius:4px;">CONFIRM-ERASE-{$clientId}</code> to confirm:
+      </label>
+      <input type="text" id="fps-gdpr-erase-confirm-input" class="fps-input" placeholder="Type confirmation token" style="width:100%;">
+    </div>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button type="button" class="fps-btn fps-btn-md fps-btn-outline" onclick="FpsGdpr.closeEraseModal()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+      <button type="button" class="fps-btn fps-btn-md fps-btn-danger" id="fps-gdpr-erase-execute-btn" onclick="FpsGdpr.executeErase({$clientId}, '{$ajaxUrl}')">
+        <i class="fas fa-skull-crossbones"></i> Erase Data
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+var FpsGdpr = FpsGdpr || {};
+FpsGdpr.confirmErase = function(clientId, ajaxUrl) {
+    var modal = document.getElementById('fps-gdpr-erase-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        var input = document.getElementById('fps-gdpr-erase-confirm-input');
+        if (input) { input.value = ''; input.focus(); }
+    }
+};
+FpsGdpr.closeEraseModal = function() {
+    var modal = document.getElementById('fps-gdpr-erase-modal');
+    if (modal) modal.style.display = 'none';
+};
+FpsGdpr.executeErase = function(clientId, ajaxUrl) {
+    var input = document.getElementById('fps-gdpr-erase-confirm-input');
+    var confirmToken = input ? input.value.trim() : '';
+    var expected = 'CONFIRM-ERASE-' + clientId;
+    if (confirmToken !== expected) {
+        if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) {
+            FpsAdmin.showToast('Confirmation token does not match. Please type: ' + expected, 'error');
+        } else {
+            alert('Confirmation token does not match. Please type: ' + expected);
+        }
+        return;
+    }
+    var btn = document.getElementById('fps-gdpr-erase-execute-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Erasing...'; }
+
+    var formData = new FormData();
+    formData.append('client_id', clientId);
+    formData.append('confirm_token', confirmToken);
+    var tokenEl = document.getElementById('fps-csrf-token')
+        || document.querySelector('input[name="token"]')
+        || document.querySelector('#frmFraudPreventionSuite input[name="token"]');
+    if (tokenEl && tokenEl.value) { formData.append('token', tokenEl.value); }
+
+    var url = ajaxUrl.replace(/&amp;/g, '&') + '&a=gdpr_erase_client';
+    fetch(url, { method: 'POST', body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            FpsGdpr.closeEraseModal();
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-skull-crossbones"></i> Erase Data'; }
+            if (data.success) {
+                if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) {
+                    FpsAdmin.showToast(data.message, 'success');
+                } else {
+                    alert(data.message);
+                }
+            } else {
+                if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) {
+                    FpsAdmin.showToast(data.error || 'Erasure failed', 'error');
+                } else {
+                    alert(data.error || 'Erasure failed');
+                }
+            }
+        })
+        .catch(function(err) {
+            FpsGdpr.closeEraseModal();
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-skull-crossbones"></i> Erase Data'; }
+            if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) {
+                FpsAdmin.showToast('Network error: ' + err.message, 'error');
+            } else {
+                alert('Network error: ' + err.message);
+            }
+        });
+};
+</script>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('GDPR Data Management', 'fa-shield-halved', $content);
     }
 }

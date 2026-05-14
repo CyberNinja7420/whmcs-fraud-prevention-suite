@@ -12,7 +12,8 @@ use WHMCS\Database\Capsule;
 
 /**
  * Public REST API router for the Fraud Prevention Suite.
- * Routes requests to FpsApiController methods with authentication and rate limiting.
+ * Routes requests to FpsApiController methods with authentication
+ * and multi-tier rate limiting.
  */
 class FpsApiRouter
 {
@@ -101,22 +102,85 @@ class FpsApiRouter
             $tier = $authResult['tier'];
             $keyId = $authResult['key_id'];
 
-            // Rate limiting (per-key overrides > tier settings > hardcoded defaults)
+            // Extract raw API key for rate limiter (used as identifier seed)
+            $rawApiKey = $this->fps_extractRawApiKey();
+
+            // ----------------------------------------------------------
+            // Multi-tier rate limiting
+            //
+            // Layer 1: Tier-aware sliding-window check (new)
+            //   Uses mod_fps_api_rate_limits for per-minute windows and
+            //   mod_fps_api_keys.requests_today for per-day checks.
+            //
+            // Layer 2: Legacy token-bucket (mod_fps_rate_limits)
+            //   Kept as a secondary backstop. Both layers must pass.
+            // ----------------------------------------------------------
+
+            // Ensure the new rate limit table exists (lazy migration)
+            $this->rateLimiter->fps_ensureRateLimitTable();
+            $this->rateLimiter->fps_ensureApiKeyColumns();
+
+            // Layer 1: tier-aware check
+            $tierCheck = $this->rateLimiter->fps_checkTierLimits(
+                $rawApiKey,
+                $tier,
+                (int)($keyId ?? 0)
+            );
+
+            if (!$tierCheck['allowed']) {
+                // Emit full rate limit headers before the 429
+                $rateLimitHeaders = $this->rateLimiter->fps_getRateLimitHeaders(
+                    $rawApiKey, $tier, (int)($keyId ?? 0)
+                );
+                foreach ($rateLimitHeaders as $headerName => $headerValue) {
+                    header("{$headerName}: {$headerValue}");
+                }
+
+                $retryAfter = $tierCheck['reason'] === 'per_day'
+                    ? max(1, (int)(strtotime('tomorrow midnight') - time()))
+                    : max(1, 60 - (time() % 60));
+                header('Retry-After: ' . $retryAfter);
+
+                $limitType = $tierCheck['reason'] === 'per_day' ? 'daily' : 'per-minute';
+                $this->respondError(429, "Rate limit exceeded ({$limitType} limit for {$tier} tier)", [
+                    'retry_after'       => $retryAfter,
+                    'limit_minute'      => $tierCheck['limit_minute'],
+                    'limit_day'         => $tierCheck['limit_day'],
+                    'remaining_minute'  => $tierCheck['remaining_minute'],
+                    'remaining_day'     => $tierCheck['remaining_day'],
+                    'reset_at'          => $tierCheck['reset_at'],
+                ]);
+                $this->fps_logRequest($keyId, $endpoint, $method, 429, $startTime);
+                return;
+            }
+
+            // Layer 2: legacy token-bucket backstop
             $identifier = $keyId ? "key:{$keyId}" : "ip:" . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
             $limit = $this->rateLimiter->resolveLimit($tier, (int)($keyId ?? 0));
 
             if (!$this->rateLimiter->consume($identifier, $limit)) {
+                $rateLimitHeaders = $this->rateLimiter->fps_getRateLimitHeaders(
+                    $rawApiKey, $tier, (int)($keyId ?? 0)
+                );
+                foreach ($rateLimitHeaders as $headerName => $headerValue) {
+                    header("{$headerName}: {$headerValue}");
+                }
+
                 $retryAfter = $this->rateLimiter->getRetryAfter($identifier, $limit);
                 header('Retry-After: ' . $retryAfter);
-                $this->respondError(429, 'Rate limit exceeded', ['retry_after' => $retryAfter]);
-                $this->logRequest($keyId, $endpoint, $method, 429, $startTime);
+                $this->respondError(429, 'Rate limit exceeded', [
+                    'retry_after'       => $retryAfter,
+                    'limit_minute'      => $limit['per_minute'],
+                    'limit_day'         => $limit['per_day'],
+                ]);
+                $this->fps_logRequest($keyId, $endpoint, $method, 429, $startTime);
                 return;
             }
 
             // Check endpoint access
             if (!$this->auth->canAccess($tier, $endpoint)) {
                 $this->respondError(403, 'Endpoint not available on your tier. Upgrade at the API Keys page.');
-                $this->logRequest($keyId, $endpoint, $method, 403, $startTime);
+                $this->fps_logRequest($keyId, $endpoint, $method, 403, $startTime);
                 return;
             }
 
@@ -124,10 +188,17 @@ class FpsApiRouter
             $response = $this->route($endpoint, $method);
             $responseCode = $response['code'] ?? 200;
 
-            // Add rate limit headers
-            $remaining = $this->rateLimiter->getRemaining($identifier, $limit);
-            header('X-RateLimit-Limit: ' . $limit['per_minute']);
-            header('X-RateLimit-Remaining: ' . $remaining);
+            // Record the successful request in both the sliding window and key counters.
+            // This is done AFTER routing so only successful dispatches consume quota.
+            $this->rateLimiter->fps_recordRequest($rawApiKey, (int)($keyId ?? 0));
+
+            // Emit full rate limit headers on the successful response
+            $rateLimitHeaders = $this->rateLimiter->fps_getRateLimitHeaders(
+                $rawApiKey, $tier, (int)($keyId ?? 0)
+            );
+            foreach ($rateLimitHeaders as $headerName => $headerValue) {
+                header("{$headerName}: {$headerValue}");
+            }
 
             http_response_code($responseCode);
             echo json_encode([
@@ -138,14 +209,30 @@ class FpsApiRouter
                     'request_id' => 'fps_' . bin2hex(random_bytes(8)),
                     'tier' => $tier,
                     'rate_limit' => [
-                        'remaining' => $remaining,
-                        'limit' => $limit['per_minute'],
+                        'limit_minute'      => (int)($rateLimitHeaders['X-RateLimit-Limit-Minute'] ?? $limit['per_minute']),
+                        'remaining_minute'  => (int)($rateLimitHeaders['X-RateLimit-Remaining-Minute'] ?? 0),
+                        'limit_day'         => (int)($rateLimitHeaders['X-RateLimit-Limit-Day'] ?? $limit['per_day']),
+                        'remaining_day'     => (int)($rateLimitHeaders['X-RateLimit-Remaining-Day'] ?? 0),
+                        'reset'             => (int)($rateLimitHeaders['X-RateLimit-Reset'] ?? 60),
                     ],
                     'response_time_ms' => (int)((microtime(true) - $startTime) * 1000),
                 ],
             ], JSON_UNESCAPED_UNICODE);
 
-            $this->logRequest($keyId, $endpoint, $method, $responseCode, $startTime);
+            $this->fps_logRequest($keyId, $endpoint, $method, $responseCode, $startTime);
+
+            // Check for overage alert (async-safe: non-blocking, best-effort)
+            if ($keyId) {
+                try {
+                    $keyRow = Capsule::table('mod_fps_api_keys')
+                        ->where('id', $keyId)
+                        ->first(['name']);
+                    $keyName = $keyRow->name ?? ('Key #' . $keyId);
+                    $this->rateLimiter->fps_sendOverageAlert($rawApiKey, $tier, $keyName, (int)$keyId);
+                } catch (\Throwable $e) {
+                    // Non-fatal
+                }
+            }
 
         } catch (\Throwable $e) {
             $this->respondError(500, 'Internal server error');
@@ -194,7 +281,36 @@ class FpsApiRouter
         ], $extra), JSON_UNESCAPED_UNICODE);
     }
 
-    private function logRequest(?int $keyId, string $endpoint, string $method, int $code, float $startTime): void
+    /**
+     * Extract the raw API key from request headers/params.
+     * Returns empty string for anonymous requests.
+     */
+    private function fps_extractRawApiKey(): string
+    {
+        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        foreach ($headers as $name => $value) {
+            if (strtolower($name) === 'x-fps-api-key') {
+                return trim($value);
+            }
+        }
+
+        $serverKey = $_SERVER['HTTP_X_FPS_API_KEY'] ?? '';
+        if ($serverKey !== '') {
+            return trim($serverKey);
+        }
+
+        return trim($_GET['api_key'] ?? '');
+    }
+
+    /**
+     * Log an API request to mod_fps_api_logs and update stats.
+     *
+     * Note: per-key usage counters (total_requests, requests_today, etc.) are
+     * now handled by FpsApiRateLimiter::fps_recordRequest() which is called
+     * separately. This method only handles the log table insert and the
+     * shared stats collector.
+     */
+    private function fps_logRequest(?int $keyId, string $endpoint, string $method, int $code, float $startTime): void
     {
         try {
             $ip = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -243,15 +359,6 @@ class FpsApiRouter
             // consistently with the hook-based stats paths.
             (new \FraudPreventionSuite\Lib\FpsStatsCollector())->recordEvent('api_request');
 
-            // Update per-key usage counters
-            if ($keyId) {
-                Capsule::table('mod_fps_api_keys')
-                    ->where('id', $keyId)
-                    ->update([
-                        'last_used_at'   => date('Y-m-d H:i:s'),
-                        'total_requests' => Capsule::raw('total_requests + 1'),
-                    ]);
-            }
         } catch (\Throwable $e) {
             // Non-fatal -- never let logging errors break API responses
         }

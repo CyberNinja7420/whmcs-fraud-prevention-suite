@@ -179,10 +179,35 @@ class FraudRecordProvider implements FpsProviderInterface
             $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            logModuleCall('fraud_prevention_suite', 'FraudRecord Report',
-                json_encode(['action' => 'report']), (string)$response, '', [$apiKey]);
+            logModuleCall('fraud_prevention_suite', 'FraudRecord Report (V2)',
+                json_encode(['action' => 'report', 'http_code' => $httpCode]),
+                (string)$response, '', [$apiKey]);
 
-            return $httpCode === 200;
+            if ($httpCode === 200) {
+                return true;
+            }
+
+            // V2 API returns HTTP 405 for the 'report' action.
+            // Fall back to V1 format: GET with query params and SHA1 hashes.
+            // Format: /api/?addreport=API_KEY&EMAIL_HASH&IP_HASH&PHONE_HASH
+            $v1Url = 'https://www.fraudrecord.com/api/?addreport=' . urlencode($apiKey);
+            if ($email !== '') {
+                $v1Url .= '&' . sha1(strtolower(trim($email)));
+            }
+            if ($ip !== '') {
+                $v1Url .= '&' . sha1(trim($ip));
+            }
+            if ($phone !== '') {
+                $v1Url .= '&' . sha1(preg_replace('/[^0-9]/', '', $phone));
+            }
+
+            $v1Response = $this->fps_httpGet($v1Url);
+
+            logModuleCall('fraud_prevention_suite', 'FraudRecord Report (V1 Fallback)',
+                'V2 returned HTTP ' . $httpCode . ', attempting V1 GET',
+                (string)$v1Response, '', [$apiKey]);
+
+            return $v1Response !== null;
         } catch (\Throwable $e) {
             logModuleCall(
                 'fraud_prevention_suite',
