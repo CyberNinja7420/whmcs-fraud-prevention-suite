@@ -7,6 +7,55 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.0.0] - 2026-05-14 "IronGate"
+
+### Added -- Bot Defense (Tier 1-3)
+- **Proof-of-work challenge** (`assets/js/fps-pow.js`) -- SHA-256 crypto puzzle with 16-bit difficulty; real browsers solve in ~200ms, missing/invalid PoW adds +10/+25 to fraud score
+- **Behavioral fingerprint JS** (`assets/js/fps-behavioral.js`) -- Collects mouse distance/entropy, keystroke cadence CV, paste events, form fill timing, tab switches, scroll/touch counts; scored by `FpsBehavioralScoringEngine`
+- **Honeypot fields** -- Invisible checkout form fields (`fps_website_url`, `fps_company_fax`) that bots fill; +30 fraud score when triggered
+- **User-Agent bot detection** -- Detects python-requests, curl, wget, headless, puppeteer, selenium, playwright; +35-50 score
+- **AbuseSignalProvider in pre-checkout** -- StopForumSpam + SpamHaus ZEN queries added to both inline and fast-path pipelines (no API key needed)
+- **Missing fingerprint penalty** -- +20 score when `fps_fingerprint` POST field is absent
+- **HeadlessChrome detection** -- `headless`, `phantomjs`, `selenium`, `puppeteer`, `playwright` added to UA bot pattern list
+- **IP API failure baseline** -- 15-point uncertainty score when both ip-api.com and ipinfo.io fail
+
+### Added -- Operational (Tier 1-2)
+- **Tab visibility system** -- Disabled features automatically hide their admin tabs (topology, global intel, bot cleanup, API keys controlled by settings)
+- **Email digest** (`FpsEmailDigest.php`) -- Daily/weekly HTML fraud summary with stats, top IPs/emails, provider breakdown, self-gating to prevent double-sends
+- **Auto-response actions** (`FpsAutoResponder.php`) -- Configurable auto-suspend/flag/blacklist after N critical checks in X days
+- **Slack/Discord/Teams real-time alerts** -- `FpsWebhookNotifier` wired into both pre-checkout block paths for instant notifications
+- **Admin home widget** (`FpsHomeWidget.php`) -- Fraud stats widget on WHMCS admin dashboard with 5-minute cache
+- **Rules export/import** -- JSON download/upload of custom fraud rules with validation
+- **Disposable domain auto-update** -- DailyCronJob fetches latest blocklist from GitHub disposable-email-domains repo (3,000+ domains)
+
+### Added -- Revenue/SaaS (Tier 2-3)
+- **Scheduled PDF reports** (`FpsPdfReport.php`) -- Weekly/monthly print-optimized HTML reports with 7 sections and auto-generated recommendations
+- **Risk score timeline** -- Per-client ApexCharts area chart in Client Profile tab with color zones (green/yellow/orange/red)
+- **Geo-blocking rules UI** -- Country blacklist management in Rules tab with 50 high-fraud-risk countries and search filter
+- **Client portal usage dashboard** (`templates/client/usage.tpl`) -- Per-API-key stats, 30-day usage charts, tier badges with upgrade CTA
+- **Multi-tier API rate limiting** -- Per-minute sliding window + daily caps, 7 `X-RateLimit-*` headers, 80% overage email alerts, 429 responses with `Retry-After`
+
+### Added -- Compliance (Tier 3)
+- **GDPR one-click export** -- Collects all FPS data across 12 tables for Article 20 portability
+- **GDPR one-click erasure** -- Anonymizes fraud evidence (Article 17(3)(e)), deletes PII, with typed confirmation token
+- **Audit trail CSV export** -- Date range picker with 50K row limit in Reports tab
+- **FraudRecord V1 report fallback** -- Falls back to V1 GET format when V2 JSON API returns 405
+
+### Changed
+- **Block threshold** lowered from 85 to 65 (additive inline scoring now generates sufficient signal)
+- **Fast path score floors** fixed -- `bot_pattern`, `user_agent`, `abuse_signal`, `missing_fingerprint` now properly trigger floor overrides in `FpsRiskEngine::aggregate()`
+- **DEFAULT_WEIGHTS** expanded -- Added `missing_fingerprint` (1.0), `abuse_signal` (1.2), `bot_pattern` (2.0), `user_agent` (1.5)
+- **IP whitelist** -- New `whitelisted_ips` setting bypasses all fraud checks for admin/CI IPs
+- **`$displaySettings` initialization** -- Fixed PHP 8.2 undefined variable warning in `_output()`
+- **Turnstile error logging** -- Exceptions now logged to module log (was silently swallowed)
+- **21 hooks** registered (was 17)
+- **Module version** bumped from 4.2.4 to 5.0.0 (codename: IronGate)
+
+### Removed
+- Stale analytics integration plan docs (`docs/plans/2026-04-22-*`)
+
+---
+
 ## [4.2.4] - 2026-04-22
 
 ### Added
