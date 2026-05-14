@@ -449,6 +449,21 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
 
                 if ($runnerResult->risk->score >= $thresholds['block']) {
                     logActivity("Fraud Prevention: Pre-checkout (fast-path) BLOCKED for client #{$clientId} (IP: {$ip}, score: {$runnerResult->risk->score})");
+
+                    // Send webhook notification for blocked checkout (fast-path)
+                    try {
+                        if (class_exists('\\FraudPreventionSuite\\Lib\\FpsWebhookNotifier')) {
+                            $webhookNotifier = new \FraudPreventionSuite\Lib\FpsWebhookNotifier();
+                            $webhookNotifier->sendFraudAlert(
+                                'critical',
+                                0,
+                                $clientId,
+                                (float) $runnerResult->risk->score,
+                                ['Pre-checkout blocked (fast-path)', 'IP: ' . $ip, 'Email: ' . $email, 'Country: ' . $country]
+                            );
+                        }
+                    } catch (\Throwable $e) { /* non-fatal */ }
+
                     return ['We were unable to process your order at this time. Please contact support if you believe this is an error. Reference: FPS-' . date('ymdHi')];
                 }
                 return [];
@@ -768,6 +783,21 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
         // Block if score exceeds threshold
         if ($score >= $blockThreshold) {
             logActivity("Fraud Prevention: Pre-checkout BLOCKED for client #{$clientId} (IP: {$ip}, score: {$score})");
+
+            // Send webhook notification for blocked checkout (inline pipeline)
+            try {
+                if (class_exists('\\FraudPreventionSuite\\Lib\\FpsWebhookNotifier')) {
+                    $webhookNotifier = new \FraudPreventionSuite\Lib\FpsWebhookNotifier();
+                    $webhookNotifier->sendFraudAlert(
+                        $riskLevel,
+                        0,
+                        $clientId,
+                        (float) $score,
+                        array_slice($details, 0, 5)
+                    );
+                }
+            } catch (\Throwable $e) { /* non-fatal */ }
+
             return ['We were unable to process your order at this time. Please contact support if you believe this is an error. Reference: FPS-' . date('ymdHi')];
         }
 
@@ -2141,5 +2171,61 @@ add_hook('DailyCronJob', 2, function ($vars) {
         }
     } catch (\Throwable $e) {
         logModuleCall('fraud_prevention_suite', 'DisposableDomainUpdate::ERROR', '', $e->getMessage());
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 14. AfterShoppingCartCheckout -- Auto-Responder evaluation
+//     Evaluates client after each order for repeated critical fraud checks.
+//     If threshold is met, executes configured action (suspend/flag/blacklist).
+// ---------------------------------------------------------------------------
+add_hook('AfterShoppingCartCheckout', 2, function ($vars) {
+    try {
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsAutoResponder')) {
+            return;
+        }
+
+        $orderId = (int) ($vars['OrderID'] ?? 0);
+        if ($orderId < 1) {
+            return;
+        }
+
+        $order = \WHMCS\Database\Capsule::table('tblorders')->where('id', $orderId)->first();
+        if (!$order) {
+            return;
+        }
+
+        $clientId = (int) ($order->userid ?? 0);
+        if ($clientId < 1) {
+            return;
+        }
+
+        $responder = new \FraudPreventionSuite\Lib\FpsAutoResponder();
+        $eval = $responder->fps_evaluateClient($clientId);
+
+        if ($eval['should_act']) {
+            $responder->fps_executeAction(
+                $clientId,
+                $eval['action'],
+                $eval['reason']
+            );
+        }
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'AutoResponder::Error', '', $e->getMessage());
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 15. DailyCronJob -- Scheduled PDF/HTML fraud reports (weekly/monthly)
+// ---------------------------------------------------------------------------
+add_hook('DailyCronJob', 3, function ($vars) {
+    try {
+        $config = \FraudPreventionSuite\Lib\FpsConfig::getInstance();
+        if (!$config->isEnabled('scheduled_reports_enabled')) return;
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsPdfReport')) return;
+        $report = new \FraudPreventionSuite\Lib\FpsPdfReport();
+        $report->fps_scheduleCheck();
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'ScheduledReport::Error', '', $e->getMessage());
     }
 });

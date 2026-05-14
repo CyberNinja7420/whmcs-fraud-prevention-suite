@@ -141,6 +141,9 @@ HTML;
             // Orders table
             $this->fpsRenderOrdersTable($clientId);
 
+            // Risk score timeline chart
+            $this->fpsRenderRiskTimeline($clientId, $modulelink);
+
             // Action buttons
             $this->fpsRenderActionButtons($clientId, $ajaxUrl);
 
@@ -1542,6 +1545,180 @@ HTML;
         }
 
         echo FpsAdminRenderer::renderCard('Refunds & Chargebacks' . $abuseFlag, 'fa-money-bill-transfer', $content);
+    }
+
+    /**
+     * Risk score timeline -- ApexCharts area chart of historical check scores.
+     */
+    private function fpsRenderRiskTimeline(int $clientId, string $modulelink): void
+    {
+        $safeModulelink = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+
+        $content = <<<HTML
+<div id="fps-risk-timeline-chart" style="height:300px;"></div>
+<div id="fps-risk-timeline-empty" style="display:none;text-align:center;padding:2rem;color:#6a7195;">
+    <i class="fas fa-chart-area" style="font-size:2rem;margin-bottom:0.5rem;display:block;opacity:0.4;"></i>
+    No risk check history found for this client.
+</div>
+<script>
+(function(){
+    var chartEl = document.getElementById('fps-risk-timeline-chart');
+    var emptyEl = document.getElementById('fps-risk-timeline-empty');
+    if (!chartEl) return;
+
+    var url = '{$safeModulelink}&ajax_action=get_client_risk_timeline&client_id={$clientId}';
+
+    fetch(url, {credentials:'same-origin'})
+        .then(function(r){ return r.json(); })
+        .then(function(resp){
+            if (!resp.success || !resp.data || resp.data.length === 0) {
+                chartEl.style.display = 'none';
+                emptyEl.style.display = 'block';
+                return;
+            }
+
+            var categories = [];
+            var scores     = [];
+
+            resp.data.forEach(function(pt){
+                categories.push(pt.x);
+                scores.push(pt.y);
+            });
+
+            var opts = {
+                chart: {
+                    type: 'area',
+                    height: 300,
+                    background: 'transparent',
+                    toolbar: { show: true, tools: { download: true, zoom: true, pan: true, reset: true } },
+                    animations: { enabled: true, easing: 'easeinout', speed: 800 },
+                    fontFamily: 'Inter, system-ui, sans-serif'
+                },
+                series: [{
+                    name: 'Risk Score',
+                    data: scores
+                }],
+                xaxis: {
+                    categories: categories,
+                    type: 'datetime',
+                    labels: {
+                        style: { colors: '#8892b0', fontSize: '11px' },
+                        datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
+                    },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
+                yaxis: {
+                    min: 0,
+                    max: 100,
+                    title: { text: 'Risk Score', style: { color: '#8892b0', fontSize: '12px' } },
+                    labels: { style: { colors: '#8892b0', fontSize: '11px' } }
+                },
+                annotations: {
+                    yaxis: [
+                        { y: 0,  y2: 30,  fillColor: '#38ef7d', opacity: 0.06, label: { text: 'Low',      style: { color: '#38ef7d', background: 'transparent', fontSize: '10px' }, position: 'front' } },
+                        { y: 30, y2: 60,  fillColor: '#f5c842', opacity: 0.06, label: { text: 'Medium',   style: { color: '#f5c842', background: 'transparent', fontSize: '10px' }, position: 'front' } },
+                        { y: 60, y2: 80,  fillColor: '#f5576c', opacity: 0.06, label: { text: 'High',     style: { color: '#f5576c', background: 'transparent', fontSize: '10px' }, position: 'front' } },
+                        { y: 80, y2: 100, fillColor: '#eb3349', opacity: 0.06, label: { text: 'Critical', style: { color: '#eb3349', background: 'transparent', fontSize: '10px' }, position: 'front' } }
+                    ]
+                },
+                stroke: {
+                    curve: 'smooth',
+                    width: 2.5
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.35,
+                        opacityTo: 0.05,
+                        stops: [0, 100],
+                        colorStops: [
+                            { offset: 0,   color: '#667eea', opacity: 0.35 },
+                            { offset: 100, color: '#764ba2', opacity: 0.05 }
+                        ]
+                    }
+                },
+                colors: ['#667eea'],
+                markers: {
+                    size: 4,
+                    strokeWidth: 0,
+                    hover: { sizeOffset: 3 }
+                },
+                tooltip: {
+                    theme: 'dark',
+                    custom: function(opts2) {
+                        var idx  = opts2.dataPointIndex;
+                        var pt   = resp.data[idx];
+                        var score = pt.y;
+                        var level = pt.level || '--';
+                        var type  = pt.type  || '--';
+                        var action = pt.action || 'none';
+                        var date  = pt.x;
+
+                        var levelColor = '#38ef7d';
+                        if (score >= 80) levelColor = '#eb3349';
+                        else if (score >= 60) levelColor = '#f5576c';
+                        else if (score >= 30) levelColor = '#f5c842';
+
+                        var el = document.createElement('div');
+                        el.style.cssText = 'padding:10px 14px;background:#1a1f3a;border:1px solid rgba(102,126,234,0.3);border-radius:8px;font-size:12px;color:#ccd6f6;min-width:160px;';
+
+                        var rows = [
+                            {l:'Date',   v:date,                    c:'#fff',    bold:true},
+                            {l:'Score',  v:String(score),           c:levelColor,bold:true},
+                            {l:'Level',  v:level.toUpperCase(),     c:levelColor,bold:false},
+                            {l:'Type',   v:type,                    c:'#ccd6f6', bold:false},
+                            {l:'Action', v:action,                  c:'#ccd6f6', bold:false}
+                        ];
+                        rows.forEach(function(r, i){
+                            var row = document.createElement('div');
+                            row.style.cssText = 'display:flex;justify-content:space-between;' + (i === 0 ? 'margin-bottom:6px;' : 'margin-bottom:3px;');
+                            var lbl = document.createElement('span');
+                            lbl.textContent = r.l;
+                            var val = document.createElement('span');
+                            val.textContent = r.v;
+                            val.style.color = r.c;
+                            if (r.bold) val.style.fontWeight = '700';
+                            row.appendChild(lbl);
+                            row.appendChild(val);
+                            el.appendChild(row);
+                        });
+
+                        return el.outerHTML;
+                    }
+                },
+                grid: {
+                    borderColor: 'rgba(255,255,255,0.05)',
+                    strokeDashArray: 4,
+                    xaxis: { lines: { show: false } },
+                    yaxis: { lines: { show: true } },
+                    padding: { top: 0, right: 10, bottom: 0, left: 10 }
+                },
+                theme: { mode: 'dark' }
+            };
+
+            var chart = new ApexCharts(chartEl, opts);
+            chart.render();
+        })
+        .catch(function(err){
+            var errDiv = document.createElement('div');
+            errDiv.style.cssText = 'text-align:center;padding:2rem;color:#f5576c;';
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-exclamation-triangle';
+            errDiv.appendChild(icon);
+            errDiv.appendChild(document.createTextNode(' Failed to load timeline: ' + err.message));
+            chartEl.parentNode.replaceChild(errDiv, chartEl);
+        });
+})();
+</script>
+HTML;
+
+        echo FpsAdminRenderer::renderCard(
+            'Risk Score Timeline',
+            'fa-chart-area',
+            $content
+        );
     }
 
     /**

@@ -32,6 +32,7 @@ class TabRules
 
         $this->fpsRenderAddButton($ajaxUrl);
         $this->fpsRenderRulesTable($ajaxUrl);
+        $this->fpsRenderGeoBlockingUI($ajaxUrl);
         $this->fpsRenderRuleTypeLegend();
         $this->fpsRenderRuleModal($ajaxUrl);
     }
@@ -119,6 +120,240 @@ class TabRules
 
         $tableHtml = FpsAdminRenderer::renderTable($headers, $rows, 'fps-rules-table');
         echo FpsAdminRenderer::renderCard('Custom Fraud Rules (' . count($rules) . ')', 'fa-gavel', $tableHtml);
+    }
+
+    /**
+     * Country-based geo-blocking rule management UI.
+     */
+    private function fpsRenderGeoBlockingUI(string $ajaxUrl): void
+    {
+        // Top 50 countries most associated with online fraud (ISO 3166-1 alpha-2)
+        $countries = [
+            'AF' => 'Afghanistan',       'AL' => 'Albania',           'DZ' => 'Algeria',
+            'AO' => 'Angola',            'BD' => 'Bangladesh',        'BY' => 'Belarus',
+            'BJ' => 'Benin',             'BA' => 'Bosnia & Herzegovina', 'BR' => 'Brazil',
+            'BG' => 'Bulgaria',          'BF' => 'Burkina Faso',      'KH' => 'Cambodia',
+            'CM' => 'Cameroon',          'CF' => 'Central African Rep.', 'TD' => 'Chad',
+            'CN' => 'China',             'CI' => "Cote d'Ivoire",     'CU' => 'Cuba',
+            'CD' => 'DR Congo',          'EG' => 'Egypt',             'GH' => 'Ghana',
+            'HT' => 'Haiti',             'IN' => 'India',             'ID' => 'Indonesia',
+            'IR' => 'Iran',              'IQ' => 'Iraq',              'KE' => 'Kenya',
+            'KP' => 'North Korea',       'LB' => 'Lebanon',           'LY' => 'Libya',
+            'MG' => 'Madagascar',        'MY' => 'Malaysia',          'ML' => 'Mali',
+            'MX' => 'Mexico',            'MM' => 'Myanmar',           'NE' => 'Niger',
+            'NG' => 'Nigeria',           'PK' => 'Pakistan',          'PH' => 'Philippines',
+            'RO' => 'Romania',           'RU' => 'Russia',            'SN' => 'Senegal',
+            'SO' => 'Somalia',           'ZA' => 'South Africa',      'SD' => 'Sudan',
+            'SY' => 'Syria',             'TZ' => 'Tanzania',          'UA' => 'Ukraine',
+            'VE' => 'Venezuela',         'VN' => 'Vietnam',           'YE' => 'Yemen',
+        ];
+
+        // Build country options JSON for JS (avoids inline PHP loops in JS)
+        $countriesJson = htmlspecialchars(json_encode($countries), ENT_QUOTES, 'UTF-8');
+
+        $content = <<<HTML
+<div id="fps-geo-block-container">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+
+        <!-- Blocked Countries (left) -->
+        <div>
+            <h4 style="color:#f5576c;font-size:0.85rem;font-weight:700;margin:0 0 0.75rem 0;text-transform:uppercase;letter-spacing:0.08em;">
+                <i class="fas fa-ban" style="margin-right:6px;"></i>Blocked Countries
+            </h4>
+            <div id="fps-geo-blocked-list" style="
+                background:rgba(235,51,73,0.05);
+                border:1px solid rgba(235,51,73,0.15);
+                border-radius:10px;
+                padding:1rem;
+                min-height:200px;
+                max-height:400px;
+                overflow-y:auto;
+            ">
+                <div class="fps-geo-loading" style="text-align:center;padding:2rem;color:#6a7195;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Countries (right) -->
+        <div>
+            <h4 style="color:#38ef7d;font-size:0.85rem;font-weight:700;margin:0 0 0.75rem 0;text-transform:uppercase;letter-spacing:0.08em;">
+                <i class="fas fa-globe" style="margin-right:6px;"></i>Available Countries
+            </h4>
+            <div style="margin-bottom:0.5rem;">
+                <input type="text" id="fps-geo-search" class="fps-input" placeholder="Search countries..." style="font-size:0.85rem;">
+            </div>
+            <div id="fps-geo-available-list" style="
+                background:rgba(56,239,125,0.04);
+                border:1px solid rgba(56,239,125,0.12);
+                border-radius:10px;
+                padding:1rem;
+                min-height:200px;
+                max-height:355px;
+                overflow-y:auto;
+            ">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    var ajaxUrl     = '{$ajaxUrl}';
+    var allCountries = JSON.parse(document.getElementById('fps-geo-countries-data').getAttribute('data-fps-countries'));
+    var blockedSet   = {};
+
+    function fpsGeoLoad() {
+        fetch(ajaxUrl + '&ajax_action=get_country_blocks', {credentials:'same-origin'})
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                blockedSet = {};
+                if (resp.success && resp.blocked) {
+                    resp.blocked.forEach(function(c){ blockedSet[c] = true; });
+                }
+                fpsGeoRender();
+            })
+            .catch(function(err){
+                var el = document.getElementById('fps-geo-blocked-list');
+                if (el) el.textContent = 'Error loading: ' + err.message;
+            });
+    }
+
+    function fpsGeoRender() {
+        var blockedEl   = document.getElementById('fps-geo-blocked-list');
+        var availableEl = document.getElementById('fps-geo-available-list');
+        var searchVal   = (document.getElementById('fps-geo-search') || {}).value || '';
+        searchVal = searchVal.toLowerCase();
+
+        // Render blocked list
+        while (blockedEl.firstChild) blockedEl.removeChild(blockedEl.firstChild);
+        var blockedCodes = Object.keys(blockedSet).sort();
+        if (blockedCodes.length === 0) {
+            var emptyMsg = document.createElement('div');
+            emptyMsg.style.cssText = 'text-align:center;padding:2rem;color:#6a7195;font-size:0.85rem;';
+            emptyMsg.textContent = 'No countries blocked yet. Add countries from the right panel.';
+            blockedEl.appendChild(emptyMsg);
+        } else {
+            blockedCodes.forEach(function(code){
+                var name = allCountries[code] || code;
+                var row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 10px;margin-bottom:4px;background:rgba(235,51,73,0.08);border:1px solid rgba(235,51,73,0.15);border-radius:6px;';
+
+                var label = document.createElement('span');
+                label.style.cssText = 'font-size:0.82rem;color:#ccd6f6;';
+                label.textContent = code + ' - ' + name;
+
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'fps-btn fps-btn-xs fps-btn-danger';
+                btn.title = 'Remove block';
+                btn.setAttribute('data-code', code);
+                btn.addEventListener('click', function(){ fpsGeoRemove(this.getAttribute('data-code')); });
+                var icon = document.createElement('i');
+                icon.className = 'fas fa-times';
+                btn.appendChild(icon);
+
+                row.appendChild(label);
+                row.appendChild(btn);
+                blockedEl.appendChild(row);
+            });
+        }
+
+        // Render available list
+        while (availableEl.firstChild) availableEl.removeChild(availableEl.firstChild);
+        var sortedKeys = Object.keys(allCountries).sort(function(a,b){
+            return allCountries[a].localeCompare(allCountries[b]);
+        });
+        var shown = 0;
+        sortedKeys.forEach(function(code){
+            if (blockedSet[code]) return;
+            var name = allCountries[code];
+            if (searchVal && name.toLowerCase().indexOf(searchVal) === -1 && code.toLowerCase().indexOf(searchVal) === -1) return;
+            shown++;
+
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 10px;margin-bottom:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;transition:background 0.2s;';
+
+            var label = document.createElement('span');
+            label.style.cssText = 'font-size:0.82rem;color:#ccd6f6;';
+            label.textContent = code + ' - ' + name;
+
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'fps-btn fps-btn-xs fps-btn-warning';
+            btn.title = 'Block this country';
+            btn.setAttribute('data-code', code);
+            btn.addEventListener('click', function(){ fpsGeoAdd(this.getAttribute('data-code')); });
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-ban';
+            btn.appendChild(icon);
+
+            row.appendChild(label);
+            row.appendChild(btn);
+            availableEl.appendChild(row);
+        });
+
+        if (shown === 0) {
+            var noMatch = document.createElement('div');
+            noMatch.style.cssText = 'text-align:center;padding:1.5rem;color:#6a7195;font-size:0.85rem;';
+            noMatch.textContent = searchVal ? 'No matching countries found.' : 'All countries are blocked.';
+            availableEl.appendChild(noMatch);
+        }
+    }
+
+    function fpsGeoAdd(code) {
+        var fd = new FormData();
+        fd.append('ajax_action', 'add_country_block');
+        fd.append('country_code', code);
+        fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'})
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                if (resp.error) {
+                    if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast(resp.error, 'error');
+                    return;
+                }
+                blockedSet[code] = true;
+                fpsGeoRender();
+                if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast(code + ' blocked', 'success');
+            })
+            .catch(function(err){
+                if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast('Error: ' + err.message, 'error');
+            });
+    }
+
+    function fpsGeoRemove(code) {
+        var fd = new FormData();
+        fd.append('ajax_action', 'remove_country_block');
+        fd.append('country_code', code);
+        fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'})
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                if (resp.error) {
+                    if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast(resp.error, 'error');
+                    return;
+                }
+                delete blockedSet[code];
+                fpsGeoRender();
+                if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast(code + ' unblocked', 'success');
+            })
+            .catch(function(err){
+                if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast('Error: ' + err.message, 'error');
+            });
+    }
+
+    // Search filter
+    var searchInput = document.getElementById('fps-geo-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(){ fpsGeoRender(); });
+    }
+
+    fpsGeoLoad();
+})();
+</script>
+<span id="fps-geo-countries-data" data-fps-countries="{$countriesJson}" style="display:none;"></span>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Country-Based Rules', 'fa-earth-americas', $content);
     }
 
     /**

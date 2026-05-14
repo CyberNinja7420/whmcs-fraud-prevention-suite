@@ -159,6 +159,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
     <div class="fps-pub-nav">
         <a href="index.php?m=fraud_prevention_suite" class="active"><i class="fas fa-chart-line"></i> Overview</a>
         <a href="{$store_url}"><i class="fas fa-shopping-cart"></i> API Plans & Pricing</a>
+        <a href="index.php?m=fraud_prevention_suite&page=usage"><i class="fas fa-chart-bar"></i> API Usage</a>
         <a href="{$api_docs_url}"><i class="fas fa-book"></i> API Documentation</a>
         <a href="{$topology_url}"><i class="fas fa-globe"></i> Live Threat Map</a>
         <a href="index.php?m=fraud_prevention_suite&page=global"><i class="fas fa-network-wired"></i> Global Intel</a>

@@ -22,10 +22,162 @@ class TabReports
     {
         $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
 
+        $this->fpsRenderGenerateReport($ajaxUrl);
         $this->fpsRenderReportStats();
         $this->fpsRenderReportsTable($modulelink, $ajaxUrl);
         $this->fpsRenderSubmitForm($ajaxUrl);
         $this->fpsRenderDetailModal($ajaxUrl);
+    }
+
+    /**
+     * Generate Report panel -- preview and download HTML fraud reports.
+     */
+    private function fpsRenderGenerateReport(string $ajaxUrl): void
+    {
+        // Read last sent timestamps for scheduled reports
+        $lastWeekly = '';
+        $lastMonthly = '';
+        try {
+            $lastWeekly = (string) Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'last_report_weekly')
+                ->value('setting_value');
+            $lastMonthly = (string) Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'last_report_monthly')
+                ->value('setting_value');
+        } catch (\Throwable $e) {
+            // Non-critical
+        }
+
+        $lastWeeklyDisplay = $lastWeekly !== '' ? htmlspecialchars($lastWeekly, ENT_QUOTES, 'UTF-8') : 'Never';
+        $lastMonthlyDisplay = $lastMonthly !== '' ? htmlspecialchars($lastMonthly, ENT_QUOTES, 'UTF-8') : 'Never';
+
+        $content = <<<HTML
+<div class="fps-form-row" style="align-items:flex-end;gap:16px;">
+  <div class="fps-form-group" style="flex:1;max-width:200px;">
+    <label><i class="fas fa-calendar"></i> <strong>Report Period</strong></label>
+    <select id="fps-report-period" class="form-control" style="margin-top:4px;">
+      <option value="7d">Last 7 Days</option>
+      <option value="30d" selected>Last 30 Days</option>
+      <option value="90d">Last 90 Days</option>
+      <option value="custom">Custom Range</option>
+    </select>
+  </div>
+  <div class="fps-form-group" id="fps-report-custom-range" style="flex:1;display:none;">
+    <label><strong>Date Range</strong></label>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <input type="date" id="fps-report-start" class="form-control" style="flex:1;">
+      <span style="align-self:center;color:#888;">to</span>
+      <input type="date" id="fps-report-end" class="form-control" style="flex:1;">
+    </div>
+  </div>
+  <div class="fps-form-group" style="flex:0 0 auto;">
+    <button type="button" class="fps-btn fps-btn-md fps-btn-primary" id="fps-gen-preview-btn"
+      onclick="FpsReportGen.preview()">
+      <i class="fas fa-eye"></i> Preview Report
+    </button>
+    <button type="button" class="fps-btn fps-btn-md fps-btn-success" id="fps-gen-download-btn"
+      onclick="FpsReportGen.download()">
+      <i class="fas fa-download"></i> Download HTML
+    </button>
+  </div>
+</div>
+
+<div id="fps-report-preview-area" style="display:none;margin-top:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <strong><i class="fas fa-file-alt"></i> Report Preview</strong>
+    <button type="button" class="fps-btn fps-btn-xs fps-btn-outline" onclick="FpsReportGen.closePreview()">
+      <i class="fas fa-times"></i> Close
+    </button>
+  </div>
+  <div id="fps-report-preview-frame" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;max-height:600px;overflow-y:auto;background:#fff;"></div>
+</div>
+
+<div style="margin-top:14px;padding:12px;border-radius:8px;background:rgba(100,149,237,0.06);border:1px solid rgba(100,149,237,0.15);font-size:0.85rem;">
+  <strong><i class="fas fa-clock"></i> Scheduled Reports:</strong>
+  Last weekly: <code>{$lastWeeklyDisplay}</code> &nbsp;|&nbsp;
+  Last monthly: <code>{$lastMonthlyDisplay}</code>
+</div>
+
+<script>
+var FpsReportGen = {
+  getParams: function() {
+    var period = document.getElementById('fps-report-period').value;
+    var params = 'period=' + encodeURIComponent(period);
+    if (period === 'custom') {
+      var s = document.getElementById('fps-report-start').value;
+      var e = document.getElementById('fps-report-end').value;
+      if (s) params += '&start=' + encodeURIComponent(s);
+      if (e) params += '&end=' + encodeURIComponent(e);
+    }
+    return params;
+  },
+  preview: function() {
+    var btn = document.getElementById('fps-gen-preview-btn');
+    btn.disabled = true;
+    btn.textContent = '';
+    var spinIcon = document.createElement('i');
+    spinIcon.className = 'fas fa-spinner fa-spin';
+    btn.appendChild(spinIcon);
+    btn.appendChild(document.createTextNode(' Generating...'));
+    var url = fpsModuleLink + '&ajax=1&a=generate_report_preview&' + this.getParams();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      btn.disabled = false;
+      btn.textContent = '';
+      var eyeIcon = document.createElement('i');
+      eyeIcon.className = 'fas fa-eye';
+      btn.appendChild(eyeIcon);
+      btn.appendChild(document.createTextNode(' Preview Report'));
+      try {
+        var resp = JSON.parse(xhr.responseText);
+        if (resp.success && resp.html) {
+          var area = document.getElementById('fps-report-preview-area');
+          var frame = document.getElementById('fps-report-preview-frame');
+          // Use srcdoc iframe for sandboxed rendering of the report HTML
+          var iframe = document.createElement('iframe');
+          iframe.style.width = '100%';
+          iframe.style.height = '600px';
+          iframe.style.border = 'none';
+          iframe.setAttribute('sandbox', 'allow-same-origin');
+          iframe.srcdoc = resp.html;
+          while (frame.firstChild) frame.removeChild(frame.firstChild);
+          frame.appendChild(iframe);
+          area.style.display = 'block';
+        } else {
+          if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) {
+            FpsAdmin.showToast(resp.error || 'Report generation failed', 'error');
+          } else {
+            alert(resp.error || 'Report generation failed');
+          }
+        }
+      } catch(e) {
+        alert('Failed to parse response');
+      }
+    };
+    xhr.send();
+  },
+  download: function() {
+    var url = fpsModuleLink + '&ajax=1&a=download_report&' + this.getParams();
+    window.open(url, '_blank');
+  },
+  closePreview: function() {
+    document.getElementById('fps-report-preview-area').style.display = 'none';
+    var frame = document.getElementById('fps-report-preview-frame');
+    while (frame.firstChild) frame.removeChild(frame.firstChild);
+  }
+};
+
+// Toggle custom date range
+document.getElementById('fps-report-period').addEventListener('change', function() {
+  var custom = document.getElementById('fps-report-custom-range');
+  custom.style.display = this.value === 'custom' ? 'block' : 'none';
+});
+</script>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Generate Fraud Report', 'fa-file-pdf', $content);
     }
 
     /**

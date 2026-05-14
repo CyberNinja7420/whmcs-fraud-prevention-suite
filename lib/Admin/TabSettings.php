@@ -32,11 +32,13 @@ class TabSettings
         $this->fpsRenderPublicApiSettings($config);
         $this->fpsRenderMaintenanceSettings($config, $ajaxUrl);
 
+        $this->fpsRenderAutoResponseSettings($config);
         $this->fpsRenderGatewaySettings($config, $ajaxUrl);
         $this->fpsRenderOfacSettings($config);
         $this->fpsRenderRefundAbuseSettings($config);
         $this->fpsRenderBotCleanupSettings($config);
         $this->fpsRenderEmailDigestSettings($config);
+        $this->fpsRenderScheduledReportSettings($config);
         $this->fpsRenderSiteThemeExtras($config);
 
         echo '</form>';
@@ -684,6 +686,101 @@ HTML;
     }
 
     /**
+     * Auto-response action settings: automatic suspend/flag/blacklist after
+     * repeated critical fraud checks within a configurable window.
+     */
+    private function fpsRenderAutoResponseSettings(FpsConfig $config): void
+    {
+        $enabled      = $config->getCustom('auto_respond_enabled', '0') === '1' ? 'checked' : '';
+        $threshold    = htmlspecialchars((string) $config->getCustom('auto_respond_threshold', '3'), ENT_QUOTES, 'UTF-8');
+        $windowDays   = htmlspecialchars((string) $config->getCustom('auto_respond_window_days', '7'), ENT_QUOTES, 'UTF-8');
+        $currentAction = (string) $config->getCustom('auto_respond_action', 'suspend');
+
+        $suspendSel   = $currentAction === 'suspend'   ? ' selected' : '';
+        $flagSel      = $currentAction === 'flag'       ? ' selected' : '';
+        $blacklistSel = $currentAction === 'blacklist'  ? ' selected' : '';
+
+        // Fetch recent auto-actions for display
+        $recentActions = '';
+        try {
+            $rows = Capsule::table('mod_fps_auto_actions')
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get(['client_id', 'action', 'check_count', 'created_at']);
+            if ($rows->count() > 0) {
+                $recentActions .= '<table class="fps-table fps-table-striped" style="margin-top:12px;font-size:0.85rem;">';
+                $recentActions .= '<thead><tr><th>Client</th><th>Action</th><th>Checks</th><th>Date</th></tr></thead><tbody>';
+                foreach ($rows as $row) {
+                    $cid    = (int) $row->client_id;
+                    $act    = htmlspecialchars((string) $row->action, ENT_QUOTES, 'UTF-8');
+                    $cnt    = (int) $row->check_count;
+                    $date   = htmlspecialchars((string) $row->created_at, ENT_QUOTES, 'UTF-8');
+                    $recentActions .= "<tr><td>#{$cid}</td><td>{$act}</td><td>{$cnt}</td><td>{$date}</td></tr>";
+                }
+                $recentActions .= '</tbody></table>';
+            }
+        } catch (\Throwable $e) {
+            // Table may not exist yet -- non-fatal
+        }
+
+        $content = <<<HTML
+<div class="fps-form-row">
+  <div class="fps-form-group" style="flex:1;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" name="auto_respond_enabled" value="1" {$enabled}>
+      <strong>Enable Auto-Response Actions</strong>
+    </label>
+    <p style="font-size:0.85rem;color:#888;margin:4px 0 0 28px;">
+      Automatically take action when a client accumulates repeated critical fraud
+      checks within a configurable time window. Actions are logged and webhook
+      notifications are sent.
+    </p>
+  </div>
+</div>
+<div class="fps-form-row" style="margin-top:14px;">
+  <div class="fps-form-group" style="flex:1;max-width:200px;">
+    <label for="fps-setting-auto_respond_threshold"><i class="fas fa-hashtag"></i> <strong>Threshold</strong></label>
+    <input type="number" id="fps-setting-auto_respond_threshold" name="auto_respond_threshold"
+      class="fps-input" value="{$threshold}" min="1" max="100">
+    <small class="fps-text-muted">Critical checks to trigger action</small>
+  </div>
+  <div class="fps-form-group" style="flex:1;max-width:200px;">
+    <label for="fps-setting-auto_respond_window_days"><i class="fas fa-calendar-day"></i> <strong>Window (days)</strong></label>
+    <input type="number" id="fps-setting-auto_respond_window_days" name="auto_respond_window_days"
+      class="fps-input" value="{$windowDays}" min="1" max="365">
+    <small class="fps-text-muted">Look-back period for counting checks</small>
+  </div>
+  <div class="fps-form-group" style="flex:1;max-width:260px;">
+    <label for="fps-setting-auto_respond_action"><i class="fas fa-gavel"></i> <strong>Action</strong></label>
+    <select id="fps-setting-auto_respond_action" name="auto_respond_action" class="fps-select">
+      <option value="suspend"{$suspendSel}>Suspend (set Inactive)</option>
+      <option value="flag"{$flagSel}>Flag (add note only)</option>
+      <option value="blacklist"{$blacklistSel}>Blacklist (block all orders)</option>
+    </select>
+    <small class="fps-text-muted">Action taken when threshold is met</small>
+  </div>
+</div>
+<div class="fps-form-row" style="margin-top:12px;">
+  <div class="fps-form-group" style="flex:1;">
+    <div style="padding:12px;border-radius:8px;background:rgba(235,51,73,0.04);border:1px solid rgba(235,51,73,0.12);font-size:0.85rem;">
+      <strong><i class="fas fa-exclamation-triangle" style="color:#eb3349;"></i> Important:</strong>
+      <ul style="margin:6px 0 0;padding-left:20px;">
+        <li><strong>Suspend</strong> sets the client status to Inactive and adds a note to their profile.</li>
+        <li><strong>Flag</strong> adds a note to the client profile without changing their status (for manual review).</li>
+        <li><strong>Blacklist</strong> uses the Trust Manager to permanently block all future orders from this client.</li>
+        <li>Actions are only taken once per client per window period (no repeated suspensions).</li>
+        <li>All actions are logged and trigger webhook notifications if configured.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{$recentActions}
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Auto-Response Actions', 'fa-robot', $content);
+    }
+
+    /**
      * Sticky save bar at the bottom of settings.
      */
     private function fpsRenderSaveBar(string $ajaxUrl): void
@@ -1014,6 +1111,85 @@ HTML;
 HTML;
 
         echo FpsAdminRenderer::renderCard('Email Digest', 'fa-envelope', $content);
+    }
+
+    /**
+     * Scheduled Reports -- PDF/HTML fraud reports on a weekly or monthly schedule.
+     */
+    private function fpsRenderScheduledReportSettings(FpsConfig $config): void
+    {
+        $enabled    = $config->getCustom('scheduled_reports_enabled', '0') === '1' ? 'checked' : '';
+        $frequency  = $config->getCustom('scheduled_reports_frequency', 'weekly');
+        $recipients = htmlspecialchars((string) $config->getCustom('scheduled_reports_recipients', ''), ENT_QUOTES, 'UTF-8');
+
+        $weeklySel  = $frequency === 'weekly' ? ' selected' : '';
+        $monthlySel = $frequency === 'monthly' ? ' selected' : '';
+
+        // Last sent timestamps
+        $lastWeekly  = '';
+        $lastMonthly = '';
+        try {
+            $lastWeekly = (string) Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'last_report_weekly')
+                ->value('setting_value');
+            $lastMonthly = (string) Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'last_report_monthly')
+                ->value('setting_value');
+        } catch (\Throwable $e) {
+            // Non-critical
+        }
+
+        $lastWeeklyDisplay  = $lastWeekly !== '' ? htmlspecialchars($lastWeekly, ENT_QUOTES, 'UTF-8') : 'Never';
+        $lastMonthlyDisplay = $lastMonthly !== '' ? htmlspecialchars($lastMonthly, ENT_QUOTES, 'UTF-8') : 'Never';
+
+        $content = <<<HTML
+<div class="fps-form-row">
+  <div class="fps-form-group" style="flex:1;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" name="scheduled_reports_enabled" value="1" {$enabled}>
+      <strong>Enable Scheduled Reports</strong>
+    </label>
+    <p style="font-size:0.85rem;color:#888;margin:4px 0 0 28px;">
+      Generates a comprehensive HTML fraud report and emails it to the configured
+      recipients on a weekly (Mondays) or monthly (1st) schedule. Reports include
+      executive summary, risk distribution, top blocked IPs/emails, provider
+      effectiveness, daily trend chart, and auto-generated recommendations.
+    </p>
+  </div>
+</div>
+<div class="fps-form-row" style="margin-top:14px;">
+  <div class="fps-form-group" style="flex:1;max-width:280px;">
+    <label><strong>Frequency</strong></label>
+    <select name="scheduled_reports_frequency" class="form-control" style="margin-top:4px;">
+      <option value="weekly"{$weeklySel}>Weekly (sent on Mondays)</option>
+      <option value="monthly"{$monthlySel}>Monthly (sent on the 1st)</option>
+    </select>
+  </div>
+  <div class="fps-form-group" style="flex:2;">
+    <label><strong>Recipients</strong></label>
+    <input type="text" name="scheduled_reports_recipients" value="{$recipients}"
+           class="form-control" style="margin-top:4px;"
+           placeholder="admin@example.com, security@example.com">
+    <p style="font-size:0.82rem;color:#888;margin:4px 0 0;">
+      Comma-separated email addresses. Leave blank to use the primary admin email.
+    </p>
+  </div>
+</div>
+<div class="fps-form-row" style="margin-top:14px;">
+  <div class="fps-form-group" style="flex:1;">
+    <div style="padding:12px;border-radius:8px;background:rgba(100,149,237,0.06);border:1px solid rgba(100,149,237,0.15);font-size:0.85rem;">
+      <strong><i class="fas fa-clock"></i> Last sent:</strong>
+      Weekly: <code>{$lastWeeklyDisplay}</code> &nbsp;|&nbsp;
+      Monthly: <code>{$lastMonthlyDisplay}</code>
+      <br style="margin-top:6px;">
+      <i class="fas fa-info-circle" style="color:#667eea;"></i>
+      You can also generate reports on-demand from the <strong>Reports</strong> tab.
+    </div>
+  </div>
+</div>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Scheduled Reports', 'fa-file-pdf', $content);
     }
 
     /**

@@ -796,6 +796,15 @@ function fraud_prevention_suite_activate(): array
             'email_digest_enabled'    => '1',
             'email_digest_frequency'  => 'daily',
             'email_digest_recipients' => '',
+            // v4.3: Auto-response actions on repeated critical fraud checks
+            'auto_respond_enabled'     => '0',
+            'auto_respond_threshold'   => '3',
+            'auto_respond_window_days' => '7',
+            'auto_respond_action'      => 'suspend',
+            // v4.3: Scheduled PDF/HTML reports
+            'scheduled_reports_enabled'   => '0',
+            'scheduled_reports_frequency' => 'weekly',
+            'scheduled_reports_recipients' => '',
         ];
 
         try {
@@ -1796,6 +1805,205 @@ function fps_handleAjax(string $modulelink): void
                 echo json_encode(fps_ajaxImportRules());
                 break;
 
+            case 'get_client_risk_timeline':
+                $clientId = (int)($_GET['client_id'] ?? $_POST['client_id'] ?? 0);
+                if ($clientId < 1) {
+                    echo json_encode(['error' => 'Invalid client ID']);
+                    return;
+                }
+                try {
+                    $checks = Capsule::table('mod_fps_checks')
+                        ->where('client_id', $clientId)
+                        ->orderBy('created_at', 'asc')
+                        ->get(['risk_score', 'risk_level', 'check_type', 'created_at', 'action_taken']);
+                    $data = [];
+                    foreach ($checks as $c) {
+                        $data[] = [
+                            'x' => $c->created_at,
+                            'y' => round((float)$c->risk_score, 1),
+                            'level' => $c->risk_level,
+                            'type' => $c->check_type,
+                            'action' => $c->action_taken,
+                        ];
+                    }
+                    echo json_encode(['success' => true, 'data' => $data]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Timeline query failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'add_country_block':
+                $country = strtoupper(trim($_POST['country_code'] ?? ''));
+                if (strlen($country) !== 2 || !ctype_alpha($country)) {
+                    echo json_encode(['error' => 'Invalid country code']);
+                    return;
+                }
+                try {
+                    $exists = Capsule::table('mod_fps_rules')
+                        ->where('rule_type', 'country_block')
+                        ->where('rule_value', $country)
+                        ->exists();
+                    if ($exists) {
+                        echo json_encode(['error' => 'Country already blocked']);
+                        return;
+                    }
+                    Capsule::table('mod_fps_rules')->insert([
+                        'rule_name'    => 'Block ' . $country,
+                        'rule_type'    => 'country_block',
+                        'rule_value'   => $country,
+                        'action'       => 'block',
+                        'enabled'      => 1,
+                        'priority'     => 10,
+                        'score_weight' => 1.0,
+                        'created_at'   => date('Y-m-d H:i:s'),
+                    ]);
+                    echo json_encode(['success' => true]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Failed to add block: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'remove_country_block':
+                $country = strtoupper(trim($_POST['country_code'] ?? ''));
+                if (strlen($country) !== 2 || !ctype_alpha($country)) {
+                    echo json_encode(['error' => 'Invalid country code']);
+                    return;
+                }
+                try {
+                    Capsule::table('mod_fps_rules')
+                        ->where('rule_type', 'country_block')
+                        ->where('rule_value', $country)
+                        ->delete();
+                    echo json_encode(['success' => true]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Failed to remove block: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'get_country_blocks':
+                try {
+                    $blocked = Capsule::table('mod_fps_rules')
+                        ->where('rule_type', 'country_block')
+                        ->where('enabled', 1)
+                        ->pluck('rule_value')
+                        ->toArray();
+                    echo json_encode(['success' => true, 'blocked' => $blocked]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Failed to load blocks: ' . $e->getMessage()]);
+                }
+                return;
+
+            // ---------------------------------------------------------------
+            // Scheduled PDF/HTML Reports
+            // ---------------------------------------------------------------
+            case 'generate_report_preview':
+                try {
+                    $period = preg_replace('/[^a-z0-9]/', '', $_GET['period'] ?? $_POST['period'] ?? '30d');
+                    $startDate = preg_replace('/[^0-9\-]/', '', $_GET['start'] ?? $_POST['start'] ?? '');
+                    $endDate = preg_replace('/[^0-9\-]/', '', $_GET['end'] ?? $_POST['end'] ?? '');
+                    $report = new \FraudPreventionSuite\Lib\FpsPdfReport();
+                    $html = $report->fps_generateReport($period, $startDate, $endDate);
+                    echo json_encode(['success' => true, 'html' => $html]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Report generation failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'download_report':
+                try {
+                    $period = preg_replace('/[^a-z0-9]/', '', $_GET['period'] ?? $_POST['period'] ?? '30d');
+                    $startDate = preg_replace('/[^0-9\-]/', '', $_GET['start'] ?? $_POST['start'] ?? '');
+                    $endDate = preg_replace('/[^0-9\-]/', '', $_GET['end'] ?? $_POST['end'] ?? '');
+                    $report = new \FraudPreventionSuite\Lib\FpsPdfReport();
+                    $html = $report->fps_generateReport($period, $startDate, $endDate);
+                    header('Content-Type: text/html; charset=UTF-8');
+                    header('Content-Disposition: attachment; filename="fps-fraud-report-' . date('Y-m-d') . '.html"');
+                    header('Content-Length: ' . strlen($html));
+                    echo $html;
+                } catch (\Throwable $e) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['error' => 'Report download failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            // ---------------------------------------------------------------
+            // Client Portal: API key usage stats
+            // ---------------------------------------------------------------
+            case 'get_client_api_usage':
+                try {
+                    $clientId = (int) ($_SESSION['uid'] ?? $_POST['client_id'] ?? 0);
+                    if ($clientId < 1) {
+                        echo json_encode(['error' => 'Not logged in']);
+                        return;
+                    }
+                    $keys = Capsule::table('mod_fps_api_keys')
+                        ->where('client_id', $clientId)
+                        ->where('is_active', 1)
+                        ->get(['id', 'key_prefix', 'name', 'tier', 'rate_limit_per_minute', 'rate_limit_per_day', 'total_requests', 'last_used_at', 'created_at']);
+
+                    // Enrich with usage counts from mod_fps_api_logs
+                    $enriched = [];
+                    $todayStart = date('Y-m-d 00:00:00');
+                    $monthStart = date('Y-m-01 00:00:00');
+
+                    foreach ($keys as $key) {
+                        $keyId = (int) $key->id;
+                        $requestsToday = 0;
+                        $requestsMonth = 0;
+                        $dailyUsage = [];
+
+                        try {
+                            if (Capsule::schema()->hasTable('mod_fps_api_logs')) {
+                                $requestsToday = (int) Capsule::table('mod_fps_api_logs')
+                                    ->where('api_key_id', $keyId)
+                                    ->where('created_at', '>=', $todayStart)
+                                    ->count();
+
+                                $requestsMonth = (int) Capsule::table('mod_fps_api_logs')
+                                    ->where('api_key_id', $keyId)
+                                    ->where('created_at', '>=', $monthStart)
+                                    ->count();
+
+                                // Last 30 days daily usage
+                                $thirtyDaysAgo = date('Y-m-d 00:00:00', strtotime('-30 days'));
+                                $dailyRows = Capsule::table('mod_fps_api_logs')
+                                    ->select(Capsule::raw('DATE(created_at) as day, COUNT(*) as cnt'))
+                                    ->where('api_key_id', $keyId)
+                                    ->where('created_at', '>=', $thirtyDaysAgo)
+                                    ->groupBy(Capsule::raw('DATE(created_at)'))
+                                    ->orderBy('day')
+                                    ->get();
+
+                                foreach ($dailyRows as $d) {
+                                    $dailyUsage[$d->day] = (int) $d->cnt;
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            // Non-fatal -- usage data unavailable
+                        }
+
+                        $enriched[] = [
+                            'id'                   => $keyId,
+                            'key_prefix'           => $key->key_prefix,
+                            'name'                 => $key->name,
+                            'tier'                 => $key->tier,
+                            'rate_limit_per_minute' => (int) $key->rate_limit_per_minute,
+                            'rate_limit_per_day'   => (int) $key->rate_limit_per_day,
+                            'total_requests'       => (int) $key->total_requests,
+                            'requests_today'       => $requestsToday,
+                            'requests_month'       => $requestsMonth,
+                            'last_used_at'         => $key->last_used_at,
+                            'created_at'           => $key->created_at,
+                            'daily_usage'          => $dailyUsage,
+                        ];
+                    }
+
+                    echo json_encode(['success' => true, 'keys' => $enriched]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Failed to load API usage: ' . $e->getMessage()]);
+                }
+                return;
+
             default:
                 echo json_encode(['error' => 'Unknown action: ' . $action]);
         }
@@ -2410,6 +2618,7 @@ function fps_ajaxSaveSettings(): array
         'write_legacy_details_column',
         'drop_legacy_details_columns',
         'email_digest_enabled',
+        'scheduled_reports_enabled',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {
@@ -2895,6 +3104,76 @@ function fraud_prevention_suite_clientarea(array $vars): array
         exit;
     }
 
+    // Handle authenticated client AJAX (API usage stats)
+    if (isset($_GET['ajax']) && $page === 'usage') {
+        header('Content-Type: application/json');
+        try {
+            $clientId = (int) ($_SESSION['uid'] ?? 0);
+            if ($clientId < 1) {
+                echo json_encode(['error' => 'Not logged in']);
+                exit;
+            }
+            $keys = Capsule::table('mod_fps_api_keys')
+                ->where('client_id', $clientId)
+                ->where('is_active', 1)
+                ->get(['id', 'key_prefix', 'name', 'tier', 'rate_limit_per_minute', 'rate_limit_per_day', 'total_requests', 'last_used_at', 'created_at']);
+
+            $enriched = [];
+            $todayStart = date('Y-m-d 00:00:00');
+            $monthStart = date('Y-m-01 00:00:00');
+
+            foreach ($keys as $key) {
+                $keyId = (int) $key->id;
+                $requestsToday = 0;
+                $requestsMonth = 0;
+                $dailyUsage = [];
+                try {
+                    if (Capsule::schema()->hasTable('mod_fps_api_logs')) {
+                        $requestsToday = (int) Capsule::table('mod_fps_api_logs')
+                            ->where('api_key_id', $keyId)
+                            ->where('created_at', '>=', $todayStart)
+                            ->count();
+                        $requestsMonth = (int) Capsule::table('mod_fps_api_logs')
+                            ->where('api_key_id', $keyId)
+                            ->where('created_at', '>=', $monthStart)
+                            ->count();
+                        $thirtyDaysAgo = date('Y-m-d 00:00:00', strtotime('-30 days'));
+                        $dailyRows = Capsule::table('mod_fps_api_logs')
+                            ->select(Capsule::raw('DATE(created_at) as day, COUNT(*) as cnt'))
+                            ->where('api_key_id', $keyId)
+                            ->where('created_at', '>=', $thirtyDaysAgo)
+                            ->groupBy(Capsule::raw('DATE(created_at)'))
+                            ->orderBy('day')
+                            ->get();
+                        foreach ($dailyRows as $d) {
+                            $dailyUsage[$d->day] = (int) $d->cnt;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Non-fatal
+                }
+                $enriched[] = [
+                    'id'                    => $keyId,
+                    'key_prefix'            => $key->key_prefix,
+                    'name'                  => $key->name,
+                    'tier'                  => $key->tier,
+                    'rate_limit_per_minute' => (int) $key->rate_limit_per_minute,
+                    'rate_limit_per_day'    => (int) $key->rate_limit_per_day,
+                    'total_requests'        => (int) $key->total_requests,
+                    'requests_today'        => $requestsToday,
+                    'requests_month'        => $requestsMonth,
+                    'last_used_at'          => $key->last_used_at,
+                    'created_at'            => $key->created_at,
+                    'daily_usage'           => $dailyUsage,
+                ];
+            }
+            echo json_encode(['success' => true, 'keys' => $enriched]);
+        } catch (\Throwable $e) {
+            echo json_encode(['error' => 'Request failed']);
+        }
+        exit;
+    }
+
     // Custom store landing page with 1000X pricing cards
     if ($page === 'store') {
         $liveStats = fps_getPublicStats();
@@ -3084,6 +3363,58 @@ function fraud_prevention_suite_clientarea(array $vars): array
         'overview_url'   => 'index.php?m=fraud_prevention_suite',
         'store_url'      => 'index.php?m=fraud_prevention_suite&page=store',
     ];
+
+    // Client API usage dashboard (requires login)
+    if ($page === 'usage') {
+        $clientId = (int) ($_SESSION['uid'] ?? 0);
+        $apiKeys = [];
+        $tierInfo = [
+            'free'    => ['label' => 'Free', 'color' => '#38ef7d', 'daily_limit' => 5000],
+            'basic'   => ['label' => 'Basic', 'color' => '#667eea', 'daily_limit' => 50000],
+            'premium' => ['label' => 'Premium', 'color' => '#764ba2', 'daily_limit' => 500000],
+        ];
+        if ($clientId > 0) {
+            try {
+                $keys = Capsule::table('mod_fps_api_keys')
+                    ->where('client_id', $clientId)
+                    ->where('is_active', 1)
+                    ->get(['id', 'key_prefix', 'name', 'tier', 'rate_limit_per_minute', 'rate_limit_per_day', 'total_requests', 'last_used_at', 'created_at']);
+                foreach ($keys as $k) {
+                    $apiKeys[] = [
+                        'id'          => (int) $k->id,
+                        'key_prefix'  => $k->key_prefix,
+                        'name'        => $k->name,
+                        'tier'        => $k->tier,
+                        'rate_day'    => (int) $k->rate_limit_per_day,
+                        'rate_min'    => (int) $k->rate_limit_per_minute,
+                        'total'       => (int) $k->total_requests,
+                        'last_used'   => $k->last_used_at,
+                        'created'     => $k->created_at,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal
+            }
+        }
+
+        $usageVars = array_merge($commonVars, [
+            'client_id'    => $clientId,
+            'api_keys'     => $apiKeys,
+            'tier_info'    => $tierInfo,
+            'ajax_url'     => 'index.php?m=fraud_prevention_suite&page=usage&ajax=1',
+            'store_url'    => 'index.php?m=fraud_prevention_suite&page=store',
+            'usage_url'    => 'index.php?m=fraud_prevention_suite&page=usage',
+        ]);
+        return [
+            'pagetitle'    => 'Fraud Prevention Suite - API Usage',
+            'breadcrumb'   => [
+                'index.php?m=fraud_prevention_suite' => 'Fraud Prevention Suite',
+                'index.php?m=fraud_prevention_suite&page=usage' => 'API Usage',
+            ],
+            'templatefile' => 'client/usage',
+            'vars'         => $usageVars,
+        ];
+    }
 
     // Route to the right template
     $templateMap = [
