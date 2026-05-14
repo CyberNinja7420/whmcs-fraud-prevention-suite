@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Global Fraud Threat Topology - Fraud Prevention Suite</title>
-    <link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-topology.css">
+    <link rel="stylesheet" href="/modules/addons/fraud_prevention_suite/assets/css/fps-topology.css?v={$module_version}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- API base and initial stats are injected server-side by PHP -->
     <style>
@@ -119,8 +119,13 @@
         </a>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.31.0/dist/globe.gl.min.js"></script>
+    <!-- 3D vendor libs: prefer the vendored copies under assets/vendor/.
+         The PHP topology block substitutes the {THREE_SRC} / {GLOBE_SRC}
+         placeholders below before emission so we avoid a CDN runtime
+         dependency. Falls back to jsdelivr only if the vendor file is missing
+         on disk at the time the topology page is rendered. -->
+    <script src="{THREE_SRC}"></script>
+    <script src="{GLOBE_SRC}"></script>
     <script src="/modules/addons/fraud_prevention_suite/assets/js/fps-topology.js?v={$module_version}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {

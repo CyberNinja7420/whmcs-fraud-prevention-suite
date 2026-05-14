@@ -792,6 +792,10 @@ function fraud_prevention_suite_activate(): array
             'typo_table_body'   => '{"family":"system","weight":"400","size":"0.90","letterSpacing":"0.00","lineHeight":"1.5"}',
             'typo_card_header'  => '{"family":"system","weight":"600","size":"1.10","letterSpacing":"0.01","lineHeight":"1.3"}',
             'typo_card_body'    => '{"family":"system","weight":"400","size":"0.95","letterSpacing":"0.00","lineHeight":"1.6"}',
+            // v4.3: Email digest settings
+            'email_digest_enabled'    => '1',
+            'email_digest_frequency'  => 'daily',
+            'email_digest_recipients' => '',
         ];
 
         try {
@@ -1361,7 +1365,8 @@ function fraud_prevention_suite_output(array $vars): void
     echo '  </div>';
     echo '</div>';
 
-    // Tab navigation
+    // Tab navigation -- tabs with a 'setting' key are hidden when that setting is '0' or absent.
+    // Dashboard and Settings are always visible (can't disable the control panel itself).
     $tabs = [
         'dashboard'        => ['icon' => 'fa-chart-line',       'label' => 'Dashboard'],
         'review_queue'     => ['icon' => 'fa-clipboard-check',  'label' => 'Review Queue'],
@@ -1371,13 +1376,31 @@ function fraud_prevention_suite_output(array $vars): void
         'rules'            => ['icon' => 'fa-gavel',            'label' => 'Rules'],
         'reports'          => ['icon' => 'fa-flag',             'label' => 'Reports'],
         'statistics'       => ['icon' => 'fa-chart-pie',        'label' => 'Statistics'],
-        'topology'         => ['icon' => 'fa-globe',            'label' => 'Topology'],
-        'global_intel'     => ['icon' => 'fa-earth-americas',   'label' => 'Global Intel'],
-        'bot_cleanup'      => ['icon' => 'fa-robot',            'label' => 'Bot Cleanup'],
+        'topology'         => ['icon' => 'fa-globe',            'label' => 'Topology',      'setting' => 'topology_enabled'],
+        'global_intel'     => ['icon' => 'fa-earth-americas',   'label' => 'Global Intel',  'setting' => 'global_sharing_enabled'],
+        'bot_cleanup'      => ['icon' => 'fa-robot',            'label' => 'Bot Cleanup',   'setting' => 'bot_signup_blocking'],
         'alert_log'        => ['icon' => 'fa-bell',              'label' => 'Alert Log'],
-        'api_keys'         => ['icon' => 'fa-key',              'label' => 'API Keys'],
+        'api_keys'         => ['icon' => 'fa-key',              'label' => 'API Keys',      'setting' => 'public_api_enabled'],
         'settings'         => ['icon' => 'fa-gear',             'label' => 'Settings'],
     ];
+
+    // Filter out tabs whose controlling setting is disabled
+    try {
+        $fpsTabConfig = \FraudPreventionSuite\Lib\FpsConfig::getInstance();
+        $tabs = array_filter($tabs, function ($info) use ($fpsTabConfig) {
+            if (!isset($info['setting'])) {
+                return true; // No setting = always visible
+            }
+            return $fpsTabConfig->isEnabled($info['setting']);
+        });
+    } catch (\Throwable $e) {
+        // If config fails, show all tabs (fail-open for admin UX)
+    }
+
+    // If the currently selected tab was hidden, redirect to dashboard
+    if (!isset($tabs[$tab])) {
+        $tab = 'dashboard';
+    }
 
     echo '<div class="fps-tabs">';
     foreach ($tabs as $tabId => $info) {
@@ -1763,6 +1786,14 @@ function fps_handleAjax(string $modulelink): void
 
             case 'global_intel_export':
                 fps_ajaxGlobalIntelExport();
+                break;
+
+            case 'export_rules':
+                fps_ajaxExportRules();
+                return;
+
+            case 'import_rules':
+                echo json_encode(fps_ajaxImportRules());
                 break;
 
             default:
@@ -2378,6 +2409,7 @@ function fps_ajaxSaveSettings(): array
         'use_runner_fast_path',
         'write_legacy_details_column',
         'drop_legacy_details_columns',
+        'email_digest_enabled',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {
@@ -4294,5 +4326,60 @@ function fps_ajaxGlobalIntelExport(): void
         echo json_encode(['error' => $e->getMessage()]);
     }
     exit;
+}
+
+/**
+ * Export all custom fraud rules as a downloadable JSON file.
+ */
+function fps_ajaxExportRules(): void
+{
+    try {
+        $rules = Capsule::table('mod_fps_rules')->get()->toArray();
+        $export = [
+            'fps_version'  => FPS_MODULE_VERSION,
+            'exported_at'  => date('Y-m-d H:i:s'),
+            'rules'        => array_map(function ($r) { return (array) $r; }, $rules),
+        ];
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename="fps-rules-' . date('Y-m-d') . '.json"');
+        echo json_encode($export, JSON_PRETTY_PRINT);
+    } catch (\Throwable $e) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+/**
+ * Import fraud rules from a JSON payload.
+ */
+function fps_ajaxImportRules(): array
+{
+    try {
+        $json = $_POST['rules_json'] ?? '';
+        $data = json_decode($json, true);
+        if (!is_array($data) || empty($data['rules'])) {
+            return ['success' => false, 'error' => 'Invalid JSON or no rules found'];
+        }
+        $imported = 0;
+        foreach ($data['rules'] as $rule) {
+            Capsule::table('mod_fps_rules')->insert([
+                'rule_name'    => $rule['rule_name'] ?? 'Imported Rule',
+                'rule_type'    => $rule['rule_type'] ?? 'email_pattern',
+                'rule_value'   => $rule['rule_value'] ?? '',
+                'action'       => $rule['action'] ?? 'flag',
+                'enabled'      => (int) ($rule['enabled'] ?? 1),
+                'priority'     => (int) ($rule['priority'] ?? 50),
+                'score_weight' => (float) ($rule['score_weight'] ?? 1.0),
+                'description'  => $rule['description'] ?? '',
+                'conditions'   => $rule['conditions'] ?? null,
+                'created_at'   => date('Y-m-d H:i:s'),
+            ]);
+            $imported++;
+        }
+        return ['success' => true, 'imported' => $imported];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 }
 

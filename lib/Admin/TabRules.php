@@ -45,6 +45,14 @@ class TabRules
         echo FpsAdminRenderer::renderButton(
             'Add New Rule', 'fa-plus', "FpsAdmin.openRuleModal(null, '{$ajaxUrl}')", 'primary', 'md'
         );
+        echo ' ';
+        echo '<button class="fps-btn fps-btn-sm fps-btn-outline" onclick="FpsAdmin.exportRules()">'
+            . '<i class="fas fa-download"></i> Export Rules</button>';
+        echo ' ';
+        echo '<button class="fps-btn fps-btn-sm fps-btn-outline" onclick="document.getElementById(\'fps-import-file\').click()">'
+            . '<i class="fas fa-upload"></i> Import Rules</button>';
+        echo '<input type="file" id="fps-import-file" accept=".json" style="display:none" '
+            . 'onchange="FpsAdmin.importRules(this)">';
         echo '</div>';
     }
 

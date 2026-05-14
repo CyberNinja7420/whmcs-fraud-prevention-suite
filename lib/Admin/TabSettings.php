@@ -36,6 +36,7 @@ class TabSettings
         $this->fpsRenderOfacSettings($config);
         $this->fpsRenderRefundAbuseSettings($config);
         $this->fpsRenderBotCleanupSettings($config);
+        $this->fpsRenderEmailDigestSettings($config);
         $this->fpsRenderSiteThemeExtras($config);
 
         echo '</form>';
@@ -422,6 +423,26 @@ HTML;
                     ['type' => 'toggle', 'name' => 'fingerprint_enabled', 'label' => 'Enable Fingerprinting'],
                     ['type' => 'select', 'name' => 'fingerprint_scope', 'label' => 'Collection Scope',
                      'options' => ['checkout' => 'Checkout Only', 'all' => 'All Pages']],
+                ],
+            ],
+            [
+                'key'     => 'geographic_analysis',
+                'title'   => 'Geographic Analysis',
+                'icon'    => 'fa-globe',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'The Geographic Impossibility engine cross-correlates IP-derived country, billing country, phone-prefix country, and BIN-derived country. It needs at least 2 independent signals to score; missing-data scenarios always score 0.'],
+                    ['type' => 'toggle', 'name' => 'geo_impossibility_requires_history', 'label' => 'Require prior geo-located check before scoring (recommended)'],
+                ],
+            ],
+            [
+                'key'     => 'pipeline_internals',
+                'title'   => 'Pipeline Internals (advanced)',
+                'icon'    => 'fa-microchip',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'Advanced toggles that change which code path runs the pre-checkout pipeline and how mod_fps_checks rows are written. Leave at defaults unless you have benchmarked the alternative.'],
+                    ['type' => 'toggle', 'name' => 'use_runner_fast_path', 'label' => 'Route pre-checkout through FpsCheckRunner::runPreCheckoutFast() (default: off, uses inline pipeline)'],
+                    ['type' => 'toggle', 'name' => 'write_legacy_details_column', 'label' => 'Continue writing legacy details/raw_response JSON columns (default: on; safe to disable after a 60-day soak with structured readers in place)'],
+                    ['type' => 'toggle', 'name' => 'drop_legacy_details_columns', 'label' => 'IRREVERSIBLE: drop the legacy details + raw_response columns on next module reactivation (only flip after write_legacy_details_column has been off long enough)'],
                 ],
             ],
         ];
@@ -919,6 +940,80 @@ HTML;
 HTML;
 
         echo FpsAdminRenderer::renderCard('Bot & User Cleanup', 'fa-user-slash', $content);
+    }
+
+    /**
+     * Email digest settings: enable/disable, frequency, and recipients.
+     */
+    private function fpsRenderEmailDigestSettings(FpsConfig $config): void
+    {
+        $enabled   = $config->getCustom('email_digest_enabled', '1') === '1' ? 'checked' : '';
+        $frequency = $config->getCustom('email_digest_frequency', 'daily');
+        $recipients = htmlspecialchars((string)$config->getCustom('email_digest_recipients', ''), ENT_QUOTES, 'UTF-8');
+
+        $dailySel   = $frequency === 'daily' ? ' selected' : '';
+        $weeklySel  = $frequency === 'weekly' ? ' selected' : '';
+
+        // Get last sent timestamps for display
+        $lastDaily  = '';
+        $lastWeekly = '';
+        try {
+            $lastDaily = (string) Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'last_digest_daily')
+                ->value('setting_value');
+            $lastWeekly = (string) Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'last_digest_weekly')
+                ->value('setting_value');
+        } catch (\Throwable $e) {
+            // Non-critical -- display will just be empty
+        }
+
+        $lastDailyDisplay  = $lastDaily  !== '' ? htmlspecialchars($lastDaily, ENT_QUOTES, 'UTF-8')  : 'Never';
+        $lastWeeklyDisplay = $lastWeekly !== '' ? htmlspecialchars($lastWeekly, ENT_QUOTES, 'UTF-8') : 'Never';
+
+        $content = <<<HTML
+<div class="fps-form-row">
+  <div class="fps-form-group" style="flex:1;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" name="email_digest_enabled" value="1" {$enabled}>
+      <strong>Enable Email Digest</strong>
+    </label>
+    <p style="font-size:0.85rem;color:#888;margin:4px 0 0 28px;">
+      Sends a periodic summary of fraud activity (checks, blocks, top risk IPs/emails,
+      provider breakdown) to the configured recipients.
+    </p>
+  </div>
+</div>
+<div class="fps-form-row" style="margin-top:14px;">
+  <div class="fps-form-group" style="flex:1;max-width:280px;">
+    <label><strong>Frequency</strong></label>
+    <select name="email_digest_frequency" class="form-control" style="margin-top:4px;">
+      <option value="daily"{$dailySel}>Daily</option>
+      <option value="weekly"{$weeklySel}>Weekly (sent on Mondays)</option>
+    </select>
+  </div>
+  <div class="fps-form-group" style="flex:2;">
+    <label><strong>Recipients</strong></label>
+    <input type="text" name="email_digest_recipients" value="{$recipients}"
+           class="form-control" style="margin-top:4px;"
+           placeholder="admin@example.com, security@example.com">
+    <p style="font-size:0.82rem;color:#888;margin:4px 0 0;">
+      Comma-separated email addresses. Leave blank to use the primary admin email.
+    </p>
+  </div>
+</div>
+<div class="fps-form-row" style="margin-top:14px;">
+  <div class="fps-form-group" style="flex:1;">
+    <div style="padding:12px;border-radius:8px;background:rgba(100,149,237,0.06);border:1px solid rgba(100,149,237,0.15);font-size:0.85rem;">
+      <strong><i class="fas fa-clock"></i> Last sent:</strong>
+      Daily: <code>{$lastDailyDisplay}</code> &nbsp;|&nbsp;
+      Weekly: <code>{$lastWeeklyDisplay}</code>
+    </div>
+  </div>
+</div>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Email Digest', 'fa-envelope', $content);
     }
 
     /**

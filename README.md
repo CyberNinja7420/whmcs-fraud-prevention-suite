@@ -5,7 +5,7 @@
 [![WHMCS 8.x | 9.x](https://img.shields.io/badge/WHMCS-8.x%20%7C%209.x-0052CC?style=for-the-badge)](https://whmcs.com)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-![Version](https://img.shields.io/badge/Version-4.2.3-2563eb?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-4.2.4-2563eb?style=for-the-badge)
 
 [Live Demo](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite) | [API Plans](https://enterprisevpssolutions.com/store/fraud-intelligence-api) | [Threat Map](https://enterprisevpssolutions.com/index.php?m=fraud_prevention_suite&page=topology) | [Documentation](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Home)
 
@@ -20,11 +20,23 @@ Fraud Prevention Suite (FPS) is a comprehensive fraud detection addon module for
 - **Not just a fraud check** -- FPS is a complete fraud intelligence platform with API, threat topology, and global data sharing
 - **Open source module, SaaS API** -- The module is free and MIT-licensed; revenue comes from optional paid API tier subscriptions
 - **WHMCS-native** -- Built specifically for WHMCS using Capsule ORM, Smarty templates, and the hook system
+- **Zero runtime CDN dependency** -- ApexCharts, three.js and globe.gl are all vendored under `assets/vendor/` (refreshed quarterly via `scripts/refresh-vendor-assets.sh`)
 - **Accessibility-first** -- Built-in colorblind mode toggle and high-contrast support
+
+### What's new in v4.2.4 (2026-04-22)
+
+- Vendored ApexCharts + three.js + globe.gl; admin and topology pages no longer pull from public CDNs at runtime
+- Default WHMCS currency is now resolved (was hardcoded to id=1) so featured-products pricing renders correctly on installs whose default currency is not USD
+- `mod_fps_checks` rows now consistently populate the structured columns `provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`, `updated_at` on every write path; legacy `details` JSON is still written for backward compatibility
+- Pre-checkout block + captcha thresholds resolved through one shared helper (`FpsHookHelpers::fps_resolvePreCheckoutThresholds()`) so admin settings drive every code path
+- New canonical readers `FpsHookHelpers::fps_readProviderScores()` / `fps_readCheckContext()` prefer the structured columns and fall back to the legacy JSON for pre-v4.2.4 rows
+- Quarterly vendor-asset refresh is automated via `/etc/cron.d/fps-vendor-refresh`
+
+See [CHANGELOG.md](CHANGELOG.md) for full change history.
 
 ## Features
 
-### Detection Engines (16+)
+### Detection Engines (16)
 
 | Engine | Description | Data Source |
 |--------|-------------|-------------|
@@ -114,34 +126,57 @@ find /path/to/whmcs/modules/addons/fraud_prevention_suite/ -name "*.php" -exec c
 ```
 fraud_prevention_suite/
   fraud_prevention_suite.php    # Main module file
-  hooks.php                     # WHMCS hooks (13 hooks)
+  hooks.php                     # WHMCS hooks (17 add_hook calls across 14 sections)
   LICENSE                       # MIT License
   README.md                     # This file
   CHANGELOG.md                  # Version history
-  .gitlab-ci.yml                # CI pipeline
-  lib/                          # PHP classes
-    Admin/                      # Admin tab controllers (10 tabs)
+  CONTRIBUTING.md               # Contributor guide and code standards
+  TODO-hardening.md             # Open hardening follow-ups (post v4.2.x)
+  version.json                  # Build manifest (read by public/api.php bootstrap)
+  lib/                          # PHP classes (PSR-4)
+    Admin/                      # 14 admin tab controllers (Dashboard, Review Queue,
+                                #  Client Profile, Rules, API Keys, Settings, Stats,
+                                #  Topology, Reports, Alert Log, Bot Cleanup,
+                                #  Mass Scan, Trust Management, Global Intel)
     Api/                        # REST API (router, auth, controller, rate limiter)
-    Models/                     # Data models
-    Providers/                  # 16+ detection engine providers
+    Models/                     # Typed data models (FpsCheckContext, FpsRiskResult, ...)
+    Providers/                  # 16 detection engine providers + 1 interface
+    FpsCheckRunner.php          # Orchestrates the full + pre-checkout pipelines
     FpsConfig.php               # Configuration manager
+    FpsHookHelpers.php          # Shared helpers: currency resolver, threshold
+                                #  resolver, asset cache-bust, structured-column readers
+    FpsStatsCollector.php       # Single event recorder for stats updates
     FpsTurnstileValidator.php   # Cloudflare Turnstile integration
     FpsClientTrustManager.php   # Client trust/blacklist system
-  templates/                    # Smarty templates
+    FpsGeoImpossibilityEngine.php  # Multi-signal geographic correlation
+    FpsVelocityEngine.php       # Rate-limited event scoring
+    FpsWebhookNotifier.php      # Outbound webhook dispatch (SSRF-hardened)
+    FpsGlobalIntelCollector.php # Hub push/pull collector
+  templates/                    # Smarty + raw HTML templates
     overview.tpl                # Public overview page
-    topology.tpl                # 3D threat map (Three.js + Globe.gl)
+    topology.tpl                # 3D threat map (Three.js + Globe.gl, vendored)
     store/landing.tpl           # Product landing page
     apidocs.tpl                 # API documentation
     gdpr.tpl                    # GDPR data removal form
     global.tpl                  # Global threat intelligence
+    api-keys.tpl                # Client-area API key management
   assets/                       # CSS, JS, images
     css/                        # Site theme, Lagom2 compat, topology dark theme
     js/                         # Topology globe, admin panel, fingerprint collector
     img/                        # SVG logos
+    vendor/                     # Pinned frontend libs (no runtime CDN dependency)
+      apexcharts.min.js         #   ApexCharts 3.54.1 (admin Statistics charts)
+      three.min.js              #   three.js 0.160.0 (topology 3D globe)
+      globe.gl.min.js           #   globe.gl 2.31.0 (topology globe helper)
   public/api.php                # Standalone REST API endpoint
-  install/                      # Server module auto-installer
-  data/                         # Static data files
-  docs/wiki/                    # 14 documentation pages
+  install/                      # Server module auto-installer (fps_api)
+  data/                         # Static data files (disposable domains, Tor nodes, etc.)
+  scripts/                      # Operations tooling
+    refresh-vendor-assets.sh    #   Quarterly pinned refresh of assets/vendor/*
+    fps-vendor-refresh.cron     #   /etc/cron.d entry for the above (Jan/Apr/Jul/Oct)
+  docs/                         # Documentation
+    audits/                     # Production hardening audit + remediation reports
+    wiki/                       # 14 GitHub wiki pages
 ```
 
 ## Documentation
@@ -152,9 +187,9 @@ Full documentation is available in the [Wiki](https://github.com/CyberNinja7420/
 - [Provider Configuration](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Provider-Configuration) -- API keys and free tiers
 - [API Documentation](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/API-Documentation) -- REST endpoints and examples
 - [Architecture Overview](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Architecture-Overview) -- Module structure and data flow
-- [Database Schema](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Database-Schema) -- All 29 tables
-- [Hook Reference](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Hook-Reference) -- 13 WHMCS hooks
-- [AJAX Reference](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/AJAX-Reference) -- 62 admin AJAX actions
+- [Database Schema](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Database-Schema) -- 28 module tables
+- [Hook Reference](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Hook-Reference) -- WHMCS hook integrations
+- [AJAX Reference](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/AJAX-Reference) -- 70+ admin AJAX actions
 - [Adding Providers](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Adding-Providers) -- Custom detection engine guide
 - [Troubleshooting](https://github.com/CyberNinja7420/whmcs-fraud-prevention-suite/wiki/Troubleshooting) -- Common issues
 

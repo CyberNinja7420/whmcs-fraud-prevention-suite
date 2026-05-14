@@ -1,0 +1,15 @@
+# /etc/cron.d/fps-vendor-refresh
+# Quarterly refresh of vendored frontend assets for the Fraud Prevention Suite.
+# Runs on the 1st day of Jan, Apr, Jul, Oct at 03:17 UTC (low-traffic window).
+#
+# Install with:
+#   sudo install -m 0644 fps-vendor-refresh.cron /etc/cron.d/fps-vendor-refresh
+#
+# The script is idempotent: it only writes a vendor file when the upstream
+# checksum differs from the local copy. Output is captured by cron's MAILTO.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+
+17 3 1 1,4,7,10 * root /home/freeit/public_html/modules/addons/fraud_prevention_suite/scripts/refresh-vendor-assets.sh >> /var/log/fps-vendor-refresh.log 2>&1

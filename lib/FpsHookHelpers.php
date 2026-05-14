@@ -12,6 +12,246 @@ use WHMCS\Database\Capsule;
 class FpsHookHelpers
 {
     /**
+     * Per-request memoized default currency id (avoids repeated DB lookups
+     * when the same hook iterates many products/pricing rows).
+     */
+    private static ?int $fps_defaultCurrencyId = null;
+
+    /**
+     * Resolve the WHMCS default currency id without hardcoding to 1.
+     *
+     * Resolution order:
+     *   1. tblcurrencies row with default = 1 (admin-chosen default currency)
+     *   2. lowest-id currency row (safe for partially-set-up installs)
+     *   3. integer 1 as last-resort fallback
+     *
+     * The result is memoized for the remainder of the PHP request so callers
+     * inside loops do not pay repeated DB hits. Pass $forceRefresh = true
+     * after a settings change to invalidate.
+     *
+     * Mirrors the resolver embedded in fps_createDefaultProducts() so all
+     * runtime callers share one canonical implementation.
+     */
+    public static function fps_resolveDefaultCurrencyId(bool $forceRefresh = false): int
+    {
+        if (!$forceRefresh && self::$fps_defaultCurrencyId !== null) {
+            return self::$fps_defaultCurrencyId;
+        }
+
+        try {
+            $id = (int) (Capsule::table('tblcurrencies')->where('default', 1)->value('id') ?? 0);
+            if ($id < 1) {
+                $id = (int) (Capsule::table('tblcurrencies')->orderBy('id')->value('id') ?? 1);
+            }
+        } catch (\Throwable $e) {
+            $id = 1;
+        }
+
+        self::$fps_defaultCurrencyId = $id > 0 ? $id : 1;
+        return self::$fps_defaultCurrencyId;
+    }
+
+    /**
+     * Read provider scores from a mod_fps_checks row, preferring the
+     * structured `provider_scores` JSON column and falling back to
+     * extracting them from the legacy `details` blob's risk.providerScores
+     * tree. Returns an empty array when neither path yields data.
+     *
+     * Use from any reader that needs per-provider score data; this is
+     * the canonical pattern for the v4.2.4+ reader migration so that
+     * pre-migration rows still resolve correctly.
+     *
+     * @param object|array|null $checkRow A row fetched from mod_fps_checks
+     *                                    (object via Capsule, array via raw query, or null).
+     * @return array<string, float>
+     */
+    public static function fps_readProviderScores($checkRow): array
+    {
+        if ($checkRow === null) {
+            return [];
+        }
+        $get = static function ($key) use ($checkRow) {
+            if (is_array($checkRow))   { return $checkRow[$key] ?? null; }
+            if (is_object($checkRow))  { return $checkRow->{$key} ?? null; }
+            return null;
+        };
+
+        // Preferred structured path.
+        $structured = $get('provider_scores');
+        if (is_string($structured) && $structured !== '') {
+            $decoded = json_decode($structured, true);
+            if (is_array($decoded)) {
+                $out = [];
+                foreach ($decoded as $name => $score) {
+                    $out[(string) $name] = (float) $score;
+                }
+                if ($out !== []) {
+                    return $out;
+                }
+            }
+        }
+
+        // Legacy fallback: pull from details.risk.providerScores.
+        $details = $get('details');
+        if (is_string($details) && $details !== '') {
+            $decoded = json_decode($details, true);
+            $providerScores = $decoded['risk']['providerScores'] ?? null;
+            if (is_array($providerScores)) {
+                $out = [];
+                foreach ($providerScores as $name => $score) {
+                    $out[(string) $name] = (float) $score;
+                }
+                return $out;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Read the normalised check_context from a mod_fps_checks row,
+     * preferring the structured `check_context` JSON column and falling
+     * back to the legacy details.context tree.
+     *
+     * @param object|array|null $checkRow
+     * @return array<string, mixed>
+     */
+    public static function fps_readCheckContext($checkRow): array
+    {
+        if ($checkRow === null) {
+            return [];
+        }
+        $get = static function ($key) use ($checkRow) {
+            if (is_array($checkRow))   { return $checkRow[$key] ?? null; }
+            if (is_object($checkRow))  { return $checkRow->{$key} ?? null; }
+            return null;
+        };
+
+        $structured = $get('check_context');
+        if (is_string($structured) && $structured !== '') {
+            $decoded = json_decode($structured, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        $details = $get('details');
+        if (is_string($details) && $details !== '') {
+            $decoded = json_decode($details, true);
+            if (is_array($decoded['context'] ?? null)) {
+                return $decoded['context'];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Build a deterministic ?v=... cache-bust suffix for an in-module
+     * asset. Combines FPS_MODULE_VERSION (release boundary) with the
+     * file's filemtime (hotfix boundary) so browsers cache within a
+     * release but pick up redeploys.
+     *
+     * Pass the path RELATIVE to the assets/ root (e.g. "js/fps-fingerprint.js").
+     * Never pass time() -- that would defeat browser caching entirely.
+     *
+     * @param string $relativeAssetPath path under assets/
+     * @return string e.g. "?v=4.2.4-1733180123" or "?v=4.2.4-0" if missing
+     */
+    public static function fps_assetCacheBust(string $relativeAssetPath): string
+    {
+        $version = defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : 'v';
+        $abs     = __DIR__ . '/../assets/' . ltrim($relativeAssetPath, '/');
+        $mtime   = file_exists($abs) ? (string) filemtime($abs) : '0';
+        return '?v=' . $version . '-' . $mtime;
+    }
+
+    /**
+     * Resolve pre-checkout thresholds (block + captcha) with consistent
+     * fall-throughs and optional per-gateway override.
+     *
+     * Resolution order for the BLOCK threshold:
+     *   1. mod_fps_gateway_thresholds.block_threshold for $gateway (when > 0)
+     *   2. tbladdonmodules.pre_checkout_block_threshold (legacy admin-visible)
+     *   3. mod_fps_settings.risk_critical_threshold (modern admin-visible)
+     *   4. hardcoded safe default (85)
+     *
+     * Resolution order for the CAPTCHA / flag threshold:
+     *   1. mod_fps_gateway_thresholds.flag_threshold for $gateway (when > 0)
+     *   2. mod_fps_settings.risk_high_threshold (modern admin-visible)
+     *   3. hardcoded safe default (60)
+     *
+     * Both the inline pre-checkout hook and FpsCheckRunner share this
+     * helper so admin settings changes affect every code path consistently.
+     *
+     * @return array{block: float, captcha: float}
+     */
+    public static function fps_resolvePreCheckoutThresholds(string $gateway = ''): array
+    {
+        $block   = 0.0;
+        $captcha = 0.0;
+
+        // Per-gateway override (highest priority when present and > 0).
+        if ($gateway !== '') {
+            try {
+                $gwRow = Capsule::table('mod_fps_gateway_thresholds')
+                    ->where('gateway', $gateway)
+                    ->where('enabled', 1)
+                    ->first();
+                if ($gwRow) {
+                    $block   = (float) ($gwRow->block_threshold ?? 0);
+                    $captcha = (float) ($gwRow->flag_threshold  ?? 0);
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal -- fall through to global resolution.
+            }
+        }
+
+        // Global block threshold.
+        if ($block <= 0.0) {
+            try {
+                $legacy = (float) (Capsule::table('tbladdonmodules')
+                    ->where('module', 'fraud_prevention_suite')
+                    ->where('setting', 'pre_checkout_block_threshold')
+                    ->value('value') ?? 0);
+                if ($legacy > 0.0) {
+                    $block = $legacy;
+                }
+            } catch (\Throwable $e) { /* non-fatal */ }
+        }
+        if ($block <= 0.0) {
+            try {
+                $modern = (float) (Capsule::table('mod_fps_settings')
+                    ->where('setting_key', 'risk_critical_threshold')
+                    ->value('setting_value') ?? 0);
+                if ($modern > 0.0) {
+                    $block = $modern;
+                }
+            } catch (\Throwable $e) { /* non-fatal */ }
+        }
+        if ($block <= 0.0) {
+            $block = 85.0;
+        }
+
+        // Captcha / flag threshold.
+        if ($captcha <= 0.0) {
+            try {
+                $modernHigh = (float) (Capsule::table('mod_fps_settings')
+                    ->where('setting_key', 'risk_high_threshold')
+                    ->value('setting_value') ?? 0);
+                if ($modernHigh > 0.0) {
+                    $captcha = $modernHigh;
+                }
+            } catch (\Throwable $e) { /* non-fatal */ }
+        }
+        if ($captcha <= 0.0) {
+            $captcha = 60.0;
+        }
+
+        return ['block' => $block, 'captcha' => $captcha];
+    }
+
+    /**
      * Record geo event for topology visualization.
      */
     public static function fps_recordGeoEvent(string $ip, string $country, int $orderId): void

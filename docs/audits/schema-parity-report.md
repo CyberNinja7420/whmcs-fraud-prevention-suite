@@ -1,8 +1,8 @@
 # FPS Schema Parity Report
 
-**Date:** 2026-04-09
-**Module version:** 4.2.3
-**Verified on:** 130.12.69.3 (live), 130.12.69.7 (dev)
+**Date:** 2026-04-21
+**Module version:** 4.2.4
+**Verified on:** 130.12.69.3 (live), 130.12.69.7 (dev) -- pass 1 deploys; pass 2 is additive-only and pending re-deploy.
 
 ## Definitions
 
@@ -74,3 +74,11 @@ These are NOT drift:
 
 - `mod_fps_gateway_thresholds.block_threshold` / `flag_threshold` - per-gateway override columns (separate scope from the global setting keys; both exist by design)
 - `mod_fps_checks.details` (legacy JSON) + structured columns `provider_scores`, `check_context` - both populated for backward compatibility; some readers still parse the JSON blob
+
+## Pass 2 update (2026-04-21)
+
+No schema changes in pass 2. The structured columns
+(`provider_scores`, `check_context`, `is_pre_checkout`, `check_duration_ms`,
+`updated_at`) on `mod_fps_checks` already existed; pass 2 only made
+the runtime write paths consistently populate them. Readers that still
+prefer the legacy `details` JSON continue to work unchanged.

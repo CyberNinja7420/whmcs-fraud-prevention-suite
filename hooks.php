@@ -508,6 +508,15 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             }
         }
 
+        // 3b. Honeypot field check -- bots fill hidden fields, humans don't
+        $honeypot1 = trim($_POST['fps_website_url'] ?? '');
+        $honeypot2 = trim($_POST['fps_company_fax'] ?? '');
+        if ($honeypot1 !== '' || $honeypot2 !== '') {
+            $score += 30;
+            $providerScores['honeypot'] = 30.0;
+            $details[] = 'Honeypot field filled (bot indicator)';
+        }
+
         // 4. Bot pattern detection (instant -- no API calls)
         if ($email !== '') {
             $botScore = 0;
@@ -1378,6 +1387,53 @@ add_hook('ClientAreaHeaderOutput', 1, function ($vars) {
 });
 
 // ---------------------------------------------------------------------------
+// 7z. ClientAreaFooterOutput -- Inject honeypot fields on checkout page
+// ---------------------------------------------------------------------------
+add_hook('ClientAreaFooterOutput', 0, function ($vars) {
+    try {
+        // Only inject on the checkout page
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $filename = $vars['filename'] ?? '';
+        if ($filename !== 'cart' && strpos($uri, 'cart.php') === false) {
+            return '';
+        }
+        // Must be the checkout step specifically
+        $step = $_GET['a'] ?? '';
+        if ($step !== 'checkout' && strpos($uri, 'a=checkout') === false) {
+            return '';
+        }
+
+        // Check if honeypot feature is enabled (default: on)
+        $enabled = Capsule::table('mod_fps_settings')
+            ->where('setting_key', 'honeypot_enabled')
+            ->value('setting_value') ?? '1';
+        if ($enabled !== '1') return '';
+
+        // Inject hidden honeypot fields via safe DOM construction.
+        // These fields are invisible to humans (off-screen, zero height)
+        // but bots that parse forms will fill them, triggering +30 score.
+        return '<script>'
+            . '(function(){'
+            . 'var f=document.querySelectorAll("form[method=post]");'
+            . 'if(!f.length)return;'
+            . 'for(var i=0;i<f.length;i++){'
+            . 'var d=document.createElement("div");'
+            . 'd.setAttribute("style","position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;overflow:hidden;");'
+            . 'd.setAttribute("aria-hidden","true");'
+            . 'var a=document.createElement("input");'
+            . 'a.type="text";a.name="fps_website_url";a.value="";a.tabIndex=-1;a.autocomplete="off";'
+            . 'var b=document.createElement("input");'
+            . 'b.type="text";b.name="fps_company_fax";b.value="";b.tabIndex=-1;b.autocomplete="off";'
+            . 'd.appendChild(a);d.appendChild(b);f[i].appendChild(d);'
+            . '}'
+            . '})();'
+            . '</script>';
+    } catch (\Throwable $e) {
+        return '';
+    }
+});
+
+// ---------------------------------------------------------------------------
 // 7. ClientAreaFooterOutput -- Inject fingerprint JS (scope-aware)
 // ---------------------------------------------------------------------------
 add_hook('ClientAreaFooterOutput', 1, function ($vars) {
@@ -2005,8 +2061,85 @@ add_hook('ClientDelete', 1, function (array $vars) {
 });
 
 // ---------------------------------------------------------------------------
+// 14. DailyCronJob -- Email digest (daily + weekly on Mondays)
+// ---------------------------------------------------------------------------
+add_hook('DailyCronJob', 1, function($vars) {
+    try {
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsEmailDigest')) return;
+        $digest = new \FraudPreventionSuite\Lib\FpsEmailDigest();
+        $digest->sendDigest('daily');
+        // Weekly on Mondays
+        if ((int)date('N') === 1) {
+            $digest->sendDigest('weekly');
+        }
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'EmailDigest::Cron', '', $e->getMessage());
+    }
+});
+
+// ---------------------------------------------------------------------------
 // NOTE: Helper functions (fps_recordGeoEvent, fps_refreshDisposableDomains,
 // fps_autoSuspendChargebackAbusers, fps_legacyFraudCheck) are in
 // lib/FpsHookHelpers.php as static methods. Called via:
 //   \FraudPreventionSuite\Lib\FpsHookHelpers::methodName()
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Admin Home Dashboard Widget
+// ---------------------------------------------------------------------------
+add_hook('AdminHomeWidgets', 1, function() {
+    try {
+        $widgetFile = __DIR__ . '/lib/Admin/FpsHomeWidget.php';
+        if (file_exists($widgetFile)) {
+            require_once $widgetFile;
+            return new FpsHomeWidget();
+        }
+    } catch (\Throwable $e) {
+        // Silently fail -- widget is optional
+    }
+    return null;
+});
+
+// ---------------------------------------------------------------------------
+// 13. DailyCronJob -- Auto-update disposable email domain blocklist
+//     Complement to the existing fps_refreshDisposableDomains() call in
+//     hook 9. This hook runs independently via FpsConfig toggle and adds
+//     a proper User-Agent header. Both paths skip if the file was already
+//     refreshed within the last 24 hours, so no duplicate fetches occur.
+// ---------------------------------------------------------------------------
+add_hook('DailyCronJob', 2, function ($vars) {
+    try {
+        $enabled = \FraudPreventionSuite\Lib\FpsConfig::getInstance()->isEnabled('disposable_list_auto_update');
+        if (!$enabled) return;
+
+        // Skip if already updated within the last 24 hours (avoids
+        // duplicate fetch when both hook 9 and hook 13 fire)
+        $targetFile = __DIR__ . '/data/disposable_domains.txt';
+        if (file_exists($targetFile) && (time() - filemtime($targetFile)) < 86400) {
+            return;
+        }
+
+        $url = 'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/master/disposable_email_blocklist.conf';
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT      => 'FPS-WHMCS/' . (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : '4.2.8'),
+        ]);
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($code === 200 && strlen($body) > 1000) {
+            $dataDir = __DIR__ . '/data';
+            if (!is_dir($dataDir)) {
+                mkdir($dataDir, 0755, true);
+            }
+            file_put_contents($dataDir . '/disposable_domains.txt', $body);
+            logModuleCall('fraud_prevention_suite', 'DisposableDomainUpdate', 'OK', strlen($body) . ' bytes');
+        }
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'DisposableDomainUpdate::ERROR', '', $e->getMessage());
+    }
+});

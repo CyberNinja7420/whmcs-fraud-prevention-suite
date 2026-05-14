@@ -1765,6 +1765,47 @@
         toast('Rule ' + (enabled ? 'enabled' : 'disabled'), 'success');
       });
     },
+    exportRules: function() {
+      // Trigger download via GET request (export_rules returns file attachment)
+      window.location.href = fpsAjaxUrl + '&a=export_rules';
+    },
+    importRules: function(fileInput) {
+      if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+      var file = fileInput.files[0];
+      if (!file.name.endsWith('.json')) {
+        toast('Please select a .json file', 'error');
+        fileInput.value = '';
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var jsonContent = e.target.result;
+        try {
+          var parsed = JSON.parse(jsonContent);
+          if (!parsed.rules || !parsed.rules.length) {
+            toast('No rules found in file', 'error');
+            fileInput.value = '';
+            return;
+          }
+          if (!window.confirm('Import ' + parsed.rules.length + ' rule(s)?')) {
+            fileInput.value = '';
+            return;
+          }
+        } catch(ex) {
+          toast('Invalid JSON file', 'error');
+          fileInput.value = '';
+          return;
+        }
+        ajax('import_rules', {rules_json: jsonContent}, function(err, data) {
+          fileInput.value = '';
+          if (err) { toast('Import failed', 'error'); return; }
+          if (data && data.error) { toast(data.error, 'error'); return; }
+          toast('Imported ' + (data.imported || 0) + ' rule(s)', 'success');
+          setTimeout(function() { location.reload(); }, 1000);
+        });
+      };
+      reader.readAsText(file);
+    },
 
     // Reports tab
     submitReport: function(ajaxUrl) {
