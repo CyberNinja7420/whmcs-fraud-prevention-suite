@@ -180,7 +180,7 @@ function fps_exportClientData(int $clientId): array
             $clientIp = $client->ip ?? '';
         }
     } catch (\Throwable $e) {
-        // Non-fatal
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::clientResolve', (string)$clientId, $e->getMessage());
     }
 
     // 1. Fraud checks
@@ -195,6 +195,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['fraud_checks'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::fraud_checks', (string)$clientId, $e->getMessage());
         $export['sections']['fraud_checks'] = ['error' => $e->getMessage()];
     }
 
@@ -209,6 +210,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['fingerprints'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::fingerprints', (string)$clientId, $e->getMessage());
         $export['sections']['fingerprints'] = ['error' => $e->getMessage()];
     }
 
@@ -223,6 +225,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['ip_intel'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::ip_intel', (string)$clientId, $e->getMessage());
         $export['sections']['ip_intel'] = ['error' => $e->getMessage()];
     }
 
@@ -238,6 +241,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['email_intel'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::email_intel', (string)$clientId, $e->getMessage());
         $export['sections']['email_intel'] = ['error' => $e->getMessage()];
     }
 
@@ -253,6 +257,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['behavioral_events'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::behavioral_events', (string)$clientId, $e->getMessage());
         $export['sections']['behavioral_events'] = ['error' => $e->getMessage()];
     }
 
@@ -267,6 +272,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['trust_status'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::trust_status', (string)$clientId, $e->getMessage());
         $export['sections']['trust_status'] = ['error' => $e->getMessage()];
     }
 
@@ -282,6 +288,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['reports'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::reports', (string)$clientId, $e->getMessage());
         $export['sections']['reports'] = ['error' => $e->getMessage()];
     }
 
@@ -296,6 +303,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['api_keys'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::api_keys', (string)$clientId, $e->getMessage());
         $export['sections']['api_keys'] = ['error' => $e->getMessage()];
     }
 
@@ -311,6 +319,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['global_intel'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::global_intel', (string)$clientId, $e->getMessage());
         $export['sections']['global_intel'] = ['error' => $e->getMessage()];
     }
 
@@ -326,6 +335,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['velocity_events'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::velocity_events', (string)$clientId, $e->getMessage());
         $export['sections']['velocity_events'] = ['error' => $e->getMessage()];
     }
 
@@ -341,6 +351,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['gdpr_requests'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::gdpr_requests', (string)$clientId, $e->getMessage());
         $export['sections']['gdpr_requests'] = ['error' => $e->getMessage()];
     }
 
@@ -356,6 +367,7 @@ function fps_exportClientData(int $clientId): array
             $export['sections']['geo_events'] = $rows;
         }
     } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsGdprHelper::exportClientData::geo_events', (string)$clientId, $e->getMessage());
         $export['sections']['geo_events'] = ['error' => $e->getMessage()];
     }
 

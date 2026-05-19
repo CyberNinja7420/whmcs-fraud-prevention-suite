@@ -36,7 +36,9 @@ class TabClientProfile
                     if ($client) {
                         $clientId = (int)$client->id;
                     }
-                } catch (\Throwable $e) {}
+                } catch (\Throwable $e) {
+                    logModuleCall('fraud_prevention_suite', 'TabClientProfile::emailLookup', $input, $e->getMessage());
+                }
 
                 if ($clientId === 0) {
                     // Try partial name match
@@ -51,7 +53,9 @@ class TabClientProfile
                         if ($client) {
                             $clientId = (int)$client->id;
                         }
-                    } catch (\Throwable $e) {}
+                    } catch (\Throwable $e) {
+                        logModuleCall('fraud_prevention_suite', 'TabClientProfile::partialNameLookup', $input, $e->getMessage());
+                    }
                 }
             }
         }
@@ -414,7 +418,9 @@ HTML;
             if ($lastCheck && $lastCheck->provider_scores) {
                 $providerBreakdown = json_decode($lastCheck->provider_scores, true) ?: [];
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'TabClientProfile::riskScoreQuery', (string)$clientId, $e->getMessage());
+        }
 
         $score = round($avgScore, 1);
         $pct   = min(100, max(0, $score));

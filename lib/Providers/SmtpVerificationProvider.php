@@ -46,6 +46,7 @@ class SmtpVerificationProvider implements FpsProviderInterface
 
             return ($row !== null && $row->value === '1');
         } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'SmtpVerification::isEnabled', '', $e->getMessage());
             return false;
         }
     }
@@ -271,6 +272,7 @@ class SmtpVerificationProvider implements FpsProviderInterface
 
             return $hosts;
         } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'SmtpVerification::getMxServers', $domain, $e->getMessage());
             return [];
         }
     }
@@ -391,6 +393,7 @@ class SmtpVerificationProvider implements FpsProviderInterface
                 'domain'        => $row->domain ?? (string) substr($email, strrpos($email, '@') + 1),
             ];
         } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'SmtpVerification::cacheRead', $email, $e->getMessage());
             return null;
         }
     }
@@ -429,7 +432,7 @@ class SmtpVerificationProvider implements FpsProviderInterface
                 ]);
             }
         } catch (\Throwable $e) {
-            // Non-fatal -- cache write failure must never break the check
+            logModuleCall('fraud_prevention_suite', 'SmtpVerification::cacheWrite', $email, $e->getMessage());
         }
     }
 }

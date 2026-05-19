@@ -10,6 +10,7 @@ if (!defined("WHMCS")) {
 
 use WHMCS\Database\Capsule;
 use FraudPreventionSuite\Lib\FpsConfig;
+use FraudPreventionSuite\Lib\FpsRiskEngine;
 
 /**
  * TabSettings -- all module configuration with collapsible provider sections,
@@ -27,6 +28,7 @@ class TabSettings
 
         $this->fpsRenderDisplaySettings($config);
         $this->fpsRenderProviderSettings($config);
+        $this->fpsRenderProviderWeights($config);
         $this->fpsRenderThresholdSettings($config);
         $this->fpsRenderCaptchaSettings($config);
         $this->fpsRenderPublicApiSettings($config);
@@ -496,6 +498,68 @@ HTML;
         $content .= '</div>';
 
         echo FpsAdminRenderer::renderCard('Provider Settings', 'fa-puzzle-piece', $content);
+    }
+
+    /**
+     * Provider weight configuration -- lets admins tune how much each
+     * provider contributes to the final aggregated risk score.
+     *
+     * Current values are read from mod_fps_settings as provider_weight_{name}.
+     * Defaults come from FpsRiskEngine::getDefaultWeights().
+     * Saving goes through the existing save_settings AJAX handler.
+     */
+    private function fpsRenderProviderWeights(FpsConfig $config): void
+    {
+        $defaults = FpsRiskEngine::getDefaultWeights();
+
+        // Read current overrides from settings
+        $currentWeights = [];
+        try {
+            $rows = Capsule::table('mod_fps_settings')
+                ->where('setting_key', 'LIKE', 'provider_weight_%')
+                ->get(['setting_key', 'setting_value']);
+            foreach ($rows as $row) {
+                $provider = substr($row->setting_key, strlen('provider_weight_'));
+                $currentWeights[$provider] = (float)$row->setting_value;
+            }
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'TabSettings::fpsRenderProviderWeights', '', $e->getMessage());
+        }
+
+        $content = '<p class="fps-text-muted" style="margin-bottom:16px;">'
+            . '<i class="fas fa-info-circle"></i> Adjust how much each provider contributes to the final aggregated risk score. '
+            . 'A weight of 1.0 is normal; 0.5 halves the provider\'s impact; 2.0 doubles it. '
+            . 'Changes are saved with the "Save All Settings" button below.</p>';
+
+        $content .= '<table class="fps-table fps-table-striped">';
+        $content .= '<thead><tr>';
+        $content .= '<th>Provider</th>';
+        $content .= '<th style="width:120px;">Default</th>';
+        $content .= '<th style="width:180px;">Current Weight</th>';
+        $content .= '</tr></thead><tbody>';
+
+        foreach ($defaults as $providerName => $defaultWeight) {
+            $safeProvider = htmlspecialchars($providerName, ENT_QUOTES, 'UTF-8');
+            $displayName = htmlspecialchars(str_replace('_', ' ', ucwords($providerName, '_')), ENT_QUOTES, 'UTF-8');
+            $currentVal = $currentWeights[$providerName] ?? $defaultWeight;
+            $currentVal = max(0.0, min(5.0, $currentVal));
+            $settingName = 'provider_weight_' . $safeProvider;
+
+            $content .= '<tr>';
+            $content .= '<td><i class="fas fa-cog" style="color:var(--fps-primary,#667eea);margin-right:6px;"></i>' . $displayName . '</td>';
+            $content .= '<td style="font-family:monospace;color:var(--fps-text-muted);">' . number_format($defaultWeight, 1) . '</td>';
+            $content .= '<td>';
+            $content .= '<input type="number" name="' . $settingName . '" class="fps-input fps-input-sm" '
+                . 'value="' . number_format($currentVal, 1) . '" '
+                . 'min="0.0" max="5.0" step="0.1" '
+                . 'style="width:100px;text-align:center;font-family:monospace;">';
+            $content .= '</td>';
+            $content .= '</tr>';
+        }
+
+        $content .= '</tbody></table>';
+
+        echo FpsAdminRenderer::renderCard('Provider Score Weights', 'fa-balance-scale', $content);
     }
 
     /**

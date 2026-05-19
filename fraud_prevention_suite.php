@@ -1076,6 +1076,29 @@ function fraud_prevention_suite_upgrade($vars): void
             }
         }
 
+        // v5.0.1: Ensure key_hash has a unique index for upgrade installs.
+        // Fresh installs already have it from create(), but pre-v5 upgrades may not.
+        if (Capsule::schema()->hasTable('mod_fps_api_keys')) {
+            try {
+                $sm = Capsule::connection()->getDoctrineSchemaManager();
+                $indexes = $sm->listTableIndexes('mod_fps_api_keys');
+                $hasUnique = false;
+                foreach ($indexes as $index) {
+                    if ($index->getColumns() === ['key_hash'] && $index->isUnique()) {
+                        $hasUnique = true;
+                        break;
+                    }
+                }
+                if (!$hasUnique) {
+                    Capsule::schema()->table('mod_fps_api_keys', function ($table) {
+                        $table->unique('key_hash');
+                    });
+                }
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'activate::key_hash_unique_index', '', $e->getMessage());
+            }
+        }
+
         // v4.2.4: Add reviewed_by/reviewed_at to mod_fps_reports so existing
         // installs can run fps_ajaxUpdateReportStatus without "Unknown column".
         // (Fresh installs get these via create() above.)
@@ -3102,13 +3125,19 @@ function fps_ajaxMassScan(): array
 
 function fps_ajaxSaveRule(): array
 {
+    $priority = max(1, min(100, (int)($_POST['priority'] ?? 50)));
+    $weight = (float)($_POST['score_weight'] ?? 1.0);
+    if (!is_finite($weight) || $weight < 0.1 || $weight > 10.0) {
+        return ['error' => 'Score weight must be between 0.1 and 10.0'];
+    }
+
     $data = [
         'rule_name' => trim($_POST['rule_name'] ?? ''),
         'rule_type' => trim($_POST['rule_type'] ?? ''),
         'rule_value' => trim($_POST['rule_value'] ?? ''),
         'action' => $_POST['rule_action'] ?? 'flag',
-        'priority' => (int)($_POST['priority'] ?? 50),
-        'score_weight' => (float)($_POST['score_weight'] ?? 1.0),
+        'priority' => $priority,
+        'score_weight' => $weight,
         'description' => trim($_POST['description'] ?? ''),
         'enabled' => 1,
     ];
@@ -3254,6 +3283,7 @@ function fps_ajaxCreateApiKey(): array
     $email = trim($_POST['email'] ?? '');
 
     if (empty($name)) return ['error' => 'Name is required'];
+    if (strlen($name) > 255) return ['error' => 'Name too long (max 255)'];
 
     $rawKey = 'fps_' . bin2hex(random_bytes(24));
     $keyHash = hash('sha256', $rawKey);

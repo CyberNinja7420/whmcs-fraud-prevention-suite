@@ -56,6 +56,19 @@ class FpsRiskEngine
         'global_intel'         => 1.5,
     ];
 
+    /**
+     * Return the built-in default weight map.
+     *
+     * Exposed so that TabSettings can render the provider weight
+     * configuration UI with correct fallback values.
+     *
+     * @return array<string, float>
+     */
+    public static function getDefaultWeights(): array
+    {
+        return self::DEFAULT_WEIGHTS;
+    }
+
     public function __construct(?FpsConfig $config = null)
     {
         $this->config = $config ?? FpsConfig::getInstance();

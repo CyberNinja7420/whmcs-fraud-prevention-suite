@@ -192,3 +192,36 @@ function fps_ajaxPurgeOrphanUsers(): array
 /**
  * Get paginated module log entries.
  */
+function fps_ajaxGetModuleLog(): array
+{
+    try {
+        $page = max(1, (int)($_GET['page'] ?? $_POST['page'] ?? 1));
+        $perPage = max(10, min(100, (int)($_GET['per_page'] ?? $_POST['per_page'] ?? 50)));
+        $offset = ($page - 1) * $perPage;
+
+        $total = Capsule::table('tblmodulelog')
+            ->where('module', 'fraud_prevention_suite')
+            ->count();
+
+        $rows = Capsule::table('tblmodulelog')
+            ->where('module', 'fraud_prevention_suite')
+            ->orderByDesc('id')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get(['id', 'action', 'request', 'response', 'date'])
+            ->map(function ($r) { return (array) $r; })
+            ->toArray();
+
+        return [
+            'success'  => true,
+            'data'     => $rows,
+            'total'    => $total,
+            'page'     => $page,
+            'per_page' => $perPage,
+            'pages'    => (int) ceil($total / $perPage),
+        ];
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'FpsAjaxBotCleanup::getModuleLog', '', $e->getMessage());
+        return ['error' => $e->getMessage()];
+    }
+}

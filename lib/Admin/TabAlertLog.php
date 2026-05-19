@@ -60,7 +60,9 @@ class TabAlertLog
                         ->where('setting', $p['key_setting'])
                         ->value('value');
                     $enabled = ($val === '1' || $val === 'yes' || $val === 'on');
-                } catch (\Throwable $e2) {}
+                } catch (\Throwable $e2) {
+                    logModuleCall('fraud_prevention_suite', 'TabAlertLog::providerStatusFallback', $p['key_setting'], $e2->getMessage());
+                }
             }
 
             // Check for recent errors
@@ -72,7 +74,9 @@ class TabAlertLog
                     ->where('response', 'LIKE', '%rror%')
                     ->where('date', '>=', date('Y-m-d H:i:s', strtotime('-24 hours')))
                     ->count();
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                logModuleCall('fraud_prevention_suite', 'TabAlertLog::recentErrorCount', $p['name'], $e->getMessage());
+            }
 
             $statusClass = $enabled ? ($recentErrors > 0 ? 'fps-gradient-warning' : 'fps-gradient-success') : 'fps-gradient-dark';
             $statusLabel = $enabled ? ($recentErrors > 0 ? 'ERRORS' : 'ACTIVE') : 'OFF';
