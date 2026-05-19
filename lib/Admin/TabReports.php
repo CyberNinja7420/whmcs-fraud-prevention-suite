@@ -22,12 +22,235 @@ class TabReports
     {
         $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
 
+        $this->fpsRenderChargebackSection($ajaxUrl);
         $this->fpsRenderGenerateReport($ajaxUrl);
         $this->fpsRenderAuditTrailExport($ajaxUrl);
         $this->fpsRenderReportStats();
         $this->fpsRenderReportsTable($modulelink, $ajaxUrl);
         $this->fpsRenderSubmitForm($ajaxUrl);
         $this->fpsRenderDetailModal($ajaxUrl);
+    }
+
+    /**
+     * Chargeback Dispute Workflow section with stats, table, and management controls.
+     */
+    private function fpsRenderChargebackSection(string $ajaxUrl): void
+    {
+        // Stats row
+        $stats = ['open' => 0, 'investigating' => 0, 'won' => 0, 'lost' => 0, 'closed' => 0, 'total_amount' => 0.0];
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_chargebacks')) {
+                $counts = Capsule::table('mod_fps_chargebacks')
+                    ->selectRaw('status, COUNT(*) as cnt, SUM(amount) as total_amt')
+                    ->groupBy('status')
+                    ->get();
+                foreach ($counts as $row) {
+                    $s = $row->status ?? 'open';
+                    if (isset($stats[$s])) {
+                        $stats[$s] = (int) $row->cnt;
+                    }
+                    $stats['total_amount'] += (float) ($row->total_amt ?? 0);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        $totalCount = $stats['open'] + $stats['investigating'] + $stats['won'] + $stats['lost'] + $stats['closed'];
+        $totalAmountFmt = '$' . number_format($stats['total_amount'], 2);
+
+        echo '<div class="fps-stats-grid fps-stats-grid-4" style="margin-bottom:1rem;">';
+        echo FpsAdminRenderer::renderStatCard('Open', $stats['open'], 'fa-exclamation-circle', 'danger');
+        echo FpsAdminRenderer::renderStatCard('Investigating', $stats['investigating'], 'fa-search', 'warning');
+        echo FpsAdminRenderer::renderStatCard('Won', $stats['won'], 'fa-check-circle', 'success');
+        echo FpsAdminRenderer::renderStatCard('Lost (' . $totalAmountFmt . ')', $stats['lost'], 'fa-times-circle', 'danger');
+        echo '</div>';
+
+        // Chargeback table
+        $chargebacks = [];
+        $total = 0;
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_chargebacks')) {
+                $total = Capsule::table('mod_fps_chargebacks')->count();
+                $chargebacks = Capsule::table('mod_fps_chargebacks')
+                    ->orderByDesc('created_at')
+                    ->limit(50)
+                    ->get()
+                    ->toArray();
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        $headers = ['ID', 'Client', 'Invoice', 'Amount', 'Status', 'Original Score', 'Date', 'Actions'];
+        $rows = [];
+
+        foreach ($chargebacks as $cb) {
+            $cbId = (int) $cb->id;
+            $clientId = (int) $cb->client_id;
+            $invoiceId = (int) ($cb->invoice_id ?? 0);
+            $amount = '$' . number_format((float) $cb->amount, 2);
+            $status = $cb->status ?? 'open';
+            $origScore = $cb->fraud_score_at_order !== null ? number_format((float) $cb->fraud_score_at_order, 1) : 'N/A';
+            $date = htmlspecialchars(substr((string) ($cb->chargeback_date ?? $cb->created_at ?? ''), 0, 16), ENT_QUOTES, 'UTF-8');
+
+            // Client name
+            $clientLabel = 'Client #' . $clientId;
+            try {
+                $client = Capsule::table('tblclients')->where('id', $clientId)->first(['firstname', 'lastname']);
+                if ($client) {
+                    $clientLabel = htmlspecialchars(trim($client->firstname . ' ' . $client->lastname), ENT_QUOTES, 'UTF-8');
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal
+            }
+
+            // Status badge
+            $statusBadge = match ($status) {
+                'open'          => '<span class="fps-badge fps-badge-danger">Open</span>',
+                'investigating' => '<span class="fps-badge fps-badge-warning">Investigating</span>',
+                'won'           => '<span class="fps-badge fps-badge-low">Won</span>',
+                'lost'          => '<span class="fps-badge fps-badge-danger">Lost</span>',
+                'closed'        => '<span class="fps-badge fps-badge-info">Closed</span>',
+                default         => '<span class="fps-badge fps-badge-medium">' . htmlspecialchars($status, ENT_QUOTES, 'UTF-8') . '</span>',
+            };
+
+            // Actions: status dropdown + evidence button
+            $statusOptions = '';
+            foreach (['open', 'investigating', 'won', 'lost', 'closed'] as $opt) {
+                $sel = ($opt === $status) ? ' selected' : '';
+                $statusOptions .= '<option value="' . $opt . '"' . $sel . '>' . ucfirst($opt) . '</option>';
+            }
+
+            $actions = '<div class="fps-action-group" style="display:flex;gap:4px;align-items:center;">';
+            $actions .= '<select class="fps-select" style="font-size:0.78rem;padding:3px 6px;min-width:100px;" '
+                . 'onchange="FpsChargebacks.updateStatus(' . $cbId . ',this.value,\'' . $ajaxUrl . '\')">'
+                . $statusOptions . '</select>';
+            $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-outline" '
+                . 'onclick="FpsChargebacks.showEvidence(' . $cbId . ',\'' . $ajaxUrl . '\')" title="Add Evidence">'
+                . '<i class="fas fa-file-pen"></i></button>';
+            $actions .= '</div>';
+
+            $invoiceLink = $invoiceId > 0 ? '<a href="invoices.php?action=edit&id=' . $invoiceId . '">#' . $invoiceId . '</a>' : '--';
+
+            $rows[] = ['#' . $cbId, $clientLabel, $invoiceLink, $amount, $statusBadge, $origScore, $date, $actions];
+        }
+
+        $tableHtml = FpsAdminRenderer::renderTable($headers, $rows, 'fps-chargebacks-table');
+
+        // Evidence modal
+        $modalContent = <<<HTML
+<div id="fps-cb-evidence-content">
+  <div id="fps-cb-evidence-existing" style="max-height:300px;overflow-y:auto;margin-bottom:16px;padding:12px;background:var(--fps-surface-2,#f8f9fc);border-radius:8px;font-size:0.85rem;white-space:pre-wrap;font-family:monospace;">
+    Loading...
+  </div>
+  <div class="fps-form-group">
+    <label for="fps-cb-evidence-textarea"><i class="fas fa-pencil"></i> Add Evidence Notes</label>
+    <textarea id="fps-cb-evidence-textarea" class="fps-input fps-textarea" rows="4"
+      placeholder="Document evidence for this chargeback dispute..."></textarea>
+  </div>
+  <input type="hidden" id="fps-cb-evidence-id" value="0">
+</div>
+HTML;
+
+        $modalFooter = '<button type="button" class="fps-btn fps-btn-md fps-btn-success" '
+            . 'onclick="FpsChargebacks.submitEvidence(\'' . $ajaxUrl . '\')">'
+            . '<i class="fas fa-save"></i> Save Evidence</button> '
+            . '<button type="button" class="fps-btn fps-btn-md fps-btn-outline" '
+            . 'onclick="FpsAdmin.closeModal(\'fps-cb-evidence-modal\')">Close</button>';
+
+        $evidenceModal = FpsAdminRenderer::renderModal('fps-cb-evidence-modal', 'Chargeback Evidence', $modalContent, $modalFooter);
+
+        // JavaScript for chargeback management
+        $js = <<<JS
+<script>
+var FpsChargebacks = {
+  updateStatus: function(id, newStatus, ajaxUrl) {
+    var token = document.getElementById('fps-csrf-token') ? document.getElementById('fps-csrf-token').value : '';
+    fetch(ajaxUrl + '&a=update_chargeback_status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      credentials: 'same-origin',
+      body: 'token=' + encodeURIComponent(token) + '&id=' + id + '&status=' + encodeURIComponent(newStatus)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast(data.message || 'Status updated', 'success');
+        setTimeout(function() { location.reload(); }, 800);
+      } else {
+        if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast(data.error || 'Update failed', 'error');
+      }
+    })
+    .catch(function(err) {
+      if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast('Network error', 'error');
+    });
+  },
+
+  showEvidence: function(id, ajaxUrl) {
+    document.getElementById('fps-cb-evidence-id').value = id;
+    document.getElementById('fps-cb-evidence-textarea').value = '';
+    var existingEl = document.getElementById('fps-cb-evidence-existing');
+    existingEl.textContent = 'Loading...';
+    FpsAdmin.openModal('fps-cb-evidence-modal');
+
+    var token = document.getElementById('fps-csrf-token') ? document.getElementById('fps-csrf-token').value : '';
+    fetch(ajaxUrl + '&a=get_chargebacks&id=' + id, {
+      method: 'GET',
+      credentials: 'same-origin'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success && data.chargebacks) {
+        var cb = data.chargebacks.find(function(c) { return c.id == id; });
+        if (cb && cb.evidence_notes) {
+          existingEl.textContent = cb.evidence_notes;
+        } else {
+          existingEl.textContent = 'No evidence recorded yet.';
+        }
+      }
+    })
+    .catch(function() {
+      existingEl.textContent = 'Failed to load evidence.';
+    });
+  },
+
+  submitEvidence: function(ajaxUrl) {
+    var id = document.getElementById('fps-cb-evidence-id').value;
+    var notes = document.getElementById('fps-cb-evidence-textarea').value.trim();
+    if (!notes) {
+      if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast('Please enter evidence notes', 'warning');
+      return;
+    }
+    var token = document.getElementById('fps-csrf-token') ? document.getElementById('fps-csrf-token').value : '';
+    fetch(ajaxUrl + '&a=add_chargeback_evidence', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      credentials: 'same-origin',
+      body: 'token=' + encodeURIComponent(token) + '&id=' + id + '&evidence_notes=' + encodeURIComponent(notes)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast('Evidence saved', 'success');
+        FpsAdmin.closeModal('fps-cb-evidence-modal');
+      } else {
+        if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast(data.error || 'Save failed', 'error');
+      }
+    })
+    .catch(function() {
+      if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast('Network error', 'error');
+    });
+  }
+};
+</script>
+JS;
+
+        echo FpsAdminRenderer::renderCard(
+            'Chargeback Disputes (' . $totalCount . ')',
+            'fa-credit-card',
+            $tableHtml . $evidenceModal . $js
+        );
     }
 
     /**

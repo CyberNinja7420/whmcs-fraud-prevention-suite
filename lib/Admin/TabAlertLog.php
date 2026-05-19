@@ -21,6 +21,7 @@ class TabAlertLog
     {
         $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
 
+        $this->fpsRenderCronHealth($modulelink);
         $this->fpsRenderProviderStatus();
         $this->fpsRenderRecentAlerts();
         $this->fpsRenderModuleLog();
@@ -213,5 +214,175 @@ class TabAlertLog
 </div>
 HTML;
         echo FpsAdminRenderer::renderCard('Log Management', 'fa-broom', $content);
+    }
+
+    /**
+     * Cron Health Dashboard -- shows last-run timestamps and health status
+     * for every cron-dependent feature. Loads via AJAX to avoid slowing page.
+     */
+    private function fpsRenderCronHealth(string $modulelink): void
+    {
+        $jsAjaxUrl = json_encode($modulelink . '&ajax=1');
+
+        $bodyHtml = <<<'HTML'
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+  <span class="fps-text-muted" style="font-size:0.82rem;">
+    Monitors when each cron-dependent feature last executed. Status is based on expected schedule.
+  </span>
+  <button type="button" class="fps-btn fps-btn-xs fps-btn-outline" id="fps-cron-refresh-btn" onclick="fpsCronHealthLoad()">
+    <i class="fas fa-sync"></i> Refresh
+  </button>
+</div>
+<div id="fps-cron-health-container">
+  <div class="fps-skeleton-container">
+    <div class="fps-skeleton-line" style="width:100%"></div>
+    <div class="fps-skeleton-line" style="width:95%"></div>
+    <div class="fps-skeleton-line" style="width:90%"></div>
+    <div class="fps-skeleton-line" style="width:85%"></div>
+    <div class="fps-skeleton-line" style="width:92%"></div>
+    <div class="fps-skeleton-line" style="width:88%"></div>
+  </div>
+</div>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Cron Health Dashboard', 'fa-heartbeat', $bodyHtml);
+
+        // Inline JS fetches cron health via AJAX and renders status grid.
+        // All data comes from the authenticated admin AJAX endpoint (get_cron_health).
+        // The rendered output uses escaped text via fpsSafeText() for all dynamic values.
+        echo '<script>';
+        echo '(function() {';
+        echo 'var cronUrl = ' . $jsAjaxUrl . ';';
+        echo <<<'JSBLOCK'
+
+function fpsSafeText(str) {
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function fpsCronStatusBadge(ageHours, cycle) {
+    var greenMax, yellowMax;
+    if (cycle === 'monthly') {
+        greenMax = 744; yellowMax = 1488;
+    } else if (cycle === 'weekly') {
+        greenMax = 192; yellowMax = 336;
+    } else if (cycle === 'continuous') {
+        greenMax = 24; yellowMax = 72;
+    } else {
+        greenMax = 26; yellowMax = 72;
+    }
+    if (ageHours < 0) {
+        return '<span class="fps-badge fps-badge-sm" style="background:var(--fps-text-muted,#6a7195);color:#fff;">NEVER</span>';
+    }
+    if (ageHours <= greenMax) {
+        return '<span class="fps-badge fps-badge-sm" style="background:#16a34a;color:#fff;">HEALTHY</span>';
+    }
+    if (ageHours <= yellowMax) {
+        return '<span class="fps-badge fps-badge-sm" style="background:#f59e0b;color:#000;">STALE</span>';
+    }
+    return '<span class="fps-badge fps-badge-sm" style="background:#ef4444;color:#fff;">OVERDUE</span>';
+}
+
+function fpsFormatAge(hours) {
+    if (hours < 0) return '--';
+    if (hours < 1) return Math.round(hours * 60) + 'm ago';
+    if (hours < 48) return Math.round(hours) + 'h ago';
+    return Math.round(hours / 24) + 'd ago';
+}
+
+window.fpsCronHealthLoad = function() {
+    var container = document.getElementById('fps-cron-health-container');
+    if (!container) return;
+    container.textContent = '';
+    var skel = document.createElement('div');
+    skel.className = 'fps-skeleton-container';
+    for (var s = 0; s < 3; s++) {
+        var line = document.createElement('div');
+        line.className = 'fps-skeleton-line';
+        line.style.width = (90 + s * 3) + '%';
+        skel.appendChild(line);
+    }
+    container.appendChild(skel);
+
+    fetch(cronUrl + '&a=get_cron_health', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+            container.textContent = '';
+            if (!j.success || !j.items) {
+                var errP = document.createElement('p');
+                errP.className = 'fps-text-muted';
+                errP.textContent = j.error || 'Failed to load cron health';
+                container.appendChild(errP);
+                return;
+            }
+            var grid = document.createElement('div');
+            grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;';
+
+            j.items.forEach(function(item) {
+                var badge = fpsCronStatusBadge(item.age_hours, item.cycle || 'daily');
+                var age = fpsFormatAge(item.age_hours);
+                var iconClass = item.icon || 'fa-clock';
+                var lastRun = fpsSafeText(item.last_run || 'Never');
+                var cycleLabel = (item.cycle || 'daily');
+                cycleLabel = cycleLabel.charAt(0).toUpperCase() + cycleLabel.slice(1);
+
+                var card = document.createElement('div');
+                card.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid rgba(102,126,234,0.12);background:rgba(255,255,255,0.02);';
+
+                var iconWrap = document.createElement('div');
+                iconWrap.style.cssText = 'flex-shrink:0;width:32px;height:32px;border-radius:6px;background:rgba(102,126,234,0.1);display:flex;align-items:center;justify-content:center;color:#667eea;font-size:0.9rem;';
+                var icon = document.createElement('i');
+                icon.className = 'fas ' + iconClass;
+                iconWrap.appendChild(icon);
+                card.appendChild(iconWrap);
+
+                var info = document.createElement('div');
+                info.style.cssText = 'flex:1;min-width:0;';
+
+                var titleRow = document.createElement('div');
+                titleRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap;';
+                var nameSpan = document.createElement('span');
+                nameSpan.style.cssText = 'font-weight:600;font-size:0.85rem;color:var(--fps-text-primary,#e0e6f0);';
+                nameSpan.textContent = item.name;
+                titleRow.appendChild(nameSpan);
+                var badgeSpan = document.createElement('span');
+                badgeSpan.innerHTML = badge;
+                titleRow.appendChild(badgeSpan);
+                info.appendChild(titleRow);
+
+                var detailRow = document.createElement('div');
+                detailRow.style.cssText = 'font-size:0.78rem;color:var(--fps-text-muted,#6a7195);';
+                var lastSpan = document.createElement('span');
+                lastSpan.title = 'Last run';
+                lastSpan.textContent = item.last_run || 'Never';
+                detailRow.appendChild(lastSpan);
+                detailRow.appendChild(document.createTextNode(' | ' + age + ' | '));
+                var cycleSpan = document.createElement('span');
+                cycleSpan.style.cssText = 'text-transform:uppercase;font-size:0.7rem;letter-spacing:0.04em;';
+                cycleSpan.textContent = cycleLabel;
+                detailRow.appendChild(cycleSpan);
+                info.appendChild(detailRow);
+
+                card.appendChild(info);
+                grid.appendChild(card);
+            });
+            container.appendChild(grid);
+        })
+        .catch(function() {
+            container.textContent = '';
+            var errP = document.createElement('p');
+            errP.className = 'fps-text-muted';
+            errP.textContent = 'Network error loading cron health';
+            container.appendChild(errP);
+        });
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    fpsCronHealthLoad();
+});
+JSBLOCK;
+        echo '})();';
+        echo '</script>';
     }
 }

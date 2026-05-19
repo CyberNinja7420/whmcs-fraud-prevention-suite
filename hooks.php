@@ -46,13 +46,189 @@ add_hook('AdminAreaPage', 1, function ($vars) {
 add_hook('AdminAreaHeaderOutput', 1, function ($vars) {
     try {
         $page = $_SERVER['SCRIPT_NAME'] ?? '';
-        if (strpos($page, 'configaddonmods') !== false
+        $isFpsPage = (strpos($page, 'configaddonmods') !== false
             && isset($_GET['module'])
-            && $_GET['module'] === 'fraud_prevention_suite') {
+            && $_GET['module'] === 'fraud_prevention_suite');
+
+        $output = '';
+
+        if ($isFpsPage) {
             $bust = \FraudPreventionSuite\Lib\FpsHookHelpers::fps_assetCacheBust('css/fps-1000x.css');
-            return '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css' . $bust . '">';
+            $output .= '<link rel="stylesheet" href="../modules/addons/fraud_prevention_suite/assets/css/fps-1000x.css' . $bust . '">';
+
+            // Inject notification bell into the FPS module header
+            $unreadCount = 0;
+            try {
+                $adminId = (int) ($_SESSION['adminid'] ?? 0);
+                if ($adminId > 0 && Capsule::schema()->hasTable('mod_fps_notifications')) {
+                    $unreadCount = (int) Capsule::table('mod_fps_notifications')
+                        ->where(function ($q) use ($adminId) {
+                            $q->where('admin_id', 0)->orWhere('admin_id', $adminId);
+                        })
+                        ->whereNull('read_at')
+                        ->count();
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal
+            }
+
+            $badgeHtml = $unreadCount > 0
+                ? '<span class="fps-notif-badge" id="fps-notif-count">' . $unreadCount . '</span>'
+                : '<span class="fps-notif-badge" id="fps-notif-count" style="display:none;">0</span>';
+
+            $output .= <<<NOTIFCSS
+<style>
+.fps-notif-bell{position:relative;display:inline-flex;align-items:center;cursor:pointer;padding:6px 10px;border-radius:8px;transition:background .15s;}
+.fps-notif-bell:hover{background:rgba(102,126,234,0.1);}
+.fps-notif-badge{position:absolute;top:0;right:2px;background:#eb3349;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1;}
+.fps-notif-dropdown{display:none;position:absolute;top:100%;right:0;width:380px;max-height:400px;background:var(--fps-surface,#fff);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.15);border:1px solid var(--fps-border,#dde1ef);z-index:10000;overflow:hidden;}
+.fps-notif-dropdown.fps-notif-open{display:block;}
+.fps-notif-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--fps-border-light,#eaedf5);background:var(--fps-surface-2,#f8f9fc);}
+.fps-notif-header h4{margin:0;font-size:0.85rem;font-weight:700;color:var(--fps-text-primary,#1a1d2e);}
+.fps-notif-list{max-height:320px;overflow-y:auto;padding:4px 0;}
+.fps-notif-item{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid var(--fps-border-light,#eaedf5);cursor:pointer;transition:background .1s;}
+.fps-notif-item:hover{background:var(--fps-surface-2,#f8f9fc);}
+.fps-notif-item.fps-notif-unread{background:rgba(102,126,234,0.04);border-left:3px solid #667eea;}
+.fps-notif-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;}
+.fps-notif-icon.fps-nt-critical_block{background:#eb3349;}
+.fps-notif-icon.fps-nt-chargeback{background:#f59e0b;}
+.fps-notif-icon.fps-nt-auto_response{background:#8b5cf6;}
+.fps-notif-icon.fps-nt-report{background:#3b82f6;}
+.fps-notif-icon.fps-nt-system{background:#6b7280;}
+.fps-notif-title{font-size:0.82rem;font-weight:600;color:var(--fps-text-primary,#1a1d2e);margin-bottom:2px;}
+.fps-notif-msg{font-size:0.75rem;color:var(--fps-text-secondary,#5a6176);line-height:1.3;}
+.fps-notif-time{font-size:0.68rem;color:var(--fps-text-muted,#9499b5);margin-top:3px;}
+.fps-notif-empty{padding:24px;text-align:center;color:var(--fps-text-muted,#9499b5);font-size:0.85rem;}
+</style>
+NOTIFCSS;
+
+            $iconMap = '{"critical_block":"fa-shield-halved","chargeback":"fa-credit-card","auto_response":"fa-robot","report":"fa-flag","system":"fa-bell"}';
+
+            $output .= <<<NOTIFJS
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var headerActions = document.querySelector('.fps-header-actions');
+  if (!headerActions) return;
+  var bellContainer = document.createElement('div');
+  bellContainer.style.position = 'relative';
+  bellContainer.style.display = 'inline-block';
+  bellContainer.innerHTML = '<div class="fps-notif-bell" id="fps-notif-bell" onclick="FpsNotifications.toggle()">'
+    + '<i class="fas fa-bell" style="font-size:1.1rem;color:var(--fps-text-primary,#1a1d2e);"></i>'
+    + '{$badgeHtml}'
+    + '</div>'
+    + '<div class="fps-notif-dropdown" id="fps-notif-dropdown">'
+    + '<div class="fps-notif-header"><h4>Notifications</h4>'
+    + '<button class="fps-btn fps-btn-xs fps-btn-outline" onclick="FpsNotifications.markAllRead()">Mark all read</button></div>'
+    + '<div class="fps-notif-list" id="fps-notif-list"><div class="fps-notif-empty">Loading...</div></div>'
+    + '</div>';
+  headerActions.insertBefore(bellContainer, headerActions.firstChild);
+
+  document.addEventListener('click', function(e) {
+    var dd = document.getElementById('fps-notif-dropdown');
+    var bell = document.getElementById('fps-notif-bell');
+    if (dd && bell && !bell.contains(e.target) && !dd.contains(e.target)) {
+      dd.classList.remove('fps-notif-open');
+    }
+  });
+});
+
+var FpsNotifications = {
+  _iconMap: {$iconMap},
+  toggle: function() {
+    var dd = document.getElementById('fps-notif-dropdown');
+    if (!dd) return;
+    var isOpen = dd.classList.toggle('fps-notif-open');
+    if (isOpen) this.load();
+  },
+  load: function() {
+    var list = document.getElementById('fps-notif-list');
+    if (!list) return;
+    list.textContent = 'Loading...';
+    fetch(fpsModuleLink + '&ajax=1&a=get_notifications&limit=20', {credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(data) {
+        if (!data.success || !data.notifications || data.notifications.length === 0) {
+          list.textContent = '';
+          var empty = document.createElement('div');
+          empty.className = 'fps-notif-empty';
+          empty.textContent = 'No notifications yet.';
+          list.appendChild(empty);
+          return;
         }
-        return '';
+        list.textContent = '';
+        data.notifications.forEach(function(n) {
+          var item = document.createElement('div');
+          item.className = 'fps-notif-item' + (n.read ? '' : ' fps-notif-unread');
+          item.dataset.id = n.id;
+          var iconClass = FpsNotifications._iconMap[n.type] || 'fa-bell';
+          var icon = document.createElement('div');
+          icon.className = 'fps-notif-icon fps-nt-' + n.type;
+          var iconI = document.createElement('i');
+          iconI.className = 'fas ' + iconClass;
+          icon.appendChild(iconI);
+          var body = document.createElement('div');
+          body.style.flex = '1';
+          body.style.minWidth = '0';
+          var title = document.createElement('div');
+          title.className = 'fps-notif-title';
+          title.textContent = n.title;
+          var msg = document.createElement('div');
+          msg.className = 'fps-notif-msg';
+          msg.textContent = n.message.substring(0, 120);
+          var time = document.createElement('div');
+          time.className = 'fps-notif-time';
+          time.textContent = n.created_at;
+          body.appendChild(title);
+          body.appendChild(msg);
+          body.appendChild(time);
+          item.appendChild(icon);
+          item.appendChild(body);
+          item.addEventListener('click', function() { FpsNotifications.markRead(n.id, item); });
+          list.appendChild(item);
+        });
+        var badge = document.getElementById('fps-notif-count');
+        if (badge) {
+          badge.textContent = data.unread_count;
+          badge.style.display = data.unread_count > 0 ? 'flex' : 'none';
+        }
+      })
+      .catch(function() { list.textContent = 'Failed to load.'; });
+  },
+  markRead: function(id, el) {
+    if (el) el.classList.remove('fps-notif-unread');
+    var token = document.getElementById('fps-csrf-token') ? document.getElementById('fps-csrf-token').value : '';
+    fetch(fpsModuleLink + '&ajax=1&a=mark_notification_read', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      credentials:'same-origin', body:'token=' + encodeURIComponent(token) + '&id=' + id
+    }).then(function(r){return r.json();}).then(function(data) {
+      var badge = document.getElementById('fps-notif-count');
+      if (badge) {
+        var c = parseInt(badge.textContent, 10) || 0;
+        c = Math.max(0, c - 1);
+        badge.textContent = c;
+        badge.style.display = c > 0 ? 'flex' : 'none';
+      }
+    });
+  },
+  markAllRead: function() {
+    var token = document.getElementById('fps-csrf-token') ? document.getElementById('fps-csrf-token').value : '';
+    fetch(fpsModuleLink + '&ajax=1&a=mark_all_read', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      credentials:'same-origin', body:'token=' + encodeURIComponent(token)
+    }).then(function(r){return r.json();}).then(function(data) {
+      if (data.success) {
+        document.querySelectorAll('.fps-notif-unread').forEach(function(el){ el.classList.remove('fps-notif-unread'); });
+        var badge = document.getElementById('fps-notif-count');
+        if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+      }
+    });
+  }
+};
+</script>
+NOTIFJS;
+        }
+
+        return $output;
     } catch (\Throwable $e) {
         return '';
     }
@@ -464,6 +640,18 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                         }
                     } catch (\Throwable $e) { /* non-fatal */ }
 
+                    // v5.1: In-app notification for fast-path block
+                    try {
+                        if (class_exists('\\FraudPreventionSuite\\Lib\\FpsHookHelpers')) {
+                            \FraudPreventionSuite\Lib\FpsHookHelpers::fps_createNotification(
+                                0,
+                                'critical_block',
+                                'Pre-Checkout Blocked (score: ' . round($runnerResult->risk->score) . ')',
+                                'IP: ' . $ip . ', Email: ' . ($email ?: 'N/A') . ', Client #' . $clientId . ' (fast-path)'
+                            );
+                        }
+                    } catch (\Throwable $e) { /* non-fatal */ }
+
                     return ['We were unable to process your order at this time. Please contact support if you believe this is an error. Reference: FPS-' . date('ymdHi')];
                 }
                 return [];
@@ -774,10 +962,30 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             }
         }
 
+        // v5.0.1: SMS OTP verification check
+        // Adds +15 to score if SMS verification is enabled but user has not
+        // completed phone verification at checkout.
+        if (class_exists('\\FraudPreventionSuite\\Lib\\FpsSmsVerifier')) {
+            try {
+                $smsVerifier = new \FraudPreventionSuite\Lib\FpsSmsVerifier();
+                if ($smsVerifier->fps_isEnabled()) {
+                    $phoneVerified = $_POST['fps_phone_verified'] ?? '0';
+                    if ($phoneVerified !== '1') {
+                        $score += 15;
+                        $score = min($score, 100);
+                        $providerScores['sms_unverified'] = 15.0;
+                        $details[] = 'Phone number not verified via SMS';
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal -- SMS check must never block checkout on error
+            }
+        }
+
         // Measure duration AFTER all checks complete (accurate timing)
         $durationMs = (int)((microtime(true) - $startTime) * 1000);
 
-        // NOW persist -- score includes ALL checks (providers + velocity + Tor)
+        // NOW persist -- score includes ALL checks (providers + velocity + Tor + SMS)
         $riskLevel = 'low';
         if ($score >= 80) $riskLevel = 'critical';
         elseif ($score >= 60) $riskLevel = 'high';
@@ -861,6 +1069,18 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                         $clientId,
                         (float) $score,
                         array_slice($details, 0, 5)
+                    );
+                }
+            } catch (\Throwable $e) { /* non-fatal */ }
+
+            // v5.1: Create in-app notification for blocked checkout
+            try {
+                if (class_exists('\\FraudPreventionSuite\\Lib\\FpsHookHelpers')) {
+                    \FraudPreventionSuite\Lib\FpsHookHelpers::fps_createNotification(
+                        0,
+                        'critical_block',
+                        'Pre-Checkout Blocked (score: ' . round($score) . ')',
+                        'IP: ' . $ip . ', Email: ' . ($email ?: 'N/A') . ', Client #' . $clientId
                     );
                 }
             } catch (\Throwable $e) { /* non-fatal */ }
@@ -2100,6 +2320,21 @@ add_hook('InvoiceUnpaid', 1, function ($vars) {
             }
         }
 
+        // v5.1: Create in-app notification for chargeback
+        try {
+            if (class_exists('\\FraudPreventionSuite\\Lib\\FpsHookHelpers')) {
+                \FraudPreventionSuite\Lib\FpsHookHelpers::fps_createNotification(
+                    0,
+                    'chargeback',
+                    'Chargeback: Invoice #' . $invoiceId,
+                    'Client #' . $clientId . ' chargeback of $' . number_format((float) ($invoice->total ?? 0), 2)
+                        . '. Original fraud score: ' . ($originalCheck->risk_score ?? 'N/A') . '.'
+                );
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
     } catch (\Throwable $e) {
         logModuleCall('fraud_prevention_suite', 'InvoiceUnpaid', $vars, $e->getMessage());
     }
@@ -2286,6 +2521,18 @@ add_hook('AfterShoppingCartCheckout', 2, function ($vars) {
                 $eval['action'],
                 $eval['reason']
             );
+
+            // v5.1: In-app notification for auto-responder action
+            try {
+                if (class_exists('\\FraudPreventionSuite\\Lib\\FpsHookHelpers')) {
+                    \FraudPreventionSuite\Lib\FpsHookHelpers::fps_createNotification(
+                        0,
+                        'auto_response',
+                        'Auto-Response: ' . ucfirst($eval['action']) . ' Client #' . $clientId,
+                        $eval['reason'] ?? ('Automatic ' . $eval['action'] . ' triggered for client #' . $clientId)
+                    );
+                }
+            } catch (\Throwable $e) { /* non-fatal */ }
         }
     } catch (\Throwable $e) {
         logModuleCall('fraud_prevention_suite', 'AutoResponder::Error', '', $e->getMessage());
@@ -2304,5 +2551,265 @@ add_hook('DailyCronJob', 3, function ($vars) {
         $report->fps_scheduleCheck();
     } catch (\Throwable $e) {
         logModuleCall('fraud_prevention_suite', 'ScheduledReport::Error', '', $e->getMessage());
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 16. DailyCronJob -- Post-Purchase Abuse Monitoring
+//
+// Scans clients who placed orders in the last 7 days for abuse signals:
+// email spikes, rapid provisioning, ticket floods, suspicious login IPs.
+// Capped at 50 clients per run to avoid DB pressure.
+// ---------------------------------------------------------------------------
+add_hook('DailyCronJob', 5, function ($vars) {
+    try {
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsPostPurchaseMonitor')) {
+            return;
+        }
+        $monitor = new \FraudPreventionSuite\Lib\FpsPostPurchaseMonitor();
+
+        // Check clients who placed orders in the last 7 days
+        $recentClients = Capsule::table('tblorders')
+            ->where('date', '>=', date('Y-m-d', strtotime('-7 days')))
+            ->distinct()
+            ->pluck('userid')
+            ->toArray();
+
+        foreach (array_slice($recentClients, 0, 50) as $clientId) {
+            try {
+                $result = $monitor->fps_monitorClient((int)$clientId);
+                if ($result['flagged']) {
+                    logActivity("FPS Post-Purchase Alert: Client #{$clientId} - " . $result['details']);
+                }
+            } catch (\Throwable $e) {
+                // Per-client error is non-fatal -- continue scanning others
+            }
+        }
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'PostPurchaseMonitor::Error', '', $e->getMessage());
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 17. ClientAreaFooterOutput -- Inject SMS/OTP verification UI on checkout page
+//     Only when sms_verification_enabled = '1' and Twilio credentials are set.
+// ---------------------------------------------------------------------------
+add_hook('ClientAreaFooterOutput', 4, function ($vars) {
+    try {
+        // Only inject on the checkout page
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $filename = $vars['filename'] ?? '';
+        if ($filename !== 'cart' && strpos($uri, 'cart.php') === false) {
+            return '';
+        }
+        $step = $_GET['a'] ?? '';
+        if ($step !== 'checkout' && strpos($uri, 'a=checkout') === false) {
+            return '';
+        }
+
+        // Check if SMS verification is enabled
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsSmsVerifier')) {
+            return '';
+        }
+        $smsVerifier = new \FraudPreventionSuite\Lib\FpsSmsVerifier();
+        if (!$smsVerifier->fps_isEnabled()) {
+            return '';
+        }
+
+        // Inject OTP verification widget JS
+        // The AJAX URL points to the module's AJAX handler (client-facing via addonmodules.php).
+        // The JS finds the phone number field, injects a "Verify Phone" button next
+        // to it, handles the send/verify OTP flow, and sets a hidden input
+        // fps_phone_verified=1 on success.
+        return <<<'FPSOTPJS'
+<script>
+(function() {
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function() {
+        // Find the phone number input field -- WHMCS uses name="phonenumber"
+        var phoneField = document.querySelector('input[name="phonenumber"]');
+        if (!phoneField) return;
+
+        // Build the OTP verification widget
+        var wrapper = document.createElement('div');
+        wrapper.id = 'fps-otp-wrapper';
+        wrapper.style.cssText = 'margin-top:8px;padding:12px 16px;border:1px solid #dde1ef;border-radius:8px;background:#f8f9fc;';
+        wrapper.innerHTML =
+            '<div id="fps-otp-step-send" style="display:flex;align-items:center;gap:10px;">' +
+                '<button type="button" id="fps-otp-send-btn" style="padding:6px 16px;border:none;border-radius:6px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">' +
+                    '<i class="fas fa-sms" style="margin-right:4px;"></i> Verify Phone' +
+                '</button>' +
+                '<span style="font-size:0.78rem;color:#6a7195;">SMS verification adds trust to your order</span>' +
+            '</div>' +
+            '<div id="fps-otp-step-verify" style="display:none;margin-top:8px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+                    '<input type="text" id="fps-otp-code" maxlength="6" placeholder="Enter 6-digit code" ' +
+                        'style="width:140px;padding:6px 10px;border:1px solid #dde1ef;border-radius:6px;font-size:0.9rem;text-align:center;letter-spacing:0.15em;font-weight:600;" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*">' +
+                    '<button type="button" id="fps-otp-verify-btn" style="padding:6px 16px;border:none;border-radius:6px;background:#16a34a;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Verify</button>' +
+                    '<button type="button" id="fps-otp-resend-btn" style="padding:6px 12px;border:1px solid #dde1ef;border-radius:6px;background:#fff;color:#667eea;font-size:0.78rem;font-weight:600;cursor:pointer;">Resend</button>' +
+                '</div>' +
+                '<div id="fps-otp-timer" style="font-size:0.75rem;color:#6a7195;margin-top:6px;">Code expires in 5:00</div>' +
+            '</div>' +
+            '<div id="fps-otp-step-done" style="display:none;margin-top:4px;">' +
+                '<span style="color:#16a34a;font-weight:600;font-size:0.85rem;"><i class="fas fa-check-circle"></i> Phone verified</span>' +
+            '</div>' +
+            '<div id="fps-otp-error" style="display:none;color:#ef4444;font-size:0.78rem;margin-top:6px;"></div>';
+
+        // Insert after the phone field's parent container
+        var insertTarget = phoneField.closest('.form-group') || phoneField.parentNode;
+        if (insertTarget) {
+            insertTarget.parentNode.insertBefore(wrapper, insertTarget.nextSibling);
+        }
+
+        // Hidden input for the checkout form
+        var hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'fps_phone_verified';
+        hiddenInput.value = '0';
+        var checkoutForm = phoneField.closest('form');
+        if (checkoutForm) {
+            checkoutForm.appendChild(hiddenInput);
+        }
+
+        var otpId = '';
+        var timerInterval = null;
+
+        // Map action names to client-area page slugs
+        var actionPageMap = { 'send_otp': 'send-otp', 'verify_otp': 'verify-otp' };
+
+        // Helper: post to module client-area AJAX endpoint (no admin auth required)
+        function fpsOtpAjax(action, data, callback) {
+            var page = actionPageMap[action] || action;
+            var fd = new FormData();
+            fd.append('ajax', '1');
+            // Get CSRF token if available on checkout page
+            var tokenEl = document.querySelector('input[name="token"]');
+            if (tokenEl) fd.append('token', tokenEl.value);
+            for (var k in data) {
+                if (data.hasOwnProperty(k)) fd.append(k, data[k]);
+            }
+            fetch('/index.php?m=fraud_prevention_suite&page=' + encodeURIComponent(page) + '&ajax=1', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            })
+            .then(function(r) { return r.json(); })
+            .then(callback)
+            .catch(function(e) { callback({ success: false, valid: false, message: 'Network error' }); });
+        }
+
+        function showError(msg) {
+            var el = document.getElementById('fps-otp-error');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(function() { el.style.display = 'none'; }, 8000);
+        }
+
+        function startTimer() {
+            var seconds = 300;
+            var timerEl = document.getElementById('fps-otp-timer');
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(function() {
+                seconds--;
+                if (seconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerEl.textContent = 'Code expired. Click Resend.';
+                    return;
+                }
+                var m = Math.floor(seconds / 60);
+                var s = seconds % 60;
+                timerEl.textContent = 'Code expires in ' + m + ':' + (s < 10 ? '0' : '') + s;
+            }, 1000);
+        }
+
+        function sendOtp() {
+            var phone = phoneField.value.trim();
+            var countryField = document.querySelector('select[name="country"], input[name="country"]');
+            var country = countryField ? countryField.value : '';
+            if (!phone) {
+                showError('Please enter your phone number first.');
+                return;
+            }
+            var btn = document.getElementById('fps-otp-send-btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            fpsOtpAjax('send_otp', { phone: phone, country_code: country }, function(resp) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sms" style="margin-right:4px;"></i> Verify Phone';
+                if (resp.success) {
+                    otpId = resp.otp_id;
+                    document.getElementById('fps-otp-step-send').style.display = 'none';
+                    document.getElementById('fps-otp-step-verify').style.display = 'block';
+                    document.getElementById('fps-otp-code').focus();
+                    startTimer();
+                } else {
+                    showError(resp.message || 'Failed to send code.');
+                }
+            });
+        }
+
+        function verifyOtp() {
+            var code = document.getElementById('fps-otp-code').value.trim();
+            var phone = phoneField.value.trim();
+            if (!code || code.length < 6) {
+                showError('Please enter the 6-digit code.');
+                return;
+            }
+            var btn = document.getElementById('fps-otp-verify-btn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying...';
+            fpsOtpAjax('verify_otp', { phone: phone, code: code, otp_id: otpId }, function(resp) {
+                btn.disabled = false;
+                btn.textContent = 'Verify';
+                if (resp.valid) {
+                    hiddenInput.value = '1';
+                    if (timerInterval) clearInterval(timerInterval);
+                    document.getElementById('fps-otp-step-verify').style.display = 'none';
+                    document.getElementById('fps-otp-step-done').style.display = 'block';
+                    document.getElementById('fps-otp-error').style.display = 'none';
+                } else {
+                    showError(resp.message || 'Invalid code.');
+                }
+            });
+        }
+
+        // Wire up event handlers
+        document.getElementById('fps-otp-send-btn').addEventListener('click', sendOtp);
+        document.getElementById('fps-otp-verify-btn').addEventListener('click', verifyOtp);
+        document.getElementById('fps-otp-resend-btn').addEventListener('click', function() {
+            document.getElementById('fps-otp-step-verify').style.display = 'none';
+            document.getElementById('fps-otp-step-send').style.display = 'flex';
+            if (timerInterval) clearInterval(timerInterval);
+            sendOtp();
+        });
+
+        // Allow Enter key on the code field
+        document.getElementById('fps-otp-code').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); verifyOtp(); }
+        });
+    });
+})();
+</script>
+FPSOTPJS;
+    } catch (\Throwable $e) {
+        return '';
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 18. DailyCronJob -- Cleanup expired OTP verification records
+// ---------------------------------------------------------------------------
+add_hook('DailyCronJob', 4, function ($vars) {
+    try {
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsSmsVerifier')) {
+            return;
+        }
+        $verifier = new \FraudPreventionSuite\Lib\FpsSmsVerifier();
+        $purged = $verifier->fps_cleanupExpiredOtps();
+        if ($purged > 0) {
+            logModuleCall('fraud_prevention_suite', 'OTP::Cleanup', '', 'Purged ' . $purged . ' expired OTP records');
+        }
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'OTP::CleanupError', '', $e->getMessage());
     }
 });

@@ -500,4 +500,57 @@ class FpsHookHelpers
             logModuleCall('fraud_prevention_suite', 'LegacyCheck', '', $e->getMessage());
         }
     }
+
+    /**
+     * Create an in-app notification for FPS admin users.
+     *
+     * Safe to call from hooks context (no dependency on the main module file).
+     * Silently no-ops if the mod_fps_notifications table does not exist.
+     *
+     * @param int    $adminId  Target admin (0 = all admins)
+     * @param string $type     One of: critical_block, chargeback, auto_response, report, system
+     * @param string $title    Short title (max 255 chars)
+     * @param string $message  Longer detail message
+     */
+    public static function fps_createNotification(int $adminId, string $type, string $title, string $message): void
+    {
+        try {
+            if (!Capsule::schema()->hasTable('mod_fps_notifications')) {
+                return;
+            }
+
+            $validTypes = ['critical_block', 'chargeback', 'auto_response', 'report', 'system'];
+            if (!in_array($type, $validTypes, true)) {
+                $type = 'system';
+            }
+
+            Capsule::table('mod_fps_notifications')->insert([
+                'admin_id'   => $adminId,
+                'type'       => $type,
+                'title'      => substr($title, 0, 255),
+                'message'    => substr($message, 0, 2000),
+                'read_at'    => null,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            // Prune old read notifications (keep latest 500)
+            try {
+                $cutoff = Capsule::table('mod_fps_notifications')
+                    ->orderByDesc('created_at')
+                    ->offset(500)
+                    ->limit(1)
+                    ->value('id');
+                if ($cutoff) {
+                    Capsule::table('mod_fps_notifications')
+                        ->where('id', '<', $cutoff)
+                        ->whereNotNull('read_at')
+                        ->delete();
+                }
+            } catch (\Throwable $e) {
+                // Pruning failure is non-fatal
+            }
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'fps_createNotification::ERROR', $type, $e->getMessage());
+        }
+    }
 }

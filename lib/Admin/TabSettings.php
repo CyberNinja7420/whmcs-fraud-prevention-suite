@@ -32,6 +32,7 @@ class TabSettings
         $this->fpsRenderPublicApiSettings($config);
         $this->fpsRenderMaintenanceSettings($config, $ajaxUrl);
 
+        $this->fpsRenderMaxMindTestButton($ajaxUrl);
         $this->fpsRenderAutoResponseSettings($config);
         $this->fpsRenderGatewaySettings($config, $ajaxUrl);
         $this->fpsRenderOfacSettings($config);
@@ -39,6 +40,7 @@ class TabSettings
         $this->fpsRenderBotCleanupSettings($config);
         $this->fpsRenderEmailDigestSettings($config);
         $this->fpsRenderScheduledReportSettings($config);
+        $this->fpsRenderSmsSettings($config);
         $this->fpsRenderSiteThemeExtras($config);
 
         echo '</form>';
@@ -437,6 +439,27 @@ HTML;
                 ],
             ],
             [
+                'key'     => 'maxmind',
+                'title'   => 'MaxMind GeoIP2 / minFraud',
+                'icon'    => 'fa-earth-americas',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'Industry-standard IP intelligence and fraud scoring. Supports minFraud Score API (IP + email) and GeoIP2 Insights (IP-only fallback). Requires a MaxMind account (free tier available at maxmind.com).'],
+                    ['type' => 'toggle', 'name' => 'maxmind_enabled', 'label' => 'Enable MaxMind Provider'],
+                    ['type' => 'text', 'name' => 'maxmind_account_id', 'label' => 'Account ID'],
+                    ['type' => 'text', 'name' => 'maxmind_license_key', 'label' => 'License Key'],
+                ],
+            ],
+            [
+                'key'     => 'ipqs',
+                'title'   => 'IPQualityScore',
+                'icon'    => 'fa-shield-virus',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'Comprehensive IP fraud scoring with proxy/VPN/Tor detection, bot status, and abuse velocity. Free tier: 5,000 lookups/month.'],
+                    ['type' => 'toggle', 'name' => 'ipqs_enabled', 'label' => 'Enable IPQualityScore'],
+                    ['type' => 'text', 'name' => 'ipqs_api_key', 'label' => 'API Key'],
+                ],
+            ],
+            [
                 'key'     => 'pipeline_internals',
                 'title'   => 'Pipeline Internals (advanced)',
                 'icon'    => 'fa-microchip',
@@ -778,6 +801,63 @@ HTML;
 HTML;
 
         echo FpsAdminRenderer::renderCard('Auto-Response Actions', 'fa-robot', $content);
+    }
+
+    /**
+     * MaxMind API test connection button card.
+     */
+    private function fpsRenderMaxMindTestButton(string $ajaxUrl): void
+    {
+        $content = <<<HTML
+<p class="fps-text-muted" style="margin-bottom:12px;">
+  <i class="fas fa-info-circle"></i> Test your MaxMind API credentials before enabling the provider.
+  This sends a test request to the GeoIP2 Insights endpoint with a known safe IP.
+</p>
+<div class="fps-form-row" style="align-items:center;gap:12px;">
+  <button type="button" class="fps-btn fps-btn-md fps-btn-primary" id="fps-maxmind-test-btn"
+    onclick="FpsMaxMindTest.run('{$ajaxUrl}')">
+    <i class="fas fa-satellite-dish"></i> Test MaxMind Connection
+  </button>
+  <span id="fps-maxmind-test-result" style="font-size:0.85rem;"></span>
+</div>
+<script>
+var FpsMaxMindTest = {
+  run: function(ajaxUrl) {
+    var btn = document.getElementById('fps-maxmind-test-btn');
+    var result = document.getElementById('fps-maxmind-test-result');
+    if (!btn || !result) return;
+    btn.disabled = true;
+    result.textContent = 'Testing...';
+    result.style.color = '#667eea';
+    var token = document.getElementById('fps-csrf-token') ? document.getElementById('fps-csrf-token').value : '';
+    fetch(ajaxUrl + '&a=test_maxmind', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      credentials: 'same-origin',
+      body: 'token=' + encodeURIComponent(token)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      btn.disabled = false;
+      if (data.success) {
+        result.textContent = data.message || 'Connection successful';
+        result.style.color = '#38ef7d';
+      } else {
+        result.textContent = data.error || data.message || 'Connection failed';
+        result.style.color = '#eb3349';
+      }
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      result.textContent = 'Network error';
+      result.style.color = '#eb3349';
+    });
+  }
+};
+</script>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('MaxMind API Test', 'fa-vial', $content);
     }
 
     /**
@@ -1190,6 +1270,94 @@ HTML;
 HTML;
 
         echo FpsAdminRenderer::renderCard('Scheduled Reports', 'fa-file-pdf', $content);
+    }
+
+    /**
+     * SMS/OTP Verification -- Twilio credentials and enable toggle.
+     *
+     * When enabled, checkout pages show a "Verify Phone" button that sends
+     * a 6-digit OTP via Twilio SMS. Unverified phone numbers add +15 to
+     * the pre-checkout fraud score.
+     */
+    private function fpsRenderSmsSettings(FpsConfig $config): void
+    {
+        $enabled   = $config->getCustom('sms_verification_enabled', '0') === '1' ? ' checked' : '';
+        $sid       = htmlspecialchars((string) $config->getCustom('twilio_account_sid', ''), ENT_QUOTES, 'UTF-8');
+        $token     = htmlspecialchars((string) $config->getCustom('twilio_auth_token', ''), ENT_QUOTES, 'UTF-8');
+        $fromNum   = htmlspecialchars((string) $config->getCustom('twilio_from_number', ''), ENT_QUOTES, 'UTF-8');
+
+        // Mask the auth token for display (show first 4 + last 4 chars)
+        $tokenDisplay = '';
+        $rawToken = (string) $config->getCustom('twilio_auth_token', '');
+        if (strlen($rawToken) > 8) {
+            $tokenDisplay = substr($rawToken, 0, 4) . str_repeat('*', strlen($rawToken) - 8) . substr($rawToken, -4);
+        } elseif ($rawToken !== '') {
+            $tokenDisplay = str_repeat('*', strlen($rawToken));
+        }
+
+        // Check OTP table stats
+        $otpStats = '';
+        try {
+            if (\WHMCS\Database\Capsule::schema()->hasTable('mod_fps_otp_verifications')) {
+                $total = (int) \WHMCS\Database\Capsule::table('mod_fps_otp_verifications')->count();
+                $verified = (int) \WHMCS\Database\Capsule::table('mod_fps_otp_verifications')->where('verified', 1)->count();
+                $otpStats = '<div style="margin-top:12px;padding:10px 14px;background:rgba(102,126,234,0.06);border-radius:8px;font-size:0.82rem;">'
+                    . '<strong>OTP Stats:</strong> ' . $total . ' total codes sent, ' . $verified . ' verified'
+                    . '</div>';
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        $content = <<<HTML
+<div class="fps-form-group">
+  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+    <input type="checkbox" name="sms_verification_enabled" value="1"{$enabled}>
+    <strong>Enable SMS/OTP Verification at Checkout</strong>
+  </label>
+  <small style="display:block;color:var(--fps-text-muted);margin-top:4px;margin-left:28px;">
+    When enabled, a "Verify Phone" button appears on checkout. Unverified phone numbers add +15 to the fraud score.
+  </small>
+</div>
+
+<div style="margin-top:16px;padding:14px;border:1px solid var(--fps-border,#dde1ef);border-radius:8px;background:var(--fps-surface-2,#f8f9fc);">
+  <h4 style="margin:0 0 12px;font-size:0.9rem;color:var(--fps-text-primary);"><i class="fas fa-phone-volume" style="margin-right:6px;color:#667eea;"></i>Twilio SMS Provider</h4>
+
+  <div class="fps-form-group" style="margin-bottom:10px;">
+    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Account SID</label>
+    <input type="text" name="twilio_account_sid" value="{$sid}" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      style="width:100%;max-width:400px;padding:6px 10px;border:1px solid var(--fps-border,#dde1ef);border-radius:6px;font-size:0.85rem;font-family:monospace;">
+  </div>
+
+  <div class="fps-form-group" style="margin-bottom:10px;">
+    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">Auth Token</label>
+    <input type="password" name="twilio_auth_token" value="{$token}" placeholder="Your Twilio Auth Token"
+      style="width:100%;max-width:400px;padding:6px 10px;border:1px solid var(--fps-border,#dde1ef);border-radius:6px;font-size:0.85rem;font-family:monospace;"
+      autocomplete="new-password">
+    <small style="display:block;color:var(--fps-text-muted);margin-top:2px;">Current: {$tokenDisplay}</small>
+  </div>
+
+  <div class="fps-form-group" style="margin-bottom:4px;">
+    <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:4px;">From Number (E.164)</label>
+    <input type="text" name="twilio_from_number" value="{$fromNum}" placeholder="+14155551234"
+      style="width:100%;max-width:260px;padding:6px 10px;border:1px solid var(--fps-border,#dde1ef);border-radius:6px;font-size:0.85rem;font-family:monospace;">
+    <small style="display:block;color:var(--fps-text-muted);margin-top:2px;">
+      Your Twilio phone number or Messaging Service SID. Must be SMS-capable.
+    </small>
+  </div>
+</div>
+
+<div style="margin-top:12px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:0.8rem;color:var(--fps-text-secondary);">
+  <i class="fas fa-info-circle" style="color:#f59e0b;margin-right:4px;"></i>
+  <strong>How it works:</strong> A 6-digit code is sent to the customer's phone number via Twilio SMS.
+  They have 5 minutes and 3 attempts to enter the code. If the phone is not verified, +15 is added
+  to the fraud score. Twilio charges apply (~$0.0079 per SMS in the US).
+  <a href="https://www.twilio.com/console" target="_blank" style="color:#667eea;text-decoration:underline;">Get Twilio credentials</a>
+</div>
+{$otpStats}
+HTML;
+
+        echo FpsAdminRenderer::renderCard('SMS/OTP Verification', 'fa-mobile-screen-button', $content);
     }
 
     /**

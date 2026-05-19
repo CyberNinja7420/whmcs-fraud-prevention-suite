@@ -450,6 +450,48 @@ function fraud_prevention_suite_activate(): array
             });
         }
 
+        // v5.1: Add dispute workflow columns to mod_fps_chargebacks (upgrade path)
+        if (Capsule::schema()->hasTable('mod_fps_chargebacks')) {
+            if (!Capsule::schema()->hasColumn('mod_fps_chargebacks', 'status')) {
+                Capsule::schema()->table('mod_fps_chargebacks', function ($table) {
+                    $table->string('status', 30)->default('open')->after('reason');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_chargebacks', 'evidence_notes')) {
+                Capsule::schema()->table('mod_fps_chargebacks', function ($table) {
+                    $table->text('evidence_notes')->nullable()->after('status');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_chargebacks', 'updated_at')) {
+                Capsule::schema()->table('mod_fps_chargebacks', function ($table) {
+                    $table->timestamp('updated_at')->nullable()->after('created_at');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_chargebacks', 'resolved_at')) {
+                Capsule::schema()->table('mod_fps_chargebacks', function ($table) {
+                    $table->timestamp('resolved_at')->nullable()->after('updated_at');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_chargebacks', 'resolved_by')) {
+                Capsule::schema()->table('mod_fps_chargebacks', function ($table) {
+                    $table->integer('resolved_by')->nullable()->after('resolved_at');
+                });
+            }
+        }
+
+        // v5.1: Admin notification bell table
+        if (!Capsule::schema()->hasTable('mod_fps_notifications')) {
+            Capsule::schema()->create('mod_fps_notifications', function ($table) {
+                $table->increments('id');
+                $table->integer('admin_id')->default(0)->index();
+                $table->string('type', 50)->default('system')->index();
+                $table->string('title', 255);
+                $table->text('message');
+                $table->timestamp('read_at')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+            });
+        }
+
         if (!Capsule::schema()->hasTable('mod_fps_refund_tracking')) {
             Capsule::schema()->create('mod_fps_refund_tracking', function ($table) {
                 $table->increments('id');
@@ -647,6 +689,21 @@ function fraud_prevention_suite_activate(): array
             }
         }
 
+        // -- v5.0.1: SMS/OTP Verification --
+
+        if (!Capsule::schema()->hasTable('mod_fps_otp_verifications')) {
+            Capsule::schema()->create('mod_fps_otp_verifications', function ($table) {
+                $table->increments('id');
+                $table->string('otp_id', 32)->unique();
+                $table->string('phone_hash', 64)->index();
+                $table->string('otp_hash', 64);
+                $table->integer('attempts')->default(0);
+                $table->dateTime('expires_at')->index();
+                $table->tinyInteger('verified')->default(0);
+                $table->timestamp('created_at')->useCurrent();
+            });
+        }
+
         // -- v4.1: GDPR Data Removal Requests --
 
         if (!Capsule::schema()->hasTable('mod_fps_gdpr_requests')) {
@@ -805,6 +862,11 @@ function fraud_prevention_suite_activate(): array
             'scheduled_reports_enabled'   => '0',
             'scheduled_reports_frequency' => 'weekly',
             'scheduled_reports_recipients' => '',
+            // v5.0.1: SMS/OTP Verification via Twilio
+            'sms_verification_enabled' => '0',
+            'twilio_account_sid'       => '',
+            'twilio_auth_token'        => '',
+            'twilio_from_number'       => '',
         ];
 
         try {
@@ -871,6 +933,20 @@ function fraud_prevention_suite_activate(): array
             }
         } catch (\Throwable $e) {
             // Non-fatal
+        }
+
+        // -- v5.1: Review queue enhancements (assigned_to + admin_notes) --
+        if (Capsule::schema()->hasTable('mod_fps_checks')) {
+            if (!Capsule::schema()->hasColumn('mod_fps_checks', 'assigned_to')) {
+                Capsule::schema()->table('mod_fps_checks', function ($table) {
+                    $table->integer('assigned_to')->nullable()->after('reviewed_by');
+                });
+            }
+            if (!Capsule::schema()->hasColumn('mod_fps_checks', 'admin_notes')) {
+                Capsule::schema()->table('mod_fps_checks', function ($table) {
+                    $table->text('admin_notes')->nullable()->after('assigned_to');
+                });
+            }
         }
 
         // Auto-create API products
@@ -1026,6 +1102,36 @@ function fraud_prevention_suite_upgrade($vars): void
                 );
             }
         } catch (\Throwable $e) {}
+
+        // v5.0.1: SMS/OTP verification table (upgrade path for existing installs)
+        if (!Capsule::schema()->hasTable('mod_fps_otp_verifications')) {
+            Capsule::schema()->create('mod_fps_otp_verifications', function ($table) {
+                $table->increments('id');
+                $table->string('otp_id', 32)->unique();
+                $table->string('phone_hash', 64)->index();
+                $table->string('otp_hash', 64);
+                $table->integer('attempts')->default(0);
+                $table->dateTime('expires_at')->index();
+                $table->tinyInteger('verified')->default(0);
+                $table->timestamp('created_at')->useCurrent();
+            });
+        }
+
+        // v5.0.1: Seed SMS verification defaults for existing installs
+        $smsDefaults = [
+            'sms_verification_enabled' => '0',
+            'twilio_account_sid'       => '',
+            'twilio_auth_token'        => '',
+            'twilio_from_number'       => '',
+        ];
+        foreach ($smsDefaults as $k => $v) {
+            try {
+                $exists = Capsule::table('mod_fps_settings')->where('setting_key', $k)->exists();
+                if (!$exists) {
+                    Capsule::table('mod_fps_settings')->insert(['setting_key' => $k, 'setting_value' => $v]);
+                }
+            } catch (\Throwable $e) { /* non-fatal */ }
+        }
 
         // v4.2: Auto-create API products if they don't exist yet
         fps_createDefaultProducts();
@@ -2131,6 +2237,341 @@ function fps_handleAjax(string $modulelink): void
                 }
                 return;
 
+            // ---------------------------------------------------------------
+            // v5.1: Review Queue Notes + Admin Assignment
+            // ---------------------------------------------------------------
+            case 'assign_check':
+                $checkId  = (int) ($_POST['check_id'] ?? 0);
+                $adminId  = (int) ($_POST['admin_id'] ?? 0);
+                if ($checkId < 1) {
+                    echo json_encode(['error' => 'Invalid check ID']);
+                    return;
+                }
+                try {
+                    if (!Capsule::schema()->hasColumn('mod_fps_checks', 'assigned_to')) {
+                        echo json_encode(['error' => 'assigned_to column missing. Re-activate module.']);
+                        return;
+                    }
+                    Capsule::table('mod_fps_checks')
+                        ->where('id', $checkId)
+                        ->update(['assigned_to' => $adminId > 0 ? $adminId : null]);
+                    $adminName = '';
+                    if ($adminId > 0) {
+                        $adm = Capsule::table('tbladmins')->where('id', $adminId)->first(['firstname', 'lastname']);
+                        $adminName = $adm ? trim($adm->firstname . ' ' . $adm->lastname) : "Admin #{$adminId}";
+                    }
+                    echo json_encode(['success' => true, 'admin_name' => $adminName]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Assign failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'add_check_note':
+                $checkId  = (int) ($_POST['check_id'] ?? 0);
+                $noteText = trim($_POST['note'] ?? '');
+                if ($checkId < 1) {
+                    echo json_encode(['error' => 'Invalid check ID']);
+                    return;
+                }
+                if ($noteText === '') {
+                    echo json_encode(['error' => 'Note text is required']);
+                    return;
+                }
+                try {
+                    if (!Capsule::schema()->hasColumn('mod_fps_checks', 'admin_notes')) {
+                        echo json_encode(['error' => 'admin_notes column missing. Re-activate module.']);
+                        return;
+                    }
+                    $existing = Capsule::table('mod_fps_checks')
+                        ->where('id', $checkId)
+                        ->value('admin_notes');
+                    $notes = [];
+                    if (!empty($existing)) {
+                        $decoded = json_decode($existing, true);
+                        if (is_array($decoded)) {
+                            $notes = $decoded;
+                        }
+                    }
+                    $adminId = (int) ($_SESSION['adminid'] ?? 0);
+                    $adminName = 'Unknown';
+                    if ($adminId > 0) {
+                        $adm = Capsule::table('tbladmins')->where('id', $adminId)->first(['firstname', 'lastname']);
+                        $adminName = $adm ? trim($adm->firstname . ' ' . $adm->lastname) : "Admin #{$adminId}";
+                    }
+                    $notes[] = [
+                        'admin_id'   => $adminId,
+                        'admin_name' => $adminName,
+                        'text'       => $noteText,
+                        'timestamp'  => date('Y-m-d H:i:s'),
+                    ];
+                    Capsule::table('mod_fps_checks')
+                        ->where('id', $checkId)
+                        ->update(['admin_notes' => json_encode($notes)]);
+                    echo json_encode(['success' => true, 'notes' => $notes]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Add note failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'get_check_notes':
+                $checkId = (int) ($_GET['check_id'] ?? $_POST['check_id'] ?? 0);
+                if ($checkId < 1) {
+                    echo json_encode(['error' => 'Invalid check ID']);
+                    return;
+                }
+                try {
+                    if (!Capsule::schema()->hasColumn('mod_fps_checks', 'admin_notes')) {
+                        echo json_encode(['success' => true, 'notes' => []]);
+                        return;
+                    }
+                    $raw = Capsule::table('mod_fps_checks')
+                        ->where('id', $checkId)
+                        ->value('admin_notes');
+                    $notes = [];
+                    if (!empty($raw)) {
+                        $decoded = json_decode($raw, true);
+                        if (is_array($decoded)) {
+                            $notes = $decoded;
+                        }
+                    }
+                    echo json_encode(['success' => true, 'notes' => $notes]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Load notes failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            // ---------------------------------------------------------------
+            // v5.1: Client-Facing Transparency - Manual Review Request
+            // ---------------------------------------------------------------
+            case 'request_manual_review':
+                $clientId = (int) ($_SESSION['uid'] ?? 0);
+                if ($clientId < 1) {
+                    echo json_encode(['error' => 'Not logged in']);
+                    return;
+                }
+                try {
+                    $client = Capsule::table('tblclients')
+                        ->where('id', $clientId)
+                        ->first(['firstname', 'lastname', 'email']);
+                    if (!$client) {
+                        echo json_encode(['error' => 'Client not found']);
+                        return;
+                    }
+                    $result = localAPI('OpenTicket', [
+                        'clientid' => $clientId,
+                        'deptid'   => 1,
+                        'subject'  => 'Fraud Check Review Request',
+                        'message'  => "Client {$client->firstname} {$client->lastname} ({$client->email}) is requesting manual review of their fraud profile.\n\nThis was submitted via the FPS Transparency page.",
+                        'priority' => 'Medium',
+                    ], 'admin');
+                    echo json_encode([
+                        'success'   => (($result['result'] ?? '') === 'success'),
+                        'ticket_id' => $result['tid'] ?? null,
+                    ]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['error' => 'Failed to create review ticket: ' . $e->getMessage()]);
+                }
+                return;
+
+            // ---------------------------------------------------------------
+            // v5.1: Cron Health Dashboard
+            // ---------------------------------------------------------------
+            case 'get_cron_health':
+                echo json_encode(fps_ajaxCronHealth());
+                return;
+
+            // ---------------------------------------------------------------
+            // v5.1: Performance Metrics
+            // ---------------------------------------------------------------
+            case 'get_performance_metrics':
+                echo json_encode(fps_ajaxPerformanceMetrics());
+                return;
+
+            // v5.0.1: SMS/OTP verification
+            case 'send_otp':
+                try {
+                    $phone = trim($_POST['phone'] ?? '');
+                    $countryCode = trim($_POST['country_code'] ?? '');
+                    if ($phone === '') {
+                        echo json_encode(['success' => false, 'message' => 'Phone number is required']);
+                        return;
+                    }
+                    if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsSmsVerifier')) {
+                        echo json_encode(['success' => false, 'message' => 'SMS verifier class not found']);
+                        return;
+                    }
+                    $verifier = new \FraudPreventionSuite\Lib\FpsSmsVerifier();
+                    echo json_encode($verifier->fps_sendOtp($phone, $countryCode));
+                } catch (\Throwable $e) {
+                    echo json_encode(['success' => false, 'message' => 'Send OTP failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            case 'verify_otp':
+                try {
+                    $phone = trim($_POST['phone'] ?? '');
+                    $code = trim($_POST['code'] ?? '');
+                    $otpId = trim($_POST['otp_id'] ?? '');
+                    if ($phone === '' || $code === '' || $otpId === '') {
+                        echo json_encode(['valid' => false, 'message' => 'Phone, code, and OTP ID are required']);
+                        return;
+                    }
+                    if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsSmsVerifier')) {
+                        echo json_encode(['valid' => false, 'message' => 'SMS verifier class not found']);
+                        return;
+                    }
+                    $verifier = new \FraudPreventionSuite\Lib\FpsSmsVerifier();
+                    echo json_encode($verifier->fps_verifyOtp($phone, $code, $otpId));
+                } catch (\Throwable $e) {
+                    echo json_encode(['valid' => false, 'message' => 'Verify OTP failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            // v5.0.1: Selftest / Health Check
+            case 'run_selftest':
+                try {
+                    $selftestChecks = [];
+                    $stPass = 0;
+                    $stFail = 0;
+                    $stWarn = 0;
+
+                    // Module loads
+                    $selftestChecks[] = ['name' => 'Module loads', 'status' => 'pass', 'detail' => 'v' . FPS_MODULE_VERSION];
+                    $stPass++;
+
+                    // Database tables
+                    $stTables = ['mod_fps_checks', 'mod_fps_settings', 'mod_fps_rules', 'mod_fps_stats',
+                        'mod_fps_reports', 'mod_fps_fingerprints', 'mod_fps_ip_intel', 'mod_fps_email_intel',
+                        'mod_fps_api_keys', 'mod_fps_otp_verifications'];
+                    foreach ($stTables as $stT) {
+                        $stExists = Capsule::schema()->hasTable($stT);
+                        $selftestChecks[] = ['name' => 'Table: ' . $stT, 'status' => $stExists ? 'pass' : 'fail', 'detail' => $stExists ? 'exists' : 'missing'];
+                        $stExists ? $stPass++ : $stFail++;
+                    }
+
+                    // Provider connectivity
+                    $stProviders = [
+                        'ip-api.com' => 'http://ip-api.com/json/8.8.8.8?fields=status',
+                        'StopForumSpam' => 'https://api.stopforumspam.org/api?json&ip=8.8.8.8',
+                    ];
+                    foreach ($stProviders as $stName => $stUrl) {
+                        try {
+                            $stCh = curl_init($stUrl);
+                            curl_setopt_array($stCh, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 5, CURLOPT_USERAGENT => 'FPS-Selftest/' . FPS_MODULE_VERSION]);
+                            curl_exec($stCh);
+                            $stCode = (int) curl_getinfo($stCh, CURLINFO_HTTP_CODE);
+                            curl_close($stCh);
+                            $stOk = $stCode >= 200 && $stCode < 400;
+                            $selftestChecks[] = ['name' => 'API: ' . $stName, 'status' => $stOk ? 'pass' : 'warn', 'detail' => 'HTTP ' . $stCode];
+                            $stOk ? $stPass++ : $stWarn++;
+                        } catch (\Throwable $e) {
+                            $selftestChecks[] = ['name' => 'API: ' . $stName, 'status' => 'warn', 'detail' => $e->getMessage()];
+                            $stWarn++;
+                        }
+                    }
+
+                    // SMS/OTP status
+                    if (class_exists('\\FraudPreventionSuite\\Lib\\FpsSmsVerifier')) {
+                        $stSms = new \FraudPreventionSuite\Lib\FpsSmsVerifier();
+                        $stSmsOk = $stSms->fps_isEnabled();
+                        $selftestChecks[] = ['name' => 'SMS/OTP: Twilio', 'status' => $stSmsOk ? 'pass' : 'warn', 'detail' => $stSmsOk ? 'Configured' : 'Not configured'];
+                        $stSmsOk ? $stPass++ : $stWarn++;
+                    }
+
+                    // Critical settings
+                    $stCritical = ['pre_checkout_blocking', 'auto_check_orders', 'auto_lock_critical'];
+                    foreach ($stCritical as $stKey) {
+                        $stVal = Capsule::table('tbladdonmodules')->where('module', 'fraud_prevention_suite')->where('setting', $stKey)->value('value');
+                        $stOn = ($stVal === 'on' || $stVal === 'yes');
+                        $selftestChecks[] = ['name' => 'Setting: ' . $stKey, 'status' => $stOn ? 'pass' : 'warn', 'detail' => $stVal ?: 'not set'];
+                        $stOn ? $stPass++ : $stWarn++;
+                    }
+
+                    // Hooks count
+                    $stHooksFile = __DIR__ . '/hooks.php';
+                    if (file_exists($stHooksFile)) {
+                        $stHookCount = substr_count(file_get_contents($stHooksFile), 'add_hook(');
+                        $selftestChecks[] = ['name' => 'Hooks registered', 'status' => $stHookCount >= 15 ? 'pass' : 'warn', 'detail' => $stHookCount . ' hooks'];
+                        $stHookCount >= 15 ? $stPass++ : $stWarn++;
+                    }
+
+                    // Data file freshness
+                    foreach (['data/disposable_domains.txt' => 7, 'data/tor_exit_nodes.txt' => 3] as $stFile => $stMax) {
+                        $stPath = __DIR__ . '/' . $stFile;
+                        if (file_exists($stPath)) {
+                            $stAge = (time() - filemtime($stPath)) / 86400;
+                            $stFresh = $stAge <= $stMax;
+                            $selftestChecks[] = ['name' => 'Data: ' . $stFile, 'status' => $stFresh ? 'pass' : 'warn', 'detail' => round($stAge, 1) . ' days old'];
+                            $stFresh ? $stPass++ : $stWarn++;
+                        } else {
+                            $selftestChecks[] = ['name' => 'Data: ' . $stFile, 'status' => 'warn', 'detail' => 'not found'];
+                            $stWarn++;
+                        }
+                    }
+
+                    echo json_encode([
+                        'success'   => true,
+                        'module'    => 'fraud_prevention_suite',
+                        'version'   => FPS_MODULE_VERSION,
+                        'timestamp' => date('Y-m-d H:i:s'),
+                        'summary'   => ['pass' => $stPass, 'warn' => $stWarn, 'fail' => $stFail, 'total' => $stPass + $stWarn + $stFail],
+                        'checks'    => $selftestChecks,
+                    ]);
+                } catch (\Throwable $e) {
+                    echo json_encode(['success' => false, 'error' => 'Selftest failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            // ---------------------------------------------------------------
+            // v5.1: MaxMind API Test
+            // ---------------------------------------------------------------
+            case 'test_maxmind':
+                try {
+                    $config = \FraudPreventionSuite\Lib\FpsConfig::getInstance();
+                    $accountId = trim((string) $config->getCustom('maxmind_account_id', ''));
+                    $licenseKey = trim((string) $config->getCustom('maxmind_license_key', ''));
+                    if ($accountId === '' || $licenseKey === '') {
+                        echo json_encode(['success' => false, 'error' => 'MaxMind Account ID and License Key must be saved first. Save settings, then test.']);
+                        return;
+                    }
+                    $provider = new \FraudPreventionSuite\Lib\Providers\MaxMindProvider();
+                    $result = $provider->fps_testConnection($accountId, $licenseKey);
+                    echo json_encode($result);
+                } catch (\Throwable $e) {
+                    echo json_encode(['success' => false, 'error' => 'Test failed: ' . $e->getMessage()]);
+                }
+                return;
+
+            // ---------------------------------------------------------------
+            // v5.1: Chargeback Dispute Workflow
+            // ---------------------------------------------------------------
+            case 'get_chargebacks':
+                echo json_encode(fps_ajaxGetChargebacks());
+                break;
+
+            case 'update_chargeback_status':
+                echo json_encode(fps_ajaxUpdateChargebackStatus());
+                break;
+
+            case 'add_chargeback_evidence':
+                echo json_encode(fps_ajaxAddChargebackEvidence());
+                break;
+
+            // ---------------------------------------------------------------
+            // v5.1: Admin Notification Bell
+            // ---------------------------------------------------------------
+            case 'get_notifications':
+                echo json_encode(fps_ajaxGetNotifications());
+                break;
+
+            case 'mark_notification_read':
+                echo json_encode(fps_ajaxMarkNotificationRead());
+                break;
+
+            case 'mark_all_read':
+                echo json_encode(fps_ajaxMarkAllNotificationsRead());
+                break;
+
             default:
                 echo json_encode(['error' => 'Unknown action: ' . $action]);
         }
@@ -2727,6 +3168,7 @@ function fps_ajaxSaveSettings(): array
         'safe_browsing_api_key', 'virustotal_api_key',
         'sfs_report_api_key', 'fraudrecord_api_key',
         'ipinfo_api_key', 'hibp_api_key',
+        'twilio_auth_token',
     ];
 
     // Keys that must be saved to tbladdonmodules (WHMCS module config table)
@@ -2746,6 +3188,7 @@ function fps_ajaxSaveSettings(): array
         'drop_legacy_details_columns',
         'email_digest_enabled',
         'scheduled_reports_enabled',
+        'sms_verification_enabled',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {
@@ -3231,6 +3674,40 @@ function fraud_prevention_suite_clientarea(array $vars): array
         exit;
     }
 
+    // Handle SMS/OTP AJAX requests (checkout -- no admin auth needed, rate-limited internally)
+    if (isset($_GET['ajax']) && in_array($page, ['send-otp', 'verify-otp'], true)) {
+        header('Content-Type: application/json');
+        try {
+            if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsSmsVerifier')) {
+                echo json_encode(['success' => false, 'valid' => false, 'message' => 'SMS verifier not available']);
+                exit;
+            }
+            $verifier = new \FraudPreventionSuite\Lib\FpsSmsVerifier();
+
+            if ($page === 'send-otp') {
+                $phone = trim($_POST['phone'] ?? '');
+                $countryCode = trim($_POST['country_code'] ?? '');
+                if ($phone === '') {
+                    echo json_encode(['success' => false, 'message' => 'Phone number is required']);
+                    exit;
+                }
+                echo json_encode($verifier->fps_sendOtp($phone, $countryCode));
+            } elseif ($page === 'verify-otp') {
+                $phone = trim($_POST['phone'] ?? '');
+                $code = trim($_POST['code'] ?? '');
+                $otpId = trim($_POST['otp_id'] ?? '');
+                if ($phone === '' || $code === '' || $otpId === '') {
+                    echo json_encode(['valid' => false, 'message' => 'Phone, code, and OTP ID are required']);
+                    exit;
+                }
+                echo json_encode($verifier->fps_verifyOtp($phone, $code, $otpId));
+            }
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'valid' => false, 'message' => 'Request failed']);
+        }
+        exit;
+    }
+
     // Handle authenticated client AJAX (API usage stats)
     if (isset($_GET['ajax']) && $page === 'usage') {
         header('Content-Type: application/json');
@@ -3295,6 +3772,44 @@ function fraud_prevention_suite_clientarea(array $vars): array
                 ];
             }
             echo json_encode(['success' => true, 'keys' => $enriched]);
+        } catch (\Throwable $e) {
+            echo json_encode(['error' => 'Request failed']);
+        }
+        exit;
+    }
+
+    // Handle authenticated client AJAX for transparency page
+    if (isset($_GET['ajax']) && $page === 'transparency') {
+        header('Content-Type: application/json');
+        try {
+            $action = $_GET['a'] ?? $_POST['action'] ?? '';
+            if ($action === 'request_manual_review') {
+                $clientId = (int)($_SESSION['uid'] ?? 0);
+                if ($clientId < 1) {
+                    echo json_encode(['error' => 'Not logged in']);
+                    exit;
+                }
+                $client = Capsule::table('tblclients')
+                    ->where('id', $clientId)
+                    ->first(['firstname', 'lastname', 'email']);
+                if (!$client) {
+                    echo json_encode(['error' => 'Client not found']);
+                    exit;
+                }
+                $result = localAPI('OpenTicket', [
+                    'clientid' => $clientId,
+                    'deptid'   => 1,
+                    'subject'  => 'Fraud Check Review Request',
+                    'message'  => "Client {$client->firstname} {$client->lastname} ({$client->email}) is requesting manual review of their fraud profile.\n\nThis was submitted via the FPS Transparency page.",
+                    'priority' => 'Medium',
+                ], 'admin');
+                echo json_encode([
+                    'success'   => (($result['result'] ?? '') === 'success'),
+                    'ticket_id' => $result['tid'] ?? null,
+                ]);
+            } else {
+                echo json_encode(['error' => 'Unknown action']);
+            }
         } catch (\Throwable $e) {
             echo json_encode(['error' => 'Request failed']);
         }
@@ -3540,6 +4055,108 @@ function fraud_prevention_suite_clientarea(array $vars): array
             ],
             'templatefile' => 'client/usage',
             'vars'         => $usageVars,
+        ];
+    }
+
+    // Client-Facing Transparency Page (requires login)
+    if ($page === 'transparency') {
+        $clientId = (int) ($_SESSION['uid'] ?? 0);
+        $transparencyVars = [
+            'trust_status'   => 'normal',
+            'risk_level'     => 'low',
+            'checks_count'   => 0,
+            'last_check'     => null,
+            'flagged_reasons' => [],
+            'logged_in'      => ($clientId > 0),
+        ];
+
+        if ($clientId > 0) {
+            try {
+                // Trust status
+                if (Capsule::schema()->hasTable('mod_fps_client_trust')) {
+                    $trust = Capsule::table('mod_fps_client_trust')
+                        ->where('client_id', $clientId)
+                        ->first(['status']);
+                    if ($trust) {
+                        $transparencyVars['trust_status'] = $trust->status;
+                    }
+                }
+
+                // Check stats
+                $checks = Capsule::table('mod_fps_checks')
+                    ->where('client_id', $clientId)
+                    ->orderByDesc('created_at')
+                    ->get(['risk_score', 'risk_level', 'check_context', 'provider_scores', 'created_at']);
+
+                $transparencyVars['checks_count'] = $checks->count();
+
+                if ($checks->count() > 0) {
+                    $latest = $checks->first();
+                    $transparencyVars['last_check'] = $latest->created_at;
+
+                    // Determine risk level from most recent check
+                    $latestScore = (float) $latest->risk_score;
+                    if ($latestScore >= 60) {
+                        $transparencyVars['risk_level'] = 'high';
+                    } elseif ($latestScore >= 30) {
+                        $transparencyVars['risk_level'] = 'medium';
+                    } else {
+                        $transparencyVars['risk_level'] = 'low';
+                    }
+
+                    // Build sanitized flagged reasons (no technical details)
+                    $reasons = [];
+                    $reasonMap = [
+                        'ip_intel'          => 'IP address reputation check',
+                        'email_validation'  => 'Email address verification',
+                        'fingerprint'       => 'Device fingerprint analysis',
+                        'behavioral'        => 'Behavioral pattern analysis',
+                        'velocity'          => 'Activity frequency monitoring',
+                        'geo_impossibility' => 'Geographic mismatch detected',
+                        'tor'               => 'Anonymizing network detected',
+                        'datacenter'        => 'Non-residential network detected',
+                        'breach_check'      => 'Credentials found in data breach',
+                        'domain_reputation' => 'Email domain reputation check',
+                        'phone_validation'  => 'Phone number verification',
+                        'honeypot'          => 'Automated submission detected',
+                        'pow_invalid'       => 'Security challenge failed',
+                        'pow_missing'       => 'Security challenge not completed',
+                        'abuse_signal'      => 'Abuse pattern detected',
+                        'ofac_screening'    => 'Compliance screening flag',
+                    ];
+
+                    // Scan provider_scores across recent checks for flagged providers
+                    foreach ($checks->take(5) as $c) {
+                        $scores = json_decode($c->provider_scores ?? '{}', true);
+                        if (is_array($scores)) {
+                            foreach ($scores as $provider => $score) {
+                                if ((float) $score > 5.0 && isset($reasonMap[$provider])) {
+                                    $reasons[$provider] = $reasonMap[$provider];
+                                }
+                            }
+                        }
+                    }
+                    $transparencyVars['flagged_reasons'] = array_values($reasons);
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal -- show defaults
+            }
+        }
+
+        $tpVars = array_merge($commonVars, $transparencyVars, [
+            'ajax_url'         => 'index.php?m=fraud_prevention_suite&page=transparency&ajax=1',
+            'gdpr_export_url'  => 'index.php?m=fraud_prevention_suite&page=gdpr-request',
+            'transparency_url' => 'index.php?m=fraud_prevention_suite&page=transparency',
+        ]);
+
+        return [
+            'pagetitle'    => 'Fraud Prevention Suite - Your Account Security',
+            'breadcrumb'   => [
+                'index.php?m=fraud_prevention_suite' => 'Fraud Prevention Suite',
+                'index.php?m=fraud_prevention_suite&page=transparency' => 'Account Security',
+            ],
+            'templatefile' => 'client/transparency',
+            'vars'         => $tpVars,
         ];
     }
 
@@ -4838,6 +5455,676 @@ function fps_ajaxImportRules(): array
         return ['success' => true, 'imported' => $imported];
     } catch (\Throwable $e) {
         return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// v5.1: Cron Health -- returns timestamp + age for every cron-dependent item
+// ---------------------------------------------------------------------------
+function fps_ajaxCronHealth(): array
+{
+    try {
+        $items = [];
+        $moduleDir = __DIR__;
+
+        // 1. Disposable domains data file
+        $disposablePath = $moduleDir . '/data/disposable_domains.txt';
+        if (file_exists($disposablePath)) {
+            $mt = filemtime($disposablePath);
+            $items[] = [
+                'name'     => 'Disposable Domains List',
+                'icon'     => 'fa-envelope-circle-xmark',
+                'last_run' => date('Y-m-d H:i:s', $mt),
+                'age_hours' => round((time() - $mt) / 3600, 1),
+                'cycle'    => 'daily',
+            ];
+        } else {
+            $items[] = [
+                'name'     => 'Disposable Domains List',
+                'icon'     => 'fa-envelope-circle-xmark',
+                'last_run' => 'Never',
+                'age_hours' => -1,
+                'cycle'    => 'daily',
+            ];
+        }
+
+        // 2. Tor exit nodes (database table -- check MAX(last_seen_at))
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_tor_nodes')) {
+                $lastTor = Capsule::table('mod_fps_tor_nodes')
+                    ->max('last_seen_at');
+                if ($lastTor) {
+                    $ts = strtotime($lastTor);
+                    $items[] = [
+                        'name'     => 'Tor Exit Nodes',
+                        'icon'     => 'fa-user-secret',
+                        'last_run' => $lastTor,
+                        'age_hours' => round((time() - $ts) / 3600, 1),
+                        'cycle'    => 'daily',
+                    ];
+                } else {
+                    $items[] = [
+                        'name'     => 'Tor Exit Nodes',
+                        'icon'     => 'fa-user-secret',
+                        'last_run' => 'Never',
+                        'age_hours' => -1,
+                        'cycle'    => 'daily',
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            $items[] = [
+                'name'     => 'Tor Exit Nodes',
+                'icon'     => 'fa-user-secret',
+                'last_run' => 'Error',
+                'age_hours' => -1,
+                'cycle'    => 'daily',
+            ];
+        }
+
+        // 3-7. Settings-based timestamps
+        $settingKeys = [
+            ['name' => 'Email Digest (Daily)',   'key' => 'last_digest_daily',   'icon' => 'fa-envelope',       'cycle' => 'daily'],
+            ['name' => 'Email Digest (Weekly)',   'key' => 'last_digest_weekly',  'icon' => 'fa-envelopes-bulk', 'cycle' => 'weekly'],
+            ['name' => 'Scheduled Report (Weekly)', 'key' => 'last_report_weekly', 'icon' => 'fa-file-pdf',    'cycle' => 'weekly'],
+            ['name' => 'Scheduled Report (Monthly)', 'key' => 'last_report_monthly', 'icon' => 'fa-calendar-check', 'cycle' => 'monthly'],
+            ['name' => 'Adaptive Scoring',       'key' => 'last_adaptive_run',   'icon' => 'fa-brain',          'cycle' => 'monthly'],
+        ];
+
+        try {
+            $keys = array_column($settingKeys, 'key');
+            $vals = Capsule::table('mod_fps_settings')
+                ->whereIn('setting_key', $keys)
+                ->pluck('setting_value', 'setting_key')
+                ->toArray();
+        } catch (\Throwable $e) {
+            $vals = [];
+        }
+
+        foreach ($settingKeys as $s) {
+            $val = $vals[$s['key']] ?? '';
+            if (!empty($val) && $val !== '0') {
+                $ts = strtotime($val);
+                $items[] = [
+                    'name'     => $s['name'],
+                    'icon'     => $s['icon'],
+                    'last_run' => $val,
+                    'age_hours' => $ts ? round((time() - $ts) / 3600, 1) : -1,
+                    'cycle'    => $s['cycle'],
+                ];
+            } else {
+                $items[] = [
+                    'name'     => $s['name'],
+                    'icon'     => $s['icon'],
+                    'last_run' => 'Never',
+                    'age_hours' => -1,
+                    'cycle'    => $s['cycle'],
+                ];
+            }
+        }
+
+        // 8. Last fraud check processed
+        try {
+            $lastCheck = Capsule::table('mod_fps_checks')
+                ->orderByDesc('id')
+                ->value('created_at');
+            $items[] = [
+                'name'     => 'Last Fraud Check',
+                'icon'     => 'fa-magnifying-glass',
+                'last_run' => $lastCheck ?: 'Never',
+                'age_hours' => $lastCheck ? round((time() - strtotime($lastCheck)) / 3600, 1) : -1,
+                'cycle'    => 'continuous',
+            ];
+        } catch (\Throwable $e) {
+            $items[] = [
+                'name'     => 'Last Fraud Check',
+                'icon'     => 'fa-magnifying-glass',
+                'last_run' => 'Error',
+                'age_hours' => -1,
+                'cycle'    => 'continuous',
+            ];
+        }
+
+        // 9. WHMCS cron last run (from tblconfiguration)
+        try {
+            $lastCron = Capsule::table('tblconfiguration')
+                ->where('setting', 'lastDailyCronRunTime')
+                ->value('value');
+            if ($lastCron) {
+                $ts = strtotime($lastCron);
+                $items[] = [
+                    'name'     => 'WHMCS DailyCronJob',
+                    'icon'     => 'fa-clock-rotate-left',
+                    'last_run' => $lastCron,
+                    'age_hours' => $ts ? round((time() - $ts) / 3600, 1) : -1,
+                    'cycle'    => 'daily',
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal: WHMCS config table may differ across versions
+        }
+
+        // 10. Last daily stats aggregation (check if today's stats row exists)
+        try {
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+            $statsRow = Capsule::table('mod_fps_stats')
+                ->where('date', $yesterday)
+                ->first();
+            if ($statsRow) {
+                $items[] = [
+                    'name'     => 'Daily Stats Aggregation',
+                    'icon'     => 'fa-chart-bar',
+                    'last_run' => $yesterday . ' (data present)',
+                    'age_hours' => round((time() - strtotime($yesterday . ' 23:59:59')) / 3600, 1),
+                    'cycle'    => 'daily',
+                ];
+            } else {
+                $items[] = [
+                    'name'     => 'Daily Stats Aggregation',
+                    'icon'     => 'fa-chart-bar',
+                    'last_run' => 'No data for ' . $yesterday,
+                    'age_hours' => -1,
+                    'cycle'    => 'daily',
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        return ['success' => true, 'items' => $items];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// v5.1: Performance Metrics -- latency percentiles, block rate, throughput,
+//       provider hit rates for a configurable time window
+// ---------------------------------------------------------------------------
+function fps_ajaxPerformanceMetrics(): array
+{
+    try {
+        $period = $_GET['period'] ?? $_POST['period'] ?? '24h';
+        $validPeriods = ['1h', '24h', '7d', '30d'];
+        if (!in_array($period, $validPeriods, true)) {
+            $period = '24h';
+        }
+
+        $sinceMap = [
+            '1h'  => '-1 hour',
+            '24h' => '-24 hours',
+            '7d'  => '-7 days',
+            '30d' => '-30 days',
+        ];
+        $since = date('Y-m-d H:i:s', strtotime($sinceMap[$period]));
+
+        // Base query for checks in period
+        $baseQuery = Capsule::table('mod_fps_checks')
+            ->where('created_at', '>=', $since);
+
+        $totalChecks    = (clone $baseQuery)->count();
+        $blockedCount   = (clone $baseQuery)->where('action_taken', 'blocked')->count();
+        $flaggedCount   = (clone $baseQuery)->where('action_taken', 'flagged')->count();
+        $approvedCount  = (clone $baseQuery)->where('action_taken', 'approved')->count();
+
+        // Latency stats (only rows with check_duration_ms)
+        $latencyQuery = (clone $baseQuery)->whereNotNull('check_duration_ms');
+        $avgLatency   = round((float) $latencyQuery->avg('check_duration_ms'), 1);
+        $maxLatency   = (int) (clone $baseQuery)->whereNotNull('check_duration_ms')->max('check_duration_ms');
+
+        // Percentiles via sorted array
+        $durations = (clone $baseQuery)
+            ->whereNotNull('check_duration_ms')
+            ->orderBy('check_duration_ms')
+            ->pluck('check_duration_ms')
+            ->toArray();
+
+        $p50 = 0;
+        $p95 = 0;
+        $p99 = 0;
+        $latencySamples = count($durations);
+
+        if ($latencySamples > 0) {
+            $vals = array_values(array_map('intval', $durations));
+            $pct = static function (array $sorted, float $p): int {
+                $count = count($sorted);
+                if ($count === 0) return 0;
+                $idx = (int) max(0, min($count - 1, (int) ceil($p * $count) - 1));
+                return $sorted[$idx];
+            };
+            $p50 = $pct($vals, 0.50);
+            $p95 = $pct($vals, 0.95);
+            $p99 = $pct($vals, 0.99);
+        }
+
+        // Throughput
+        $periodSeconds = max(1, time() - strtotime($since));
+        $checksPerHour = round($totalChecks / ($periodSeconds / 3600), 1);
+
+        // Block rate
+        $blockRate = $totalChecks > 0
+            ? round(($blockedCount / $totalChecks) * 100, 1)
+            : 0.0;
+
+        // Risk level distribution
+        $riskDist = [];
+        try {
+            $riskRows = (clone $baseQuery)
+                ->select(Capsule::raw('risk_level, COUNT(*) as cnt'))
+                ->groupBy('risk_level')
+                ->get();
+            foreach ($riskRows as $r) {
+                $riskDist[$r->risk_level ?? 'unknown'] = (int) $r->cnt;
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        // Provider hit rates from provider_scores JSON column
+        $providerHits = [];
+        try {
+            $recentScores = (clone $baseQuery)
+                ->whereNotNull('provider_scores')
+                ->where('provider_scores', '!=', '')
+                ->limit(1000)
+                ->pluck('provider_scores');
+
+            foreach ($recentScores as $ps) {
+                $decoded = json_decode($ps, true);
+                if (!is_array($decoded)) continue;
+                foreach ($decoded as $provider => $score) {
+                    if (!isset($providerHits[$provider])) {
+                        $providerHits[$provider] = [
+                            'checks'      => 0,
+                            'flags'       => 0,
+                            'total_score' => 0.0,
+                        ];
+                    }
+                    $providerHits[$provider]['checks']++;
+                    $s = is_numeric($score) ? (float) $score : 0.0;
+                    $providerHits[$provider]['total_score'] += $s;
+                    if ($s > 0) {
+                        $providerHits[$provider]['flags']++;
+                    }
+                }
+            }
+
+            // Compute averages and flag rates
+            foreach ($providerHits as $name => &$ph) {
+                $ph['avg_score'] = $ph['checks'] > 0
+                    ? round($ph['total_score'] / $ph['checks'], 1)
+                    : 0.0;
+                $ph['flag_rate'] = $ph['checks'] > 0
+                    ? round(($ph['flags'] / $ph['checks']) * 100, 1)
+                    : 0.0;
+            }
+            unset($ph);
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        // Hourly throughput for the period (for the chart, max 168 buckets)
+        $hourlyThroughput = [];
+        try {
+            $hourlyRows = (clone $baseQuery)
+                ->select(Capsule::raw('DATE_FORMAT(created_at, "%Y-%m-%d %H:00:00") as hour_bucket, COUNT(*) as cnt'))
+                ->groupBy(Capsule::raw('DATE_FORMAT(created_at, "%Y-%m-%d %H:00:00")'))
+                ->orderBy('hour_bucket')
+                ->limit(168)
+                ->get();
+            foreach ($hourlyRows as $h) {
+                $hourlyThroughput[] = [
+                    'hour' => $h->hour_bucket,
+                    'count' => (int) $h->cnt,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal -- MySQL DATE_FORMAT may differ
+        }
+
+        $metrics = [
+            'total_checks'    => $totalChecks,
+            'blocked_count'   => $blockedCount,
+            'flagged_count'   => $flaggedCount,
+            'approved_count'  => $approvedCount,
+            'block_rate'      => $blockRate,
+            'latency_samples' => $latencySamples,
+            'avg_latency_ms'  => $avgLatency,
+            'p50_latency_ms'  => $p50,
+            'p95_latency_ms'  => $p95,
+            'p99_latency_ms'  => $p99,
+            'max_latency_ms'  => $maxLatency,
+            'checks_per_hour' => $checksPerHour,
+            'risk_distribution' => $riskDist,
+            'provider_hits'   => $providerHits,
+            'hourly_throughput' => $hourlyThroughput,
+        ];
+
+        return ['success' => true, 'period' => $period, 'metrics' => $metrics];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// v5.1: CHARGEBACK DISPUTE WORKFLOW
+// ---------------------------------------------------------------------------
+
+function fps_ajaxGetChargebacks(): array
+{
+    try {
+        if (!Capsule::schema()->hasTable('mod_fps_chargebacks')) {
+            return ['success' => true, 'chargebacks' => [], 'stats' => ['open' => 0, 'investigating' => 0, 'won' => 0, 'lost' => 0]];
+        }
+
+        $page = max(1, (int) ($_GET['page'] ?? $_POST['page'] ?? 1));
+        $perPage = 25;
+        $offset = ($page - 1) * $perPage;
+        $statusFilter = trim($_GET['status'] ?? $_POST['status'] ?? '');
+
+        $query = Capsule::table('mod_fps_chargebacks');
+        if ($statusFilter !== '' && in_array($statusFilter, ['open', 'investigating', 'won', 'lost', 'closed'], true)) {
+            $query->where('status', $statusFilter);
+        }
+
+        $total = (clone $query)->count();
+        $chargebacks = $query->orderByDesc('created_at')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get()
+            ->toArray();
+
+        // Enrich with client data
+        $result = [];
+        foreach ($chargebacks as $cb) {
+            $row = (array) $cb;
+            try {
+                $client = Capsule::table('tblclients')
+                    ->where('id', $cb->client_id)
+                    ->first(['firstname', 'lastname', 'email']);
+                $row['client_name'] = $client ? trim($client->firstname . ' ' . $client->lastname) : 'Client #' . $cb->client_id;
+                $row['client_email'] = $client->email ?? '';
+            } catch (\Throwable $e) {
+                $row['client_name'] = 'Client #' . $cb->client_id;
+                $row['client_email'] = '';
+            }
+            $result[] = $row;
+        }
+
+        // Status counts
+        $stats = ['open' => 0, 'investigating' => 0, 'won' => 0, 'lost' => 0, 'closed' => 0];
+        try {
+            $counts = Capsule::table('mod_fps_chargebacks')
+                ->selectRaw('status, COUNT(*) as cnt')
+                ->groupBy('status')
+                ->pluck('cnt', 'status')
+                ->toArray();
+            foreach ($counts as $s => $c) {
+                if (isset($stats[$s])) {
+                    $stats[$s] = (int) $c;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        return [
+            'success'     => true,
+            'chargebacks' => $result,
+            'total'       => $total,
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total_pages' => max(1, (int) ceil($total / $perPage)),
+            'stats'       => $stats,
+        ];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => 'Failed to load chargebacks: ' . $e->getMessage()];
+    }
+}
+
+function fps_ajaxUpdateChargebackStatus(): array
+{
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        $newStatus = trim($_POST['status'] ?? '');
+        $adminId = (int) ($_SESSION['adminid'] ?? 0);
+
+        if ($id < 1) {
+            return ['success' => false, 'error' => 'Invalid chargeback ID'];
+        }
+
+        $validStatuses = ['open', 'investigating', 'won', 'lost', 'closed'];
+        if (!in_array($newStatus, $validStatuses, true)) {
+            return ['success' => false, 'error' => 'Invalid status. Must be one of: ' . implode(', ', $validStatuses)];
+        }
+
+        if (!Capsule::schema()->hasTable('mod_fps_chargebacks')) {
+            return ['success' => false, 'error' => 'Chargebacks table not found'];
+        }
+
+        $cb = Capsule::table('mod_fps_chargebacks')->where('id', $id)->first();
+        if (!$cb) {
+            return ['success' => false, 'error' => 'Chargeback not found'];
+        }
+
+        $updateData = [
+            'status'     => $newStatus,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        // Mark resolved if terminal status
+        if (in_array($newStatus, ['won', 'lost', 'closed'], true)) {
+            $updateData['resolved_at'] = date('Y-m-d H:i:s');
+            $updateData['resolved_by'] = $adminId;
+        }
+
+        Capsule::table('mod_fps_chargebacks')->where('id', $id)->update($updateData);
+
+        logActivity("FPS: Chargeback #{$id} status changed to {$newStatus} by admin #{$adminId}");
+
+        // Create notification for status change
+        fps_createNotification(
+            0,
+            'chargeback',
+            'Chargeback #' . $id . ' ' . ucfirst($newStatus),
+            'Chargeback for client #' . $cb->client_id . ' (amount $' . number_format((float) $cb->amount, 2) . ') status changed to ' . $newStatus . '.'
+        );
+
+        return ['success' => true, 'message' => 'Chargeback status updated to ' . $newStatus];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => 'Update failed: ' . $e->getMessage()];
+    }
+}
+
+function fps_ajaxAddChargebackEvidence(): array
+{
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        $notes = trim($_POST['evidence_notes'] ?? '');
+        $adminId = (int) ($_SESSION['adminid'] ?? 0);
+
+        if ($id < 1) {
+            return ['success' => false, 'error' => 'Invalid chargeback ID'];
+        }
+        if ($notes === '') {
+            return ['success' => false, 'error' => 'Evidence notes cannot be empty'];
+        }
+        if (strlen($notes) > 10000) {
+            return ['success' => false, 'error' => 'Evidence notes too long (max 10,000 characters)'];
+        }
+
+        if (!Capsule::schema()->hasTable('mod_fps_chargebacks')) {
+            return ['success' => false, 'error' => 'Chargebacks table not found'];
+        }
+
+        $cb = Capsule::table('mod_fps_chargebacks')->where('id', $id)->first();
+        if (!$cb) {
+            return ['success' => false, 'error' => 'Chargeback not found'];
+        }
+
+        // Append timestamped evidence note
+        $existing = $cb->evidence_notes ?? '';
+        $timestamp = date('Y-m-d H:i:s');
+        $adminLabel = 'Admin #' . $adminId;
+        $newEntry = "[{$timestamp}] ({$adminLabel}) {$notes}";
+        $updated = $existing !== '' ? $existing . "\n---\n" . $newEntry : $newEntry;
+
+        Capsule::table('mod_fps_chargebacks')->where('id', $id)->update([
+            'evidence_notes' => $updated,
+            'updated_at'     => $timestamp,
+        ]);
+
+        logActivity("FPS: Evidence added to chargeback #{$id} by admin #{$adminId}");
+
+        return ['success' => true, 'message' => 'Evidence notes added successfully'];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => 'Failed to add evidence: ' . $e->getMessage()];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// v5.1: ADMIN NOTIFICATION BELL
+// ---------------------------------------------------------------------------
+
+function fps_ajaxGetNotifications(): array
+{
+    try {
+        if (!Capsule::schema()->hasTable('mod_fps_notifications')) {
+            return ['success' => true, 'notifications' => [], 'unread_count' => 0];
+        }
+
+        $adminId = (int) ($_SESSION['adminid'] ?? 0);
+        $limit = min(50, max(5, (int) ($_GET['limit'] ?? 20)));
+
+        $notifications = Capsule::table('mod_fps_notifications')
+            ->where(function ($q) use ($adminId) {
+                $q->where('admin_id', 0)->orWhere('admin_id', $adminId);
+            })
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->toArray();
+
+        $unread = Capsule::table('mod_fps_notifications')
+            ->where(function ($q) use ($adminId) {
+                $q->where('admin_id', 0)->orWhere('admin_id', $adminId);
+            })
+            ->whereNull('read_at')
+            ->count();
+
+        $result = [];
+        foreach ($notifications as $n) {
+            $result[] = [
+                'id'         => $n->id,
+                'type'       => $n->type,
+                'title'      => $n->title,
+                'message'    => $n->message,
+                'read'       => $n->read_at !== null,
+                'read_at'    => $n->read_at,
+                'created_at' => $n->created_at,
+            ];
+        }
+
+        return ['success' => true, 'notifications' => $result, 'unread_count' => $unread];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+function fps_ajaxMarkNotificationRead(): array
+{
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id < 1) {
+            return ['success' => false, 'error' => 'Invalid notification ID'];
+        }
+        if (!Capsule::schema()->hasTable('mod_fps_notifications')) {
+            return ['success' => false, 'error' => 'Notifications table not found'];
+        }
+
+        Capsule::table('mod_fps_notifications')
+            ->where('id', $id)
+            ->whereNull('read_at')
+            ->update(['read_at' => date('Y-m-d H:i:s')]);
+
+        return ['success' => true];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+function fps_ajaxMarkAllNotificationsRead(): array
+{
+    try {
+        if (!Capsule::schema()->hasTable('mod_fps_notifications')) {
+            return ['success' => false, 'error' => 'Notifications table not found'];
+        }
+
+        $adminId = (int) ($_SESSION['adminid'] ?? 0);
+
+        $affected = Capsule::table('mod_fps_notifications')
+            ->where(function ($q) use ($adminId) {
+                $q->where('admin_id', 0)->orWhere('admin_id', $adminId);
+            })
+            ->whereNull('read_at')
+            ->update(['read_at' => date('Y-m-d H:i:s')]);
+
+        return ['success' => true, 'marked' => $affected];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Create an in-app notification for FPS admin users.
+ *
+ * Called from hooks (pre-checkout block, chargeback detection, auto-responder)
+ * and AJAX actions (chargeback status changes).
+ *
+ * @param int    $adminId  Target admin (0 = all admins)
+ * @param string $type     One of: critical_block, chargeback, auto_response, report, system
+ * @param string $title    Short title (max 255 chars)
+ * @param string $message  Longer detail message
+ */
+function fps_createNotification(int $adminId, string $type, string $title, string $message): void
+{
+    try {
+        if (!Capsule::schema()->hasTable('mod_fps_notifications')) {
+            return;
+        }
+
+        $validTypes = ['critical_block', 'chargeback', 'auto_response', 'report', 'system'];
+        if (!in_array($type, $validTypes, true)) {
+            $type = 'system';
+        }
+
+        Capsule::table('mod_fps_notifications')->insert([
+            'admin_id'   => $adminId,
+            'type'       => $type,
+            'title'      => substr($title, 0, 255),
+            'message'    => substr($message, 0, 2000),
+            'read_at'    => null,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        // Prune old notifications (keep latest 500 per admin scope)
+        try {
+            $cutoff = Capsule::table('mod_fps_notifications')
+                ->orderByDesc('created_at')
+                ->offset(500)
+                ->limit(1)
+                ->value('id');
+            if ($cutoff) {
+                Capsule::table('mod_fps_notifications')
+                    ->where('id', '<', $cutoff)
+                    ->whereNotNull('read_at')
+                    ->delete();
+            }
+        } catch (\Throwable $e) {
+            // Pruning failure is non-fatal
+        }
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'fps_createNotification::ERROR', $type, $e->getMessage());
     }
 }
 

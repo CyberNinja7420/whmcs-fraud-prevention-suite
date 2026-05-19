@@ -14,7 +14,7 @@ use WHMCS\Database\Capsule;
  * TabReviewQueue -- high/critical risk orders awaiting admin review.
  *
  * Displays filterable table with approve/deny action buttons per row,
- * bulk action bar, and pagination. All actions execute via AJAX.
+ * bulk action bar, pagination, per-check admin assignment, and notes.
  */
 class TabReviewQueue
 {
@@ -25,12 +25,30 @@ class TabReviewQueue
         $offset  = ($page - 1) * $perPage;
 
         // Filters
-        $filterLevel  = $_GET['risk_level'] ?? '';
-        $filterSearch = $_GET['search'] ?? '';
-        $filterFrom   = $_GET['date_from'] ?? '';
-        $filterTo     = $_GET['date_to'] ?? '';
+        $filterLevel    = $_GET['risk_level'] ?? '';
+        $filterSearch   = $_GET['search'] ?? '';
+        $filterFrom     = $_GET['date_from'] ?? '';
+        $filterTo       = $_GET['date_to'] ?? '';
+        $filterAssigned = $_GET['assigned_to'] ?? '';
 
-        $this->fpsRenderFilterBar($modulelink, $filterLevel, $filterSearch, $filterFrom, $filterTo);
+        // Check if assignment columns exist
+        $hasAssignCol = Capsule::schema()->hasColumn('mod_fps_checks', 'assigned_to');
+        $hasNotesCol  = Capsule::schema()->hasColumn('mod_fps_checks', 'admin_notes');
+
+        // Batch-fetch admins for assignment dropdown + display
+        $adminList = [];
+        try {
+            Capsule::table('tbladmins')
+                ->where('disabled', 0)
+                ->get(['id', 'firstname', 'lastname'])
+                ->each(function ($a) use (&$adminList) {
+                    $adminList[(int)$a->id] = trim($a->firstname . ' ' . $a->lastname);
+                });
+        } catch (\Throwable $e) {
+            // Non-fatal -- admin list unavailable
+        }
+
+        $this->fpsRenderFilterBar($modulelink, $filterLevel, $filterSearch, $filterFrom, $filterTo, $filterAssigned, $adminList, $hasAssignCol);
 
         try {
             // Show unreviewed checks from automated sources (new signups/orders)
@@ -60,6 +78,19 @@ class TabReviewQueue
             }
             if ($filterTo !== '') {
                 $query->where('created_at', '<=', $filterTo . ' 23:59:59');
+            }
+            // Filter by assigned admin
+            if ($hasAssignCol && $filterAssigned !== '') {
+                if ($filterAssigned === 'unassigned') {
+                    $query->whereNull('assigned_to');
+                } elseif ($filterAssigned === 'mine') {
+                    $myAdminId = (int)($_SESSION['adminid'] ?? 0);
+                    if ($myAdminId > 0) {
+                        $query->where('assigned_to', $myAdminId);
+                    }
+                } elseif (ctype_digit($filterAssigned)) {
+                    $query->where('assigned_to', (int)$filterAssigned);
+                }
             }
 
             $total      = $query->count();
@@ -115,7 +146,7 @@ class TabReviewQueue
             echo '</div>';
 
             // ---- Build table rows ----
-            $headers = ['', 'Client', 'Email', 'Type', 'Order', 'Risk Score', 'IP', 'Country', 'Time', 'Actions'];
+            $headers = ['', 'Client', 'Email', 'Type', 'Order', 'Risk Score', 'IP', 'Country', 'Assigned', 'Time', 'Actions'];
             $rows = [];
 
             foreach ($checks as $check) {
@@ -130,7 +161,7 @@ class TabReviewQueue
                 // ---- Client cell ----
                 $checkEmail = htmlspecialchars($check->email ?? '', ENT_QUOTES, 'UTF-8');
                 if ($isGuest) {
-                    // No client yet — pre-checkout visitor
+                    // No client yet -- pre-checkout visitor
                     $clientName = '<span class="fps-queue-guest-cell">'
                         . '<span class="fps-badge fps-badge-pending" style="font-size:0.68rem;">'
                         . '<i class="fas fa-user-clock"></i> Guest</span>'
@@ -180,32 +211,35 @@ class TabReviewQueue
                 // ---- Order cell ----
                 $orderCell = ($orderIdSafe > 0)
                     ? '<a href="orders.php?action=view&id=' . $orderIdSafe . '" class="fps-mono fps-text-muted" style="font-size:0.85rem;">#' . $orderIdSafe . '</a>'
-                    : '<span class="fps-text-muted">—</span>';
+                    : '<span class="fps-text-muted">---</span>';
 
                 // ---- Risk badge ----
                 $badge = FpsAdminRenderer::renderBadge($check->risk_level, (float)$check->risk_score);
 
                 // ---- IP / Country ----
-                $ip      = htmlspecialchars($check->ip_address ?? '—', ENT_QUOTES, 'UTF-8');
-                $country = htmlspecialchars($check->country ?? '—', ENT_QUOTES, 'UTF-8');
+                $ip      = htmlspecialchars($check->ip_address ?? '---', ENT_QUOTES, 'UTF-8');
+                $country = htmlspecialchars($check->country ?? '---', ENT_QUOTES, 'UTF-8');
                 $time    = htmlspecialchars($check->created_at ?? '', ENT_QUOTES, 'UTF-8');
 
-                // ---- Actions ----
+                // ---- Assignment cell ----
+                $assignedCell = $this->fpsRenderAssignmentCell($checkIdSafe, $check, $adminList, $hasAssignCol, $ajaxUrl);
+
+                // ---- Actions (with notes button) ----
                 $actions = '<div class="fps-action-group">';
                 $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-success"'
-                    . ' onclick="FpsAdmin.approveCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Approve — mark reviewed, allow">'
+                    . ' onclick="FpsAdmin.approveCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Approve -- mark reviewed, allow">'
                     . '<i class="fas fa-check"></i></button>';
                 $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-danger"'
-                    . ' onclick="FpsAdmin.denyCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Deny — mark reviewed, block">'
+                    . ' onclick="FpsAdmin.denyCheck(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Deny -- mark reviewed, block">'
                     . '<i class="fas fa-times"></i></button>';
 
                 if (!$isGuest && $clientExists) {
-                    // Real client — show profile link
+                    // Real client -- show profile link
                     $profileUrl = htmlspecialchars($modulelink . '&tab=client_profile&client_id=' . $clientIdSafe, ENT_QUOTES, 'UTF-8');
                     $actions .= '<a href="' . $profileUrl . '" class="fps-btn fps-btn-xs fps-btn-info" title="View FPS Client Profile">'
                         . '<i class="fas fa-user-shield"></i></a>';
                 } else {
-                    // Guest or deleted — search by email instead
+                    // Guest or deleted -- search by email instead
                     $emailSearch = urlencode($check->email ?? '');
                     $actions .= '<a href="clients.php?search=' . $emailSearch . '" class="fps-btn fps-btn-xs fps-btn-secondary" title="Search WHMCS for this email">'
                         . '<i class="fas fa-search"></i></a>';
@@ -214,6 +248,25 @@ class TabReviewQueue
                 $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-warning"'
                     . ' onclick="FpsAdmin.reportToFraudRecord(' . $checkIdSafe . ', \'' . $ajaxUrl . '\')" title="Report IP/email to FraudRecord">'
                     . '<i class="fas fa-flag"></i></button>';
+
+                // Notes button
+                if ($hasNotesCol) {
+                    $noteCount = 0;
+                    $rawNotes = $check->admin_notes ?? '';
+                    if (!empty($rawNotes)) {
+                        $decoded = json_decode($rawNotes, true);
+                        if (is_array($decoded)) {
+                            $noteCount = count($decoded);
+                        }
+                    }
+                    $noteBadge = $noteCount > 0
+                        ? '<span style="background:#667eea;color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;margin-left:2px;">' . $noteCount . '</span>'
+                        : '';
+                    $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-secondary"'
+                        . ' onclick="fpsQueueNotes.open(' . $checkIdSafe . ')" title="View/Add Notes">'
+                        . '<i class="fas fa-sticky-note"></i>' . $noteBadge . '</button>';
+                }
+
                 $actions .= '</div>';
 
                 $rows[] = [
@@ -225,6 +278,7 @@ class TabReviewQueue
                     $badge,
                     $ip,
                     $country,
+                    $assignedCell,
                     $time,
                     $actions,
                 ];
@@ -240,6 +294,9 @@ class TabReviewQueue
             if ($filterSearch !== '') {
                 $paginationBase .= '&search=' . urlencode($filterSearch);
             }
+            if ($filterAssigned !== '') {
+                $paginationBase .= '&assigned_to=' . urlencode($filterAssigned);
+            }
             echo FpsAdminRenderer::renderPagination($page, $totalPages, $paginationBase);
 
         } catch (\Throwable $e) {
@@ -249,19 +306,188 @@ class TabReviewQueue
             echo '</div>';
         }
 
+        // Notes modal + assignment JS
+        $this->fpsRenderNotesModal($modulelink);
+
         // Unscanned clients/users section
         $this->fpsRenderUnscannedSection($modulelink);
     }
 
     /**
-     * Render the filter bar with risk level, date range, and search inputs.
+     * Render the assignment cell for a single check row.
+     */
+    private function fpsRenderAssignmentCell(
+        int $checkId,
+        object $check,
+        array $adminList,
+        bool $hasAssignCol,
+        string $ajaxUrl
+    ): string {
+        if (!$hasAssignCol) {
+            return '<span class="fps-text-muted" style="font-size:0.8rem;">N/A</span>';
+        }
+
+        $assignedTo = (int)($check->assigned_to ?? 0);
+        $assignedName = '';
+        if ($assignedTo > 0 && isset($adminList[$assignedTo])) {
+            $assignedName = $adminList[$assignedTo];
+        }
+
+        $html = '<div class="fps-assign-cell" style="position:relative;" id="fps-assign-' . $checkId . '">';
+
+        if ($assignedTo > 0 && $assignedName !== '') {
+            $html .= '<span class="fps-badge fps-badge-info" style="font-size:0.68rem;cursor:pointer;" '
+                . 'onclick="fpsQueueAssign.toggle(' . $checkId . ')" title="Click to reassign">'
+                . '<i class="fas fa-user-check"></i> ' . htmlspecialchars($assignedName, ENT_QUOTES, 'UTF-8')
+                . '</span>';
+        } else {
+            $html .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-secondary" '
+                . 'onclick="fpsQueueAssign.toggle(' . $checkId . ')" title="Assign to admin">'
+                . '<i class="fas fa-user-plus"></i></button>';
+        }
+
+        // Hidden dropdown (toggled by JS)
+        $html .= '<div class="fps-assign-dropdown" id="fps-assign-dd-' . $checkId . '" style="display:none;position:absolute;z-index:100;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);padding:6px 0;min-width:180px;margin-top:4px;">';
+        $html .= '<a href="#" onclick="fpsQueueAssign.set(' . $checkId . ',0);return false;" '
+            . 'style="display:block;padding:6px 14px;font-size:0.82rem;color:#666;text-decoration:none;">Unassign</a>';
+        foreach ($adminList as $aId => $aName) {
+            $selected = ($aId === $assignedTo) ? 'font-weight:700;color:#667eea;' : '';
+            $html .= '<a href="#" onclick="fpsQueueAssign.set(' . $checkId . ',' . $aId . ');return false;" '
+                . 'style="display:block;padding:6px 14px;font-size:0.82rem;text-decoration:none;' . $selected . '">'
+                . htmlspecialchars($aName, ENT_QUOTES, 'UTF-8') . '</a>';
+        }
+        $html .= '</div>';
+
+        $html .= '</div>';
+        return $html;
+    }
+
+    /**
+     * Render the notes modal and inline JS for assignment/notes functionality.
+     */
+    private function fpsRenderNotesModal(string $modulelink): void
+    {
+        $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
+        $csrfToken = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
+
+        // Notes modal container
+        echo '<div id="fps-notes-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">';
+        echo '<div style="background:#fff;border-radius:14px;max-width:560px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">';
+        echo '<div style="padding:18px 24px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;display:flex;align-items:center;justify-content:space-between;">';
+        echo '<h4 style="margin:0;font-size:1rem;"><i class="fas fa-sticky-note"></i> Check Notes <span id="fps-notes-check-id" style="opacity:0.7;font-size:0.85rem;"></span></h4>';
+        echo '<button onclick="fpsQueueNotes.close()" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;opacity:0.8;"><i class="fas fa-times"></i></button>';
+        echo '</div>';
+        echo '<div id="fps-notes-list" style="flex:1;overflow-y:auto;padding:16px 24px;min-height:120px;">';
+        echo '<div style="text-align:center;color:#999;padding:20px;">Loading...</div>';
+        echo '</div>';
+        echo '<div style="padding:14px 24px;border-top:1px solid #eee;display:flex;gap:10px;">';
+        echo '<input type="text" id="fps-note-input" placeholder="Add a note..." style="flex:1;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;" onkeydown="if(event.key===\'Enter\')fpsQueueNotes.add()">';
+        echo '<button onclick="fpsQueueNotes.add()" class="fps-btn fps-btn-sm fps-btn-primary" style="white-space:nowrap;"><i class="fas fa-paper-plane"></i> Add</button>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+
+        // JS for assignment and notes
+        echo '<script>';
+        echo '(function(){';
+        echo 'var csrfToken=' . json_encode($csrfToken) . ';';
+        echo 'var ajaxBase=' . json_encode($ajaxUrl) . ';';
+
+        // Assignment toggle/set
+        echo 'window.fpsQueueAssign={';
+        echo 'toggle:function(id){';
+        echo '  var dd=document.getElementById("fps-assign-dd-"+id);if(!dd)return;';
+        echo '  document.querySelectorAll(".fps-assign-dropdown").forEach(function(el){if(el.id!=="fps-assign-dd-"+id)el.style.display="none";});';
+        echo '  dd.style.display=dd.style.display==="none"?"block":"none";';
+        echo '},';
+        echo 'set:function(checkId,adminId){';
+        echo '  var dd=document.getElementById("fps-assign-dd-"+checkId);if(dd)dd.style.display="none";';
+        echo '  fetch(ajaxBase+"&a=assign_check",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},credentials:"same-origin",body:"token="+encodeURIComponent(csrfToken)+"&check_id="+checkId+"&admin_id="+adminId})';
+        echo '  .then(function(r){return r.json();})';
+        echo '  .then(function(data){';
+        echo '    if(data.error){if(typeof FpsAdmin!=="undefined"&&FpsAdmin.showToast)FpsAdmin.showToast(data.error,"error");else alert(data.error);return;}';
+        echo '    var cell=document.getElementById("fps-assign-"+checkId);if(!cell)return;';
+        echo '    var trigger=cell.querySelector(".fps-badge,.fps-btn");if(!trigger)return;';
+        echo '    if(adminId>0&&data.admin_name){';
+        echo '      var el=document.createElement("span");el.className="fps-badge fps-badge-info";el.style.cssText="font-size:0.68rem;cursor:pointer;";';
+        echo '      el.setAttribute("onclick","fpsQueueAssign.toggle("+checkId+")");el.setAttribute("title","Click to reassign");';
+        echo '      el.textContent=data.admin_name;';
+        echo '      var ic=document.createElement("i");ic.className="fas fa-user-check";ic.style.marginRight="4px";el.prepend(ic);';
+        echo '      trigger.replaceWith(el);';
+        echo '    }else{';
+        echo '      var btn=document.createElement("button");btn.type="button";btn.className="fps-btn fps-btn-xs fps-btn-secondary";';
+        echo '      btn.setAttribute("onclick","fpsQueueAssign.toggle("+checkId+")");btn.setAttribute("title","Assign to admin");';
+        echo '      var ic=document.createElement("i");ic.className="fas fa-user-plus";btn.appendChild(ic);';
+        echo '      trigger.replaceWith(btn);';
+        echo '    }';
+        echo '    if(typeof FpsAdmin!=="undefined"&&FpsAdmin.showToast)FpsAdmin.showToast(adminId>0?"Assigned to "+data.admin_name:"Unassigned","success");';
+        echo '  }).catch(function(e){console.error("FPS assign error:",e);});';
+        echo '}};';
+
+        // Close dropdowns on outside click
+        echo 'document.addEventListener("click",function(e){if(!e.target.closest(".fps-assign-cell"))document.querySelectorAll(".fps-assign-dropdown").forEach(function(el){el.style.display="none";});});';
+
+        // Notes modal
+        echo 'var currentCheckId=0;';
+        echo 'window.fpsQueueNotes={';
+        echo 'open:function(checkId){';
+        echo '  currentCheckId=checkId;';
+        echo '  document.getElementById("fps-notes-check-id").textContent="#"+checkId;';
+        echo '  var modal=document.getElementById("fps-notes-modal");modal.style.display="flex";';
+        echo '  document.getElementById("fps-note-input").value="";';
+        echo '  var list=document.getElementById("fps-notes-list");';
+        echo '  while(list.firstChild)list.removeChild(list.firstChild);';
+        echo '  var ldiv=document.createElement("div");ldiv.style.cssText="text-align:center;color:#999;padding:20px;";ldiv.textContent="Loading...";list.appendChild(ldiv);';
+        echo '  fetch(ajaxBase+"&a=get_check_notes&check_id="+checkId,{credentials:"same-origin"})';
+        echo '  .then(function(r){return r.json();})';
+        echo '  .then(function(data){fpsQueueNotes._render(data.notes||[]);})';
+        echo '  .catch(function(){var el=document.getElementById("fps-notes-list");while(el.firstChild)el.removeChild(el.firstChild);var d=document.createElement("div");d.style.cssText="color:#e74c3c;padding:16px;";d.textContent="Failed to load notes";el.appendChild(d);});';
+        echo '},';
+        echo 'close:function(){document.getElementById("fps-notes-modal").style.display="none";currentCheckId=0;},';
+        echo 'add:function(){';
+        echo '  var input=document.getElementById("fps-note-input");var text=(input.value||"").trim();';
+        echo '  if(!text||currentCheckId<1)return;';
+        echo '  fetch(ajaxBase+"&a=add_check_note",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},credentials:"same-origin",body:"token="+encodeURIComponent(csrfToken)+"&check_id="+currentCheckId+"&note="+encodeURIComponent(text)})';
+        echo '  .then(function(r){return r.json();})';
+        echo '  .then(function(data){';
+        echo '    if(data.error){if(typeof FpsAdmin!=="undefined"&&FpsAdmin.showToast)FpsAdmin.showToast(data.error,"error");return;}';
+        echo '    input.value="";fpsQueueNotes._render(data.notes||[]);';
+        echo '  }).catch(function(e){console.error("FPS note error:",e);});';
+        echo '},';
+        echo '_render:function(notes){';
+        echo '  var c=document.getElementById("fps-notes-list");while(c.firstChild)c.removeChild(c.firstChild);';
+        echo '  if(!notes||notes.length===0){var d=document.createElement("div");d.style.cssText="text-align:center;color:#999;padding:20px;font-size:0.9rem;";d.textContent="No notes yet. Add one below.";c.appendChild(d);return;}';
+        echo '  notes.forEach(function(n){';
+        echo '    var wrap=document.createElement("div");wrap.style.cssText="margin-bottom:12px;padding:10px 14px;background:#f8f9fc;border-radius:8px;border-left:3px solid #667eea;";';
+        echo '    var hdr=document.createElement("div");hdr.style.cssText="display:flex;justify-content:space-between;margin-bottom:4px;";';
+        echo '    var nm=document.createElement("strong");nm.style.cssText="font-size:0.82rem;color:#333;";nm.textContent=(n.admin_name||"Unknown");hdr.appendChild(nm);';
+        echo '    var ts=document.createElement("span");ts.style.cssText="font-size:0.75rem;color:#999;";ts.textContent=(n.timestamp||"");hdr.appendChild(ts);';
+        echo '    wrap.appendChild(hdr);';
+        echo '    var body=document.createElement("div");body.style.cssText="font-size:0.88rem;color:#555;line-height:1.5;";body.textContent=(n.text||"");wrap.appendChild(body);';
+        echo '    c.appendChild(wrap);';
+        echo '  });';
+        echo '  c.scrollTop=c.scrollHeight;';
+        echo '}};';
+
+        // Close modal on backdrop click
+        echo 'document.getElementById("fps-notes-modal").addEventListener("click",function(e){if(e.target===this)fpsQueueNotes.close();});';
+
+        echo '})();';
+        echo '</script>';
+    }
+
+    /**
+     * Render the filter bar with risk level, date range, search, and assignment filter.
      */
     private function fpsRenderFilterBar(
         string $modulelink,
         string $filterLevel,
         string $filterSearch,
         string $filterFrom,
-        string $filterTo
+        string $filterTo,
+        string $filterAssigned,
+        array $adminList,
+        bool $hasAssignCol
     ): void {
         $actionUrl = htmlspecialchars($modulelink . '&tab=review_queue', ENT_QUOTES, 'UTF-8');
 
@@ -293,6 +519,22 @@ class TabReviewQueue
         echo '    <option value="low"' . ($filterLevel === 'low' ? ' selected' : '') . '>Low</option>';
         echo '  </select>';
         echo '</div>';
+
+        // Assigned to filter
+        if ($hasAssignCol && !empty($adminList)) {
+            echo '<div class="fps-form-group">';
+            echo '  <label><i class="fas fa-user-tag"></i> Assigned To</label>';
+            echo '  <select name="assigned_to" class="fps-select">';
+            echo '    <option value="">All</option>';
+            echo '    <option value="mine"' . ($filterAssigned === 'mine' ? ' selected' : '') . '>My Checks</option>';
+            echo '    <option value="unassigned"' . ($filterAssigned === 'unassigned' ? ' selected' : '') . '>Unassigned</option>';
+            foreach ($adminList as $aId => $aName) {
+                $sel = ((string)$aId === $filterAssigned) ? ' selected' : '';
+                echo '    <option value="' . $aId . '"' . $sel . '>' . htmlspecialchars($aName, ENT_QUOTES, 'UTF-8') . '</option>';
+            }
+            echo '  </select>';
+            echo '</div>';
+        }
 
         // Date from
         echo '<div class="fps-form-group">';
@@ -338,14 +580,6 @@ class TabReviewQueue
                 ->get(['id', 'firstname', 'lastname', 'email', 'status', 'datecreated', 'ip']);
 
             // Count unscanned users (tblusers)
-            // A tblusers account is only "unscanned" when:
-            //   1. Its email hasn't appeared in any fraud check, AND
-            //   2. It is linked (via tblusers_clients) to at least one EXISTING client
-            //      that has NOT been scanned yet.
-            // This filters out:
-            //   - Users linked only to deleted clients (orphaned tblusers_clients rows)
-            //   - Users with no client link at all (admin/system accounts)
-            //   - Users whose linked clients have ALL been scanned already
             $unscannedUserCount = 0;
             if (Capsule::schema()->hasTable('tblusers')) {
                 $checkedEmails = Capsule::table('mod_fps_checks')
@@ -355,10 +589,6 @@ class TabReviewQueue
                 $userQuery = Capsule::table('tblusers')
                     ->whereNotIn('email', $checkedEmails ?: ['']);
 
-                // WHMCS 8.x uses tblusers_clients (auth_user_id -> client_id).
-                // Some installations may use tblclients_users (users_id -> clients_id).
-                // The JOIN on tblclients ensures we ignore links to deleted clients
-                // (e.g. user linked only to a purged client_id stays filtered out).
                 if (Capsule::schema()->hasTable('tblusers_clients')) {
                     $userQuery->whereExists(function ($sub) use ($scannedIds) {
                         $sub->selectRaw('1')
