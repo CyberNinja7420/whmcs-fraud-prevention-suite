@@ -535,6 +535,16 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                             // Non-fatal -- don't let logging failure unblock the bot
                         }
 
+                        // Classify the IP for VPN/Tor/proxy stats even on Turnstile blocks.
+                        // Without this, all Turnstile-blocked IPs are invisible to the stats
+                        // dashboard because IpIntelProvider never runs.
+                        try {
+                            if ($ip !== '' && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\IpIntelProvider')) {
+                                $ipProvider = new \FraudPreventionSuite\Lib\Providers\IpIntelProvider();
+                                $ipProvider->check(['ip' => $ip, 'email' => $email ?? '', 'country' => $country ?? '']);
+                            }
+                        } catch (\Throwable $e) { /* non-fatal stats enrichment */ }
+
                         return ['Bot protection verification failed. Please refresh the page and try again. Reference: FPS-TS-' . date('ymdHi')];
                     }
                 }
