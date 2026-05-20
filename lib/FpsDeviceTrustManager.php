@@ -792,13 +792,17 @@ class FpsDeviceTrustManager
                 ->get();
 
             foreach ($rows as $row) {
-                $s = $row->status ?? 'normal';
-                if (isset($stats[$s])) {
-                    $stats[$s] = (int) $row->cnt;
+                $s = (string) ($row->status ?? 'normal');
+                $cnt = (int) ($row->cnt ?? 0);
+                switch ($s) {
+                    case 'trusted': $stats['trusted'] = $cnt; break;
+                    case 'blocked': $stats['blocked'] = $cnt; break;
+                    case 'watched': $stats['watched'] = $cnt; break;
+                    case 'normal':  $stats['normal']  = $cnt; break;
                 }
             }
 
-            $stats['total'] = array_sum([$stats['trusted'], $stats['blocked'], $stats['watched'], $stats['normal']]);
+            $stats['total'] = $stats['trusted'] + $stats['blocked'] + $stats['watched'] + $stats['normal'];
         } catch (\Throwable $e) {
             // Non-fatal
         }
