@@ -33,7 +33,7 @@
 .fps-pub-stat{background:#fff;border-radius:14px;padding:28px 24px;text-align:center;box-shadow:0 2px 8px rgba(15,23,42,0.06);border:1px solid #e2e8f0;transition:transform 0.2s,box-shadow 0.2s;}
 .fps-pub-stat:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(22,163,74,0.1);}
 .fps-pub-stat-value{font-size:2.2rem;font-weight:900;color:#0f172a;display:block;}
-.fps-pub-stat-label{font-size:0.8rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;display:block;font-weight:700;}
+.fps-pub-stat-label{font-size:0.8rem;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;display:block;font-weight:700;}
 .fps-pub-stat-value.danger{color:#ef4444;}
 .fps-pub-stat-value.primary{color:#2563eb;}
 .fps-pub-stat-value.success{color:#16a34a;}
@@ -42,7 +42,7 @@
 .fps-pub-section{margin-bottom:40px;}
 .fps-pub-section h2{font-size:1.6rem;font-weight:800;color:#0f172a;margin:0 0 8px;display:flex;align-items:center;gap:10px;}
 .fps-pub-section h2 i{color:#16a34a;}
-.fps-pub-section p.subtitle{font-size:1rem;color:#64748b;margin:0 0 24px;}
+.fps-pub-section p.subtitle{font-size:1rem;color:#475569;margin:0 0 24px;}
 
 /* Detection engine cards - white with green hover border */
 .fps-pub-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
@@ -82,7 +82,7 @@
 .fps-pub-endpoint .method.post{background:#2563eb;}
 .fps-pub-endpoint .method.delete{background:#ef4444;}
 .fps-pub-endpoint .path{font-family:'Fira Code','JetBrains Mono',monospace;font-size:0.9rem;color:#0f172a;flex:1;font-weight:600;}
-.fps-pub-endpoint .desc{font-size:0.82rem;color:#64748b;}
+.fps-pub-endpoint .desc{font-size:0.82rem;color:#475569;}
 .fps-pub-endpoint .tier-badge{background:#f0fdf4;color:#16a34a;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;border:1px solid #bbf7d0;}
 .fps-pub-endpoint .tier-badge.free{background:#f0fdf4;color:#16a34a;border-color:#bbf7d0;}
 .fps-pub-endpoint .tier-badge.premium{background:#fef2f2;color:#ef4444;border-color:#fecaca;}
@@ -170,7 +170,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
     {* === LIVE STATS === *}
     <div class="fps-pub-section">
         <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-chart-bar" style="color:#16a34a;"></i> Live Platform Statistics</h2>
-        <p class="subtitle" style="color:#64748b;font-size:1rem;">Real-time data from our fraud detection infrastructure.</p>
+        <p class="subtitle" style="color:#475569;font-size:1rem;">Real-time data from our fraud detection infrastructure.</p>
     </div>
 
     <div class="fps-pub-stats">
@@ -185,7 +185,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
     {* === ANONYMITY DETECTION STATS === *}
     <div class="fps-pub-section">
         <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-mask" style="color:#16a34a;"></i> Anonymity Network Detection</h2>
-        <p class="subtitle" style="color:#64748b;font-size:1rem;">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
+        <p class="subtitle" style="color:#475569;font-size:1rem;">Real-time detection of VPNs, Tor exit nodes, proxies, and datacenter IPs.</p>
     </div>
 
     <div class="fps-pub-stats">
@@ -200,7 +200,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
     {* === DETECTION ENGINES === *}
     <div class="fps-pub-section">
         <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-puzzle-piece" style="color:#16a34a;"></i> Detection Engines</h2>
-        <p class="subtitle" style="color:#64748b;font-size:1rem;">Multi-layered fraud detection combining {$stats.provider_count}+ independent intelligence sources.</p>
+        <p class="subtitle" style="color:#475569;font-size:1rem;">Multi-layered fraud detection combining {$stats.provider_count}+ independent intelligence sources.</p>
     </div>
 
     <div class="fps-pub-features">
@@ -398,7 +398,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
     {* === COMPETITOR COMPARISON === *}
     <div class="fps-pub-section" id="comparison">
         <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-trophy" style="color:#16a34a;"></i> How FPS Compares</h2>
-        <p class="subtitle" style="color:#64748b;font-size:1rem;">See how Fraud Prevention Suite stacks up against the leading WHMCS fraud prevention solutions.</p>
+        <p class="subtitle" style="color:#475569;font-size:1rem;">See how Fraud Prevention Suite stacks up against the leading WHMCS fraud prevention solutions.</p>
 
         <div style="overflow-x:auto;margin-top:20px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,0.06);">
             <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
@@ -414,116 +414,116 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
                 </thead>
                 <tbody>
                     <tr style="background:#f8fafc;">
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Detection Engines</td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Detection Engines</td>
                         <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;font-weight:700;color:#16a34a;background:rgba(22,163,74,0.04);">18+</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">6</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">4</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">3</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">2</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">6</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">4</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">3</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">2</td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Bot Defense Layers</td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Bot Defense Layers</td>
                         <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;font-weight:700;color:#16a34a;background:rgba(22,163,74,0.04);">6</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">1</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">1</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">2</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">0</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">1</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">1</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">2</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">0</td>
                     </tr>
                     <tr style="background:#f8fafc;">
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Proof-of-Work Challenge</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Proof-of-Work Challenge</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Behavioral Biometrics</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#f59e0b;">Partial</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Behavioral Biometrics</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;<span style="display:inline-block;background:#92400e;color:#fbbf24;font-weight:700;font-size:0.72rem;padding:2px 8px;border-radius:10px;">PARTIAL</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr style="background:#f8fafc;">
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">3D Threat Globe</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">3D Threat Globe</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Global Intel Sharing</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Global Intel Sharing</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr style="background:#f8fafc;">
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">SMS/OTP Verification</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">SMS/OTP Verification</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">SaaS API (3 Tiers)</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">SaaS API (3 Tiers)</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
                     </tr>
                     <tr style="background:#f8fafc;">
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">GDPR Export/Erasure</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">GDPR Export/Erasure</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Chargeback Workflow</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#f59e0b;">Partial</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Chargeback Workflow</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;<span style="display:inline-block;background:#92400e;color:#fbbf24;font-weight:700;font-size:0.72rem;padding:2px 8px;border-radius:10px;">PARTIAL</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr style="background:#f8fafc;">
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Scheduled PDF Reports</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Scheduled PDF Reports</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Auto-Response Actions</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Auto-Response Actions</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr style="background:#f8fafc;">
-                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Self-Hosted + Open Source</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#0f172a;text-shadow:0 0 0 transparent;">Self-Hosted + Open Source</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;font-size:0.75rem;padding:2px 10px;border-radius:10px;letter-spacing:0.03em;">YES</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background:#1e293b;color:#94a3b8;font-weight:700;font-size:0.72rem;padding:2px 10px;border-radius:10px;">NO</span></td>
                     </tr>
                     <tr>
                         <td style="padding:14px 16px;font-weight:700;color:#0f172a;border-top:2px solid #e2e8f0;">Price</td>
                         <td style="padding:14px 16px;text-align:center;font-weight:800;color:#16a34a;border-top:2px solid #e2e8f0;background:rgba(22,163,74,0.04);">Free (MIT)</td>
-                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$29+/mo</td>
-                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$20+/mo</td>
-                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$49+/mo</td>
-                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$10+/mo</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#475569;border-top:2px solid #e2e8f0;">$29+/mo</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#475569;border-top:2px solid #e2e8f0;">$20+/mo</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#475569;border-top:2px solid #e2e8f0;">$49+/mo</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#475569;border-top:2px solid #e2e8f0;">$10+/mo</td>
                     </tr>
                 </tbody>
             </table>
