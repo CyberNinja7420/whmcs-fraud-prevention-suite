@@ -395,6 +395,142 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
         <p style="font-size:0.9rem;color:var(--fps-pub-text-secondary);margin:0;">All responses include: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, and <code>Retry-After</code> (on 429). Rate limits are per API key (or per IP for anonymous).</p>
     </div>
 
+    {* === COMPETITOR COMPARISON === *}
+    <div class="fps-pub-section" id="comparison">
+        <h2 style="color:#0f172a;font-size:1.6rem;"><i class="fas fa-trophy" style="color:#16a34a;"></i> How FPS Compares</h2>
+        <p class="subtitle" style="color:#64748b;font-size:1rem;">See how Fraud Prevention Suite stacks up against the leading WHMCS fraud prevention solutions.</p>
+
+        <div style="overflow-x:auto;margin-top:20px;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,0.06);">
+            <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+                <thead>
+                    <tr style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;">
+                        <th style="padding:14px 16px;text-align:left;font-weight:700;border-bottom:2px solid #16a34a;min-width:200px;">Capability</th>
+                        <th style="padding:14px 16px;text-align:center;font-weight:700;border-bottom:2px solid #16a34a;background:rgba(22,163,74,0.15);min-width:100px;">FPS</th>
+                        <th style="padding:14px 16px;text-align:center;font-weight:700;border-bottom:2px solid #334155;min-width:120px;">FraudLabs Pro</th>
+                        <th style="padding:14px 16px;text-align:center;font-weight:700;border-bottom:2px solid #334155;min-width:80px;">IPQS</th>
+                        <th style="padding:14px 16px;text-align:center;font-weight:700;border-bottom:2px solid #334155;min-width:90px;">Sensfrx</th>
+                        <th style="padding:14px 16px;text-align:center;font-weight:700;border-bottom:2px solid #334155;min-width:90px;">MaxMind</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background:#f8fafc;">
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Detection Engines</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;font-weight:700;color:#16a34a;background:rgba(22,163,74,0.04);">18+</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">6</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">4</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">3</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">2</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Bot Defense Layers</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;font-weight:700;color:#16a34a;background:rgba(22,163,74,0.04);">6</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">1</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">1</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">2</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#64748b;">0</td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Proof-of-Work Challenge</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Behavioral Biometrics</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#f59e0b;">Partial</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">3D Threat Globe</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Global Intel Sharing</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">SMS/OTP Verification</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">SaaS API (3 Tiers)</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">GDPR Export/Erasure</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Chargeback Workflow</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#f59e0b;">Partial</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Scheduled PDF Reports</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Auto-Response Actions</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#0f172a;">Self-Hosted + Open Source</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;background:rgba(22,163,74,0.04);"><i class="fas fa-check-circle" style="color:#16a34a;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;"><i class="fas fa-times-circle" style="color:#cbd5e1;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:14px 16px;font-weight:700;color:#0f172a;border-top:2px solid #e2e8f0;">Price</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:800;color:#16a34a;border-top:2px solid #e2e8f0;background:rgba(22,163,74,0.04);">Free (MIT)</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$29+/mo</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$20+/mo</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$49+/mo</td>
+                        <td style="padding:14px 16px;text-align:center;font-weight:600;color:#64748b;border-top:2px solid #e2e8f0;">$10+/mo</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="font-size:0.78rem;color:#94a3b8;margin-top:12px;text-align:center;">Comparison based on publicly available documentation as of May 2026. Feature availability may vary by plan or version.</p>
+    </div>
+
     {* === CTA === *}
     <div class="fps-pub-cta">
         <h2>Protect Your Business Today</h2>
