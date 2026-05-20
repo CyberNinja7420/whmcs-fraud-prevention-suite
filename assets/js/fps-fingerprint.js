@@ -251,6 +251,117 @@
   }
 
   /* ------------------------------------------------------------------
+     MATH FINGERPRINT
+     Math precision varies by hardware FPU and JS engine version.
+  ------------------------------------------------------------------ */
+  function collectMathFingerprint() {
+    try {
+      var results = [];
+      results.push(Math.tan(-1e300));
+      results.push(Math.cos(21.0 * Math.LN2));
+      results.push(Math.sin(Math.PI / 6));
+      results.push(Math.atan2(2, 3));
+      results.push(Math.exp(10));
+      results.push(Math.log(1000));
+      results.push(Math.pow(Math.PI, -100));
+      return results.map(function (v) { return String(v).substr(0, 20); }).join(',');
+    } catch (e) { return 'unsupported'; }
+  }
+
+  /* ------------------------------------------------------------------
+     EMOJI CANVAS HASH
+     Emoji rendering differs by OS, browser, and installed fonts.
+  ------------------------------------------------------------------ */
+  function collectEmojiHash() {
+    return new Promise(function (resolve) {
+      try {
+        var c = document.createElement('canvas');
+        c.width = 200; c.height = 50;
+        var ctx = c.getContext('2d');
+        if (!ctx) { resolve('unsupported'); return; }
+        ctx.textBaseline = 'top';
+        ctx.font = '32px serif';
+        ctx.fillText('😀👍🌍❤️🚀', 2, 2);
+        sha256(c.toDataURL()).then(resolve).catch(function () { resolve('error'); });
+      } catch (e) { resolve('unsupported'); }
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     SPEECH SYNTHESIS VOICES
+     Voice list is OS/browser specific and stable across sessions.
+  ------------------------------------------------------------------ */
+  function collectSpeechVoices() {
+    try {
+      if (!window.speechSynthesis) return 'unsupported';
+      var voices = speechSynthesis.getVoices();
+      if (voices.length === 0) return 'pending';
+      return voices.map(function (v) { return v.name + ':' + v.lang; }).sort().join(',');
+    } catch (e) { return 'unsupported'; }
+  }
+
+  /* ------------------------------------------------------------------
+     MEDIA DEVICE COUNTS
+     Returns counts of audio inputs, audio outputs, and video inputs.
+     Labels are not available without a getUserMedia grant, but counts
+     and device kinds are visible and stable per hardware config.
+  ------------------------------------------------------------------ */
+  function collectMediaDevices() {
+    return new Promise(function (resolve) {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+          resolve('unsupported');
+          return;
+        }
+        navigator.mediaDevices.enumerateDevices().then(function (devices) {
+          var counts = { audioinput: 0, audiooutput: 0, videoinput: 0 };
+          devices.forEach(function (d) {
+            if (counts[d.kind] !== undefined) counts[d.kind]++;
+          });
+          resolve(counts.audioinput + ',' + counts.audiooutput + ',' + counts.videoinput);
+        }).catch(function () { resolve('blocked'); });
+      } catch (e) { resolve('unsupported'); }
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     INCOGNITO / PRIVATE MODE DETECTION
+     Storage quota is capped at ~120 MB in private/incognito mode
+     versus several GB in a normal session.
+  ------------------------------------------------------------------ */
+  function detectIncognito() {
+    return new Promise(function (resolve) {
+      try {
+        if (navigator.storage && navigator.storage.estimate) {
+          navigator.storage.estimate().then(function (est) {
+            resolve(est.quota < 120000000 ? 'incognito' : 'normal');
+          }).catch(function () { resolve('unknown'); });
+        } else {
+          resolve('unknown');
+        }
+      } catch (e) { resolve('unknown'); }
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     CLIENT HINTS
+     User-Agent Client Hints (UA-CH) are available synchronously in
+     Chromium-based browsers. Ignored silently elsewhere.
+  ------------------------------------------------------------------ */
+  function collectClientHints() {
+    try {
+      var hints = {};
+      if (navigator.userAgentData) {
+        hints.brands = navigator.userAgentData.brands
+          .map(function (b) { return b.brand + ':' + b.version; }).join(',');
+        hints.mobile   = navigator.userAgentData.mobile;
+        hints.platform = navigator.userAgentData.platform;
+      }
+      return JSON.stringify(hints);
+    } catch (e) { return '{}'; }
+  }
+
+  /* ------------------------------------------------------------------
      MISC BROWSER FEATURES
   ------------------------------------------------------------------ */
   function collectFeatures() {
@@ -283,26 +394,35 @@
   ------------------------------------------------------------------ */
   function collect() {
     return Promise.all([
-      canvasFingerprint(),
-      webglFingerprint(),
-      webrtcIPs(),
-      audioFingerprint(),
+      canvasFingerprint(),     // results[0]
+      webglFingerprint(),      // results[1]
+      webrtcIPs(),             // results[2]
+      audioFingerprint(),      // results[3]
+      collectEmojiHash(),      // results[4]
+      collectMediaDevices(),   // results[5]
+      detectIncognito(),       // results[6]
     ]).then(function (results) {
       var fp = {
-        v:          '2.0',
-        ts:         Date.now(),
-        nav:        collectNavigator(),
-        screen:     collectScreen(),
-        tz:         collectTimezone(),
-        fonts:      detectFonts(),
-        features:   collectFeatures(),
-        canvas:     results[0],
-        webgl:      results[1],
-        webrtc_ips: results[2],
-        audio:      results[3],
+        v:            '2.0',
+        ts:           Date.now(),
+        nav:          collectNavigator(),
+        screen:       collectScreen(),
+        tz:           collectTimezone(),
+        fonts:        detectFonts(),
+        features:     collectFeatures(),
+        canvas:       results[0],
+        webgl:        results[1],
+        webrtc_ips:   results[2],
+        audio:        results[3],
+        emoji:        results[4],
+        media_devices: results[5],
+        incognito:    results[6],
+        math:         collectMathFingerprint(),
+        speech_voices: collectSpeechVoices(),
+        client_hints: collectClientHints(),
       };
 
-      // Composite hash of stable signals (12 factors)
+      // Composite hash of stable signals (22 factors)
       var stable = [
         fp.canvas.hash,
         fp.webgl.hash,
@@ -310,12 +430,22 @@
         fp.nav.ua,
         fp.screen.w + 'x' + fp.screen.h,
         fp.screen.cd,
+        fp.screen.dpr,
         fp.tz.tz,
         fp.nav.cores,
         fp.nav.mem,
         fp.nav.touch,
+        fp.nav.langs,
+        fp.nav.platform,
+        fp.nav.dnt,
         fp.webgl.renderer || '',
         (fp.fonts || []).sort().join(','),
+        fp.math,
+        fp.emoji || '',
+        fp.speech_voices || '',
+        fp.media_devices || '',
+        fp.client_hints || '',
+        fp.features.plugins || '',
       ].join('|');
 
       return sha256(stable).then(function (compositeHash) {
