@@ -302,19 +302,45 @@
         audio:      results[3],
       };
 
-      // Composite hash of stable signals
+      // Composite hash of stable signals (12 factors)
       var stable = [
         fp.canvas.hash,
         fp.webgl.hash,
+        fp.audio,
         fp.nav.ua,
         fp.screen.w + 'x' + fp.screen.h,
+        fp.screen.cd,
         fp.tz.tz,
         fp.nav.cores,
         fp.nav.mem,
+        fp.nav.touch,
+        fp.webgl.renderer || '',
+        (fp.fonts || []).sort().join(','),
       ].join('|');
 
       return sha256(stable).then(function (compositeHash) {
         fp.fp_id = compositeHash;
+
+        // Store device ID in cookie for cross-page device trust checking
+        try {
+          document.cookie = 'fps_device_id=' + compositeHash + ';path=/;max-age=31536000;SameSite=Lax;Secure';
+        } catch (cookieErr) { /* cookie write blocked -- non-fatal */ }
+
+        // Also inject as hidden form field for POST-based trust lookups
+        try {
+          var forms = document.querySelectorAll('form');
+          for (var fi = 0; fi < forms.length; fi++) {
+            var existing = forms[fi].querySelector('input[name="fps_fingerprint_hash"]');
+            if (!existing) {
+              var hiddenHash = document.createElement('input');
+              hiddenHash.type = 'hidden';
+              hiddenHash.name = 'fps_fingerprint_hash';
+              hiddenHash.value = compositeHash;
+              forms[fi].appendChild(hiddenHash);
+            }
+          }
+        } catch (formErr) { /* non-fatal */ }
+
         return fp;
       });
     });

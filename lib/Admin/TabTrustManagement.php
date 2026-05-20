@@ -10,10 +10,11 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 /**
- * TabTrustManagement -- allowlist/blacklist management for client trust status.
+ * TabTrustManagement -- allowlist/blacklist management for client AND device trust status.
  *
  * Shows ALL clients with their trust status (Normal by default).
  * Admins can search, filter, and change trust levels per client.
+ * Also shows device fingerprint trust management below the client section.
  */
 class TabTrustManagement
 {
@@ -22,6 +23,9 @@ class TabTrustManagement
         $this->fpsRenderStatsRow();
         $this->fpsRenderManageForm($modulelink);
         $this->fpsRenderTrustList($modulelink);
+
+        // Device Trust section
+        $this->fpsRenderDeviceTrust($modulelink);
     }
 
     /**
@@ -151,5 +155,118 @@ document.addEventListener('DOMContentLoaded', function() {
 HTML;
 
         echo FpsAdminRenderer::renderCard('Client Trust List', 'fa-list-check', $tableHtml);
+    }
+
+    // -----------------------------------------------------------------------
+    // Device Trust section
+    // -----------------------------------------------------------------------
+
+    /**
+     * Render the full Device Trust management section.
+     *
+     * Shows device trust stats, search/filter, table of devices with
+     * trust status, and controls to trust/block/watch devices.
+     */
+    private function fpsRenderDeviceTrust(string $modulelink): void
+    {
+        // Section header
+        echo '<div style="margin-top:2rem;margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid rgba(102,126,234,0.2);">';
+        echo '<h3 style="margin:0;font-size:1.15rem;font-weight:700;color:var(--fps-text-primary,#1a1d2e);display:flex;align-items:center;gap:0.5rem;">';
+        echo '<i class="fas fa-fingerprint" style="color:#667eea;"></i> Device Trust Management';
+        echo '</h3>';
+        echo '<p style="margin:0.35rem 0 0 0;font-size:0.82rem;color:var(--fps-text-secondary,#5a6176);">';
+        echo 'Manage trust status for device fingerprints independently of client accounts. Block known-bad devices or trust verified workstations.';
+        echo '</p>';
+        echo '</div>';
+
+        $this->fpsRenderDeviceStatsRow();
+        $this->fpsRenderDeviceList($modulelink);
+    }
+
+    /**
+     * Render device trust stat cards.
+     */
+    private function fpsRenderDeviceStatsRow(): void
+    {
+        $stats = [
+            'trusted' => 0,
+            'blocked' => 0,
+            'watched' => 0,
+            'total'   => 0,
+        ];
+
+        try {
+            if (Capsule::schema()->hasTable('mod_fps_device_trust')) {
+                $rows = Capsule::table('mod_fps_device_trust')
+                    ->selectRaw('status, COUNT(*) as cnt')
+                    ->groupBy('status')
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $s = $row->status ?? 'normal';
+                    if (isset($stats[$s])) {
+                        $stats[$s] = (int) $row->cnt;
+                    }
+                }
+                $stats['total'] = (int) Capsule::table('mod_fps_device_trust')->count();
+            }
+        } catch (\Throwable $e) {}
+
+        echo '<div class="fps-stats-grid">';
+        echo FpsAdminRenderer::renderStatCard('Trusted Devices',  $stats['trusted'], 'fa-shield-check', 'success');
+        echo FpsAdminRenderer::renderStatCard('Blocked Devices',  $stats['blocked'], 'fa-ban',          'danger');
+        echo FpsAdminRenderer::renderStatCard('Watched Devices',  $stats['watched'], 'fa-eye',          'warning');
+        echo FpsAdminRenderer::renderStatCard('Total Tracked',    $stats['total'],   'fa-fingerprint',  'info');
+        echo '</div>';
+    }
+
+    /**
+     * Render the device list with search, filter buttons, and AJAX-loaded table.
+     */
+    private function fpsRenderDeviceList(string $modulelink): void
+    {
+        $jsAjaxUrl = json_encode($modulelink . '&ajax=1');
+
+        $content = <<<HTML
+<div class="fps-form-row" style="align-items:flex-end;margin-bottom:16px;gap:8px;flex-wrap:wrap;">
+  <div class="fps-filter-btn-group" style="display:flex;gap:4px;">
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-outline fps-filter-active" onclick="FpsAdmin.loadDeviceList({$jsAjaxUrl}, '')">
+      <i class="fas fa-list"></i> All Devices
+    </button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-success" onclick="FpsAdmin.loadDeviceList({$jsAjaxUrl}, 'trusted')">
+      <i class="fas fa-shield-check"></i> Trusted
+    </button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-danger" onclick="FpsAdmin.loadDeviceList({$jsAjaxUrl}, 'blocked')">
+      <i class="fas fa-ban"></i> Blocked
+    </button>
+    <button type="button" class="fps-btn fps-btn-sm fps-btn-warning" onclick="FpsAdmin.loadDeviceList({$jsAjaxUrl}, 'watched')">
+      <i class="fas fa-eye"></i> Watched
+    </button>
+  </div>
+  <div class="fps-form-group" style="flex:1;min-width:200px;margin:0;">
+    <input type="text" id="fps-device-search" class="fps-input" placeholder="Search by hash, label, or client email..."
+      onkeydown="if(event.key==='Enter'){FpsAdmin.searchDeviceList({$jsAjaxUrl});}">
+  </div>
+  <button type="button" class="fps-btn fps-btn-sm fps-btn-primary" onclick="FpsAdmin.searchDeviceList({$jsAjaxUrl})">
+    <i class="fas fa-search"></i> Search
+  </button>
+</div>
+<div id="fps-device-list-container">
+  <div class="fps-skeleton-container">
+    <div class="fps-skeleton-line" style="width:100%"></div>
+    <div class="fps-skeleton-line" style="width:96%"></div>
+    <div class="fps-skeleton-line" style="width:91%"></div>
+    <div class="fps-skeleton-line" style="width:94%"></div>
+    <div class="fps-skeleton-line" style="width:88%"></div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    FpsAdmin.loadDeviceList({$jsAjaxUrl}, '');
+});
+</script>
+HTML;
+
+        echo FpsAdminRenderer::renderCard('Device Trust List', 'fa-fingerprint', $content);
     }
 }

@@ -454,6 +454,26 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             }
         } catch (\Throwable $e) { /* non-fatal */ }
 
+        // Device trust check -- uses fingerprint hash from cookie or POST
+        try {
+            $fpHash = $_COOKIE['fps_device_id'] ?? $_POST['fps_fingerprint_hash'] ?? '';
+            if ($fpHash !== '' && class_exists('\\FraudPreventionSuite\\Lib\\FpsDeviceTrustManager')) {
+                $deviceMgr = new \FraudPreventionSuite\Lib\FpsDeviceTrustManager();
+                $deviceStatus = $deviceMgr->fps_getDeviceStatus($fpHash);
+                if ($deviceStatus === 'trusted') {
+                    return []; // Trusted device, skip all checks
+                }
+                if ($deviceStatus === 'blocked') {
+                    logActivity("FPS: Blocked device attempted checkout - hash: " . substr($fpHash, 0, 12));
+                    return ['Your device has been blocked. Contact support for assistance.'];
+                }
+                // Record device seen with this client
+                if ($clientId > 0) {
+                    $deviceMgr->fps_recordDeviceSeen($fpHash, $clientId);
+                }
+            }
+        } catch (\Throwable $e) { /* non-fatal */ }
+
         $email = '';
         $phone = '';
         $country = '';

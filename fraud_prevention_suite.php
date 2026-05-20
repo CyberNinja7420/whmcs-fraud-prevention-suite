@@ -549,6 +549,24 @@ function fraud_prevention_suite_activate(): array
             });
         }
 
+        // -- v5.2: Device trust table --
+        if (!Capsule::schema()->hasTable('mod_fps_device_trust')) {
+            Capsule::schema()->create('mod_fps_device_trust', function ($table) {
+                $table->increments('id');
+                $table->string('fingerprint_hash', 64)->unique();
+                $table->string('status', 20)->default('normal');
+                $table->string('label', 255)->nullable();
+                $table->text('client_ids')->nullable();
+                $table->dateTime('first_seen_at')->nullable();
+                $table->dateTime('last_seen_at')->nullable();
+                $table->integer('total_sessions')->default(1);
+                $table->text('reason')->nullable();
+                $table->integer('set_by')->nullable();
+                $table->timestamp('created_at')->useCurrent();
+                $table->timestamp('updated_at')->nullable();
+            });
+        }
+
         if (!Capsule::schema()->hasTable('mod_fps_velocity_events')) {
             Capsule::schema()->create('mod_fps_velocity_events', function ($table) {
                 $table->bigIncrements('id');
@@ -2593,6 +2611,25 @@ function fps_handleAjax(string $modulelink): void
 
             case 'mark_all_read':
                 echo json_encode(fps_ajaxMarkAllNotificationsRead());
+                break;
+
+            // ---------------------------------------------------------------
+            // v5.2: Device Trust Management
+            // ---------------------------------------------------------------
+            case 'get_devices':
+                echo json_encode(fps_ajaxGetDevices());
+                break;
+
+            case 'set_device_trust':
+                echo json_encode(fps_ajaxSetDeviceTrust());
+                break;
+
+            case 'get_device_detail':
+                echo json_encode(fps_ajaxGetDeviceDetail());
+                break;
+
+            case 'label_device':
+                echo json_encode(fps_ajaxLabelDevice());
                 break;
 
             default:
@@ -6155,6 +6192,138 @@ function fps_createNotification(int $adminId, string $type, string $title, strin
         }
     } catch (\Throwable $e) {
         logModuleCall('fraud_prevention_suite', 'fps_createNotification::ERROR', $type, $e->getMessage());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AJAX: Device Trust Management (v5.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Return paginated list of tracked devices with trust status.
+ */
+function fps_ajaxGetDevices(): array
+{
+    try {
+        $status  = trim($_GET['status'] ?? $_POST['status'] ?? '');
+        $search  = trim($_GET['search'] ?? $_POST['search'] ?? '');
+        $page    = max(1, (int) ($_GET['page'] ?? $_POST['page'] ?? 1));
+        $perPage = max(1, min(100, (int) ($_GET['per_page'] ?? $_POST['per_page'] ?? 25)));
+
+        $mgr = new \FraudPreventionSuite\Lib\FpsDeviceTrustManager();
+        $result = $mgr->fps_getDeviceList($status, $search, $page, $perPage);
+
+        return [
+            'success' => true,
+            'rows'    => $result['rows'],
+            'total'   => $result['total'],
+            'pages'   => $result['pages'],
+        ];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Set trust status for a device fingerprint.
+ */
+function fps_ajaxSetDeviceTrust(): array
+{
+    try {
+        $hash    = trim($_POST['fingerprint_hash'] ?? '');
+        $status  = trim($_POST['status'] ?? '');
+        $reason  = trim($_POST['reason'] ?? '');
+        $label   = trim($_POST['label'] ?? '');
+        $adminId = (int) ($_SESSION['adminid'] ?? 0);
+
+        if ($hash === '') {
+            return ['success' => false, 'error' => 'Fingerprint hash is required.'];
+        }
+        if ($status === '') {
+            return ['success' => false, 'error' => 'Status is required.'];
+        }
+
+        $mgr = new \FraudPreventionSuite\Lib\FpsDeviceTrustManager();
+        $mgr->fps_setDeviceStatus($hash, $status, $reason, $adminId, $label);
+
+        return [
+            'success' => true,
+            'message' => 'Device ' . substr($hash, 0, 12) . '... set to ' . $status,
+        ];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Return full detail for a single device fingerprint.
+ */
+function fps_ajaxGetDeviceDetail(): array
+{
+    try {
+        $hash = trim($_GET['fingerprint_hash'] ?? $_POST['fingerprint_hash'] ?? '');
+        if ($hash === '') {
+            return ['success' => false, 'error' => 'Fingerprint hash is required.'];
+        }
+
+        $mgr = new \FraudPreventionSuite\Lib\FpsDeviceTrustManager();
+        $record = $mgr->fps_getDeviceHistory($hash);
+
+        if ($record === null) {
+            return ['success' => false, 'error' => 'Device not found.'];
+        }
+
+        // Also get fingerprint records from mod_fps_fingerprints for richer data
+        $fpRecords = [];
+        try {
+            if (\WHMCS\Database\Capsule::schema()->hasTable('mod_fps_fingerprints')) {
+                $fpRows = \WHMCS\Database\Capsule::table('mod_fps_fingerprints')
+                    ->where('fingerprint_hash', $hash)
+                    ->orderByDesc('last_seen_at')
+                    ->limit(20)
+                    ->get()
+                    ->toArray();
+                foreach ($fpRows as $fp) {
+                    $fpRecords[] = (array) $fp;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
+        $record['fingerprint_records'] = $fpRecords;
+
+        return [
+            'success' => true,
+            'device'  => $record,
+        ];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Update the human-readable label for a device.
+ */
+function fps_ajaxLabelDevice(): array
+{
+    try {
+        $hash  = trim($_POST['fingerprint_hash'] ?? '');
+        $label = trim($_POST['label'] ?? '');
+
+        if ($hash === '') {
+            return ['success' => false, 'error' => 'Fingerprint hash is required.'];
+        }
+
+        $mgr = new \FraudPreventionSuite\Lib\FpsDeviceTrustManager();
+        $mgr->fps_setDeviceLabel($hash, $label);
+
+        return [
+            'success' => true,
+            'message' => 'Device label updated for ' . substr($hash, 0, 12) . '...',
+        ];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
     }
 }
 

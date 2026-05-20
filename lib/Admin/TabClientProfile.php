@@ -926,6 +926,16 @@ HTML;
             // Non-fatal
         }
 
+        // Load device trust manager for status lookups
+        $deviceTrustMgr = null;
+        try {
+            if (class_exists('\\FraudPreventionSuite\\Lib\\FpsDeviceTrustManager')) {
+                $deviceTrustMgr = new \FraudPreventionSuite\Lib\FpsDeviceTrustManager();
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal
+        }
+
         if (empty($fingerprints)) {
             $content = '<div style="text-align:center;padding:1.5rem;">'
                 . '<div style="font-size:2rem;color:#667eea;opacity:0.3;margin-bottom:0.75rem;"><i class="fas fa-fingerprint"></i></div>'
@@ -935,13 +945,14 @@ HTML;
                 . '<div style="color:#4a5080;font-size:0.75rem;margin-top:0.75rem;">Device fingerprinting captures browser, screen, canvas, and WebGL data when clients visit your site with the Turnstile widget enabled.</div>'
                 . '</div>';
         } else {
-            $headers = ['Hash', 'Times Seen', 'Screen', 'Browser', 'Canvas', 'Cross-Acct', 'Last Seen'];
+            $headers = ['Hash', 'Trust', 'Label', 'Times Seen', 'Screen', 'Browser', 'Cross-Acct', 'Last Seen', 'Actions'];
             $rows = [];
 
             foreach ($fingerprints as $fp) {
-                $hash   = htmlspecialchars(substr($fp->fingerprint_hash, 0, 12) . '...', ENT_QUOTES, 'UTF-8');
-                $times  = (int)$fp->times_seen;
-                $screen = htmlspecialchars($fp->screen_resolution ?? '--', ENT_QUOTES, 'UTF-8');
+                $hash     = htmlspecialchars(substr($fp->fingerprint_hash, 0, 12) . '...', ENT_QUOTES, 'UTF-8');
+                $fullHash = htmlspecialchars($fp->fingerprint_hash, ENT_QUOTES, 'UTF-8');
+                $times    = (int)$fp->times_seen;
+                $screen   = htmlspecialchars($fp->screen_resolution ?? '--', ENT_QUOTES, 'UTF-8');
 
                 // Extract browser from user agent
                 $ua = $fp->user_agent ?? '';
@@ -950,25 +961,62 @@ HTML;
                     $browser = htmlspecialchars($m[0], ENT_QUOTES, 'UTF-8');
                 }
 
-                $canvas = htmlspecialchars(substr($fp->canvas_hash ?? '--', 0, 8), ENT_QUOTES, 'UTF-8');
+                // Device trust status
+                $trustStatus = 'normal';
+                $trustLabel  = '';
+                if ($deviceTrustMgr !== null) {
+                    try {
+                        $trustStatus = $deviceTrustMgr->fps_getDeviceStatus($fp->fingerprint_hash);
+                        $history = $deviceTrustMgr->fps_getDeviceHistory($fp->fingerprint_hash);
+                        $trustLabel = htmlspecialchars($history['label'] ?? '', ENT_QUOTES, 'UTF-8');
+                    } catch (\Throwable $e) {
+                        // Non-fatal
+                    }
+                }
+
+                $trustBadge = match ($trustStatus) {
+                    'trusted' => '<span class="fps-badge fps-badge-low">Trusted</span>',
+                    'blocked' => '<span class="fps-badge fps-badge-critical">Blocked</span>',
+                    'watched' => '<span class="fps-badge fps-badge-high">Watched</span>',
+                    default   => '<span class="fps-badge fps-badge-medium">Normal</span>',
+                };
 
                 // Check cross-account matches
                 $crossCount = 0;
+                $crossClients = [];
                 try {
-                    $crossCount = Capsule::table('mod_fps_fingerprints')
+                    $crossRows = Capsule::table('mod_fps_fingerprints')
                         ->where('fingerprint_hash', $fp->fingerprint_hash)
                         ->where('client_id', '!=', $clientId)
-                        ->count();
+                        ->join('tblclients', 'tblclients.id', '=', 'mod_fps_fingerprints.client_id')
+                        ->select('tblclients.id', 'tblclients.email')
+                        ->distinct()
+                        ->limit(5)
+                        ->get()
+                        ->toArray();
+                    $crossCount = count($crossRows);
+                    foreach ($crossRows as $cr) {
+                        $crossClients[] = '#' . $cr->id . ' ' . htmlspecialchars($cr->email, ENT_QUOTES, 'UTF-8');
+                    }
                 } catch (\Throwable $e) {
                     // Non-fatal
                 }
+
                 $crossBadge = $crossCount > 0
-                    ? '<span class="fps-badge fps-badge-high">' . $crossCount . ' match(es)</span>'
+                    ? '<span class="fps-badge fps-badge-high" title="' . htmlspecialchars(implode(', ', $crossClients), ENT_QUOTES, 'UTF-8') . '">' . $crossCount . ' match(es)</span>'
                     : '<span class="fps-badge fps-badge-low">None</span>';
 
                 $lastSeen = htmlspecialchars($fp->last_seen_at ?? '--', ENT_QUOTES, 'UTF-8');
 
-                $rows[] = [$hash, (string)$times, $screen, $browser, $canvas, $crossBadge, $lastSeen];
+                // Action buttons
+                $actions = '<div style="display:flex;gap:3px;flex-wrap:nowrap;">'
+                    . '<button class="fps-btn fps-btn-xs fps-btn-success" onclick="FpsAdmin.setDeviceTrust(\'' . $fullHash . '\', \'trusted\')" title="Trust"><i class="fas fa-shield-check"></i></button>'
+                    . '<button class="fps-btn fps-btn-xs fps-btn-danger" onclick="FpsAdmin.setDeviceTrust(\'' . $fullHash . '\', \'blocked\')" title="Block"><i class="fas fa-ban"></i></button>'
+                    . '<button class="fps-btn fps-btn-xs fps-btn-warning" onclick="FpsAdmin.setDeviceTrust(\'' . $fullHash . '\', \'watched\')" title="Watch"><i class="fas fa-eye"></i></button>'
+                    . '<button class="fps-btn fps-btn-xs fps-btn-outline" onclick="FpsAdmin.showDeviceDetail(\'' . $fullHash . '\')" title="Details"><i class="fas fa-info-circle"></i></button>'
+                    . '</div>';
+
+                $rows[] = [$hash, $trustBadge, $trustLabel ?: '--', (string)$times, $screen, $browser, $crossBadge, $lastSeen, $actions];
             }
 
             $content = FpsAdminRenderer::renderTable($headers, $rows, 'fps-fingerprint-table');

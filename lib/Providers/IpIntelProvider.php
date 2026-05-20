@@ -134,6 +134,28 @@ class IpIntelProvider implements FpsProviderInterface
             return null;
         }
 
+        $isProxy   = (bool) ($data['proxy'] ?? false);
+        $isHosting = (bool) ($data['hosting'] ?? false);
+        $isp       = strtolower($data['isp'] ?? '');
+
+        // Infer VPN: ip-api.com free tier lumps VPNs into the proxy flag.
+        // Heuristic: proxy=true + hosting=false = likely residential VPN
+        // (commercial proxies are typically hosted in datacenters).
+        // Also check ISP name for known VPN providers.
+        $knownVpnIsps = ['nordvpn','expressvpn','surfshark','mullvad','protonvpn',
+            'private internet access','cyberghost','ipvanish','windscribe',
+            'tunnelbear','hotspot shield','hide.me','purevpn','vypr','astrill'];
+        $isVpn = false;
+        if ($isProxy && !$isHosting) {
+            $isVpn = true; // residential proxy = VPN
+        }
+        foreach ($knownVpnIsps as $vpnIsp) {
+            if (str_contains($isp, $vpnIsp)) {
+                $isVpn = true;
+                break;
+            }
+        }
+
         return [
             'asn'           => $this->fps_extractAsn($data['as'] ?? ''),
             'asn_org'       => $data['asname'] ?? ($data['org'] ?? ''),
@@ -143,11 +165,11 @@ class IpIntelProvider implements FpsProviderInterface
             'city'          => $data['city'] ?? '',
             'lat'           => (float) ($data['lat'] ?? 0),
             'lng'           => (float) ($data['lon'] ?? 0),
-            'is_proxy'      => (bool) ($data['proxy'] ?? false),
-            'is_vpn'        => false, // ip-api free does not distinguish VPN from proxy
-            'is_tor'        => false, // ip-api free does not flag Tor
-            'is_datacenter' => (bool) ($data['hosting'] ?? false),
-            'proxy_type'    => ($data['proxy'] ?? false) ? 'proxy' : '',
+            'is_proxy'      => $isProxy,
+            'is_vpn'        => $isVpn,
+            'is_tor'        => false, // Tor detection via mod_fps_tor_nodes table lookup
+            'is_datacenter' => $isHosting,
+            'proxy_type'    => $isVpn ? 'vpn' : ($isProxy ? 'proxy' : ''),
             'threat_score'  => 0,
             'source'        => 'ip-api.com',
         ];

@@ -1706,6 +1706,352 @@
       });
     },
 
+    // -----------------------------------------------------------------------
+    // Device Trust Management
+    // -----------------------------------------------------------------------
+
+    loadDeviceList: function(ajaxUrl, filter, search) {
+      var container = document.getElementById('fps-device-list-container');
+      if (!container) return;
+      container.textContent = '';
+      var spinner = document.createElement('div');
+      spinner.style.cssText = 'text-align:center;padding:2rem;opacity:0.5;';
+      spinner.textContent = 'Loading devices...';
+      container.appendChild(spinner);
+
+      var params = {status: filter || ''};
+      if (search) params.search = search;
+
+      ajax('get_devices', params, function(err, data) {
+        if (err || !data) { container.textContent = 'Failed to load device list'; return; }
+        if (data.error) { container.textContent = data.error; return; }
+
+        var rows = data.rows || [];
+        if (rows.length === 0) {
+          container.textContent = '';
+          var emptyMsg = document.createElement('div');
+          emptyMsg.style.cssText = 'text-align:center;padding:2rem;opacity:0.5;';
+          emptyMsg.textContent = 'No devices found matching this filter.';
+          container.appendChild(emptyMsg);
+          return;
+        }
+
+        // Build table via DOM methods for safety
+        var table = document.createElement('table');
+        table.className = 'fps-table';
+        table.id = 'fps-device-table';
+
+        var thead = document.createElement('thead');
+        var headerRow = document.createElement('tr');
+        ['Device', 'Status', 'Clients', 'Sessions', 'First Seen', 'Last Seen', 'Actions'].forEach(function(h) {
+          var th = document.createElement('th');
+          th.textContent = h;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          var tr = document.createElement('tr');
+          var statusVal = r.status || 'normal';
+
+          if (statusVal === 'blocked') tr.style.background = 'rgba(235,51,73,0.04)';
+          else if (statusVal === 'trusted') tr.style.background = 'rgba(56,239,125,0.04)';
+
+          // Device column
+          var tdDevice = document.createElement('td');
+          var code = document.createElement('code');
+          code.style.fontSize = '0.82rem';
+          code.textContent = (r.fingerprint_hash || '').substring(0, 12) + '...';
+          tdDevice.appendChild(code);
+          if (r.label) {
+            var labelDiv = document.createElement('div');
+            labelDiv.style.cssText = 'font-size:0.75rem;color:var(--fps-text-secondary,#5a6176);';
+            labelDiv.textContent = r.label;
+            tdDevice.appendChild(labelDiv);
+          }
+          tr.appendChild(tdDevice);
+
+          // Status column
+          var tdStatus = document.createElement('td');
+          var badge = document.createElement('span');
+          badge.className = statusVal === 'trusted' ? 'fps-badge fps-badge-low' :
+            statusVal === 'blocked' ? 'fps-badge fps-badge-critical' :
+            statusVal === 'watched' ? 'fps-badge fps-badge-high' : 'fps-badge fps-badge-medium';
+          badge.textContent = statusVal.charAt(0).toUpperCase() + statusVal.slice(1);
+          tdStatus.appendChild(badge);
+          tr.appendChild(tdStatus);
+
+          // Clients column
+          var tdClients = document.createElement('td');
+          tdClients.style.fontSize = '0.82rem';
+          var clientEmails = r.client_emails || [];
+          if (clientEmails.length > 0) {
+            clientEmails.slice(0, 3).forEach(function(c) {
+              var cDiv = document.createElement('div');
+              cDiv.style.fontSize = '0.78rem';
+              cDiv.textContent = '#' + c.id + ' ' + c.email;
+              tdClients.appendChild(cDiv);
+            });
+            if (clientEmails.length > 3) {
+              var moreDiv = document.createElement('div');
+              moreDiv.style.cssText = 'font-size:0.72rem;opacity:0.6;';
+              moreDiv.textContent = '+' + (clientEmails.length - 3) + ' more';
+              tdClients.appendChild(moreDiv);
+            }
+          } else {
+            var cids = [];
+            try { cids = JSON.parse(r.client_ids || '[]'); } catch(e) {}
+            tdClients.textContent = cids.length > 0 ? cids.length + ' client(s)' : 'None';
+          }
+          tr.appendChild(tdClients);
+
+          // Sessions column
+          var tdSessions = document.createElement('td');
+          tdSessions.style.textAlign = 'center';
+          tdSessions.textContent = String(r.total_sessions || 0);
+          tr.appendChild(tdSessions);
+
+          // First Seen column
+          var tdFirst = document.createElement('td');
+          tdFirst.style.fontSize = '0.8rem';
+          tdFirst.textContent = r.first_seen_at || '--';
+          tr.appendChild(tdFirst);
+
+          // Last Seen column
+          var tdLast = document.createElement('td');
+          tdLast.style.fontSize = '0.8rem';
+          tdLast.textContent = r.last_seen_at || '--';
+          tr.appendChild(tdLast);
+
+          // Actions column
+          var tdActions = document.createElement('td');
+          var actionsDiv = document.createElement('div');
+          actionsDiv.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
+
+          // Status dropdown
+          var sel = document.createElement('select');
+          sel.className = 'fps-select';
+          sel.style.cssText = 'font-size:0.75rem;padding:3px 6px;min-width:90px;';
+          var fullHash = r.fingerprint_hash || '';
+          (function(h, s) {
+            sel.addEventListener('change', function() { if (this.value) FpsAdmin.setDeviceTrust(h, this.value); });
+          })(fullHash, sel);
+          [['', '-- Set --'], ['trusted', 'Trusted'], ['normal', 'Normal'], ['blocked', 'Blocked'], ['watched', 'Watched']].forEach(function(opt) {
+            var option = document.createElement('option');
+            option.value = opt[0];
+            option.textContent = opt[1];
+            if (opt[0] === statusVal) option.selected = true;
+            sel.appendChild(option);
+          });
+          actionsDiv.appendChild(sel);
+
+          // Detail button
+          var btnDetail = document.createElement('button');
+          btnDetail.className = 'fps-btn fps-btn-xs fps-btn-outline';
+          btnDetail.title = 'View details';
+          btnDetail.textContent = '';
+          var iDetail = document.createElement('i');
+          iDetail.className = 'fas fa-info-circle';
+          btnDetail.appendChild(iDetail);
+          (function(h) {
+            btnDetail.addEventListener('click', function() { FpsAdmin.showDeviceDetail(h); });
+          })(fullHash);
+          actionsDiv.appendChild(btnDetail);
+
+          // Label button
+          var btnLabel = document.createElement('button');
+          btnLabel.className = 'fps-btn fps-btn-xs fps-btn-outline';
+          btnLabel.title = 'Set label';
+          var iLabel = document.createElement('i');
+          iLabel.className = 'fas fa-tag';
+          btnLabel.appendChild(iLabel);
+          (function(h) {
+            btnLabel.addEventListener('click', function() { FpsAdmin.promptDeviceLabel(h); });
+          })(fullHash);
+          actionsDiv.appendChild(btnLabel);
+
+          tdActions.appendChild(actionsDiv);
+          tr.appendChild(tdActions);
+
+          tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
+        container.textContent = '';
+        container.appendChild(table);
+
+        var totalInfo = document.createElement('div');
+        totalInfo.style.cssText = 'margin-top:0.5rem;font-size:0.85rem;opacity:0.7;';
+        totalInfo.textContent = data.total ? (data.total + ' device(s), page 1 of ' + (data.pages || 1)) : rows.length + ' shown';
+        container.appendChild(totalInfo);
+
+        initTable('fps-device-table');
+      });
+    },
+
+    searchDeviceList: function(ajaxUrl) {
+      var searchInput = document.getElementById('fps-device-search');
+      var searchVal = searchInput ? searchInput.value.trim() : '';
+      this.loadDeviceList(ajaxUrl, '', searchVal);
+    },
+
+    setDeviceTrust: function(hash, status) {
+      if (!status) return;
+      var reason = prompt('Reason for setting device to "' + status + '":', '');
+      if (reason === null) return;
+
+      ajax('set_device_trust', {
+        fingerprint_hash: hash,
+        status: status,
+        reason: reason
+      }, function(err, data) {
+        if (err) { toast('Failed: ' + err.message, 'error'); return; }
+        if (data && data.error) { toast(data.error, 'error'); return; }
+        toast(data && data.message ? data.message : 'Device trust updated', 'success');
+        setTimeout(function() { location.reload(); }, 800);
+      });
+    },
+
+    showDeviceDetail: function(hash) {
+      ajax('get_device_detail', { fingerprint_hash: hash }, function(err, data) {
+        if (err || !data || !data.success) {
+          toast('Failed to load device detail', 'error');
+          return;
+        }
+
+        var d = data.device || {};
+        var clients = d.clients || [];
+        var fpRecords = d.fingerprint_records || [];
+
+        // Build modal content using DOM methods
+        var wrapper = document.createElement('div');
+        wrapper.style.maxWidth = '700px';
+
+        // Device info header
+        var infoBox = document.createElement('div');
+        infoBox.style.cssText = 'margin-bottom:1rem;padding:1rem;border-radius:10px;background:var(--fps-surface-2,#f8f9fc);border:1px solid var(--fps-border-light,#eaedf5);';
+
+        var infoRow = document.createElement('div');
+        infoRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;';
+        var hashSpan = document.createElement('strong');
+        hashSpan.style.cssText = 'font-family:monospace;font-size:0.85rem;word-break:break-all;';
+        hashSpan.textContent = d.fingerprint_hash || '';
+        infoRow.appendChild(hashSpan);
+        var sBadge = document.createElement('span');
+        sBadge.className = (d.status === 'trusted') ? 'fps-badge fps-badge-low' :
+          (d.status === 'blocked') ? 'fps-badge fps-badge-critical' :
+          (d.status === 'watched') ? 'fps-badge fps-badge-high' : 'fps-badge fps-badge-medium';
+        sBadge.textContent = (d.status || 'normal').charAt(0).toUpperCase() + (d.status || 'normal').slice(1);
+        infoRow.appendChild(sBadge);
+        infoBox.appendChild(infoRow);
+
+        if (d.label) {
+          var labelP = document.createElement('div');
+          labelP.style.cssText = 'font-size:0.85rem;color:var(--fps-text-secondary,#5a6176);';
+          labelP.textContent = 'Label: ' + d.label;
+          infoBox.appendChild(labelP);
+        }
+        var metaP = document.createElement('div');
+        metaP.style.cssText = 'font-size:0.82rem;color:var(--fps-text-muted,#9499b5);margin-top:0.25rem;';
+        metaP.textContent = 'Sessions: ' + (d.total_sessions || 0) + ' | First seen: ' + (d.first_seen_at || '--') + ' | Last seen: ' + (d.last_seen_at || '--');
+        infoBox.appendChild(metaP);
+        if (d.reason) {
+          var reasonP = document.createElement('div');
+          reasonP.style.cssText = 'font-size:0.82rem;margin-top:0.25rem;';
+          reasonP.textContent = 'Reason: ' + d.reason;
+          infoBox.appendChild(reasonP);
+        }
+        wrapper.appendChild(infoBox);
+
+        // Clients heading
+        var ch = document.createElement('h4');
+        ch.style.cssText = 'margin:0.5rem 0;font-size:0.9rem;';
+        ch.textContent = 'Associated Clients (' + clients.length + ')';
+        wrapper.appendChild(ch);
+
+        if (clients.length > 0) {
+          var ct = document.createElement('table');
+          ct.className = 'fps-table';
+          var ctHead = document.createElement('thead');
+          var ctHr = document.createElement('tr');
+          ['ID', 'Name', 'Email', 'Status'].forEach(function(h) {
+            var th = document.createElement('th'); th.textContent = h; ctHr.appendChild(th);
+          });
+          ctHead.appendChild(ctHr);
+          ct.appendChild(ctHead);
+          var ctBody = document.createElement('tbody');
+          clients.forEach(function(cl) {
+            var ctr = document.createElement('tr');
+            var td1 = document.createElement('td'); td1.textContent = '#' + (cl.id || '');
+            var td2 = document.createElement('td'); td2.textContent = (cl.firstname || '') + ' ' + (cl.lastname || '');
+            var td3 = document.createElement('td'); td3.textContent = cl.email || '';
+            var td4 = document.createElement('td'); td4.textContent = cl.status || '';
+            ctr.appendChild(td1); ctr.appendChild(td2); ctr.appendChild(td3); ctr.appendChild(td4);
+            ctBody.appendChild(ctr);
+          });
+          ct.appendChild(ctBody);
+          wrapper.appendChild(ct);
+        } else {
+          var noClients = document.createElement('div');
+          noClients.style.cssText = 'padding:0.5rem;opacity:0.5;';
+          noClients.textContent = 'No associated clients found.';
+          wrapper.appendChild(noClients);
+        }
+
+        // Fingerprint records
+        if (fpRecords.length > 0) {
+          var fh = document.createElement('h4');
+          fh.style.cssText = 'margin:1rem 0 0.5rem;font-size:0.9rem;';
+          fh.textContent = 'Fingerprint Records (' + fpRecords.length + ')';
+          wrapper.appendChild(fh);
+
+          var ft = document.createElement('table');
+          ft.className = 'fps-table';
+          var ftHead = document.createElement('thead');
+          var ftHr = document.createElement('tr');
+          ['Client', 'Screen', 'Timezone', 'Times Seen', 'Last Seen'].forEach(function(h) {
+            var th = document.createElement('th'); th.textContent = h; ftHr.appendChild(th);
+          });
+          ftHead.appendChild(ftHr);
+          ft.appendChild(ftHead);
+          var ftBody = document.createElement('tbody');
+          fpRecords.forEach(function(fp) {
+            var ftr = document.createElement('tr');
+            var fd1 = document.createElement('td'); fd1.textContent = '#' + (fp.client_id || '');
+            var fd2 = document.createElement('td'); fd2.textContent = fp.screen_resolution || '--';
+            var fd3 = document.createElement('td'); fd3.textContent = fp.timezone || '--';
+            var fd4 = document.createElement('td'); fd4.textContent = String(fp.times_seen || 0);
+            var fd5 = document.createElement('td'); fd5.textContent = fp.last_seen_at || '--';
+            ftr.appendChild(fd1); ftr.appendChild(fd2); ftr.appendChild(fd3); ftr.appendChild(fd4); ftr.appendChild(fd5);
+            ftBody.appendChild(ftr);
+          });
+          ft.appendChild(ftBody);
+          wrapper.appendChild(ft);
+        }
+
+        showModal('Device Detail - ' + (d.fingerprint_hash || '').substring(0, 16) + '...', wrapper.outerHTML);
+      });
+    },
+
+    promptDeviceLabel: function(hash) {
+      var label = prompt('Enter a label for this device (e.g., "Admin laptop", "Known bot"):', '');
+      if (label === null) return;
+
+      ajax('label_device', {
+        fingerprint_hash: hash,
+        label: label
+      }, function(err, data) {
+        if (err) { toast('Failed: ' + err.message, 'error'); return; }
+        if (data && data.error) { toast(data.error, 'error'); return; }
+        toast(data && data.message ? data.message : 'Label updated', 'success');
+        setTimeout(function() { location.reload(); }, 800);
+      });
+    },
+
     // Rules tab
     openRuleModal: function(ruleData, ajaxUrl) {
       var modal = document.getElementById('fps-rule-modal');
