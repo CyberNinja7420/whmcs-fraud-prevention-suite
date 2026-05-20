@@ -7,6 +7,47 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.2.0] - 2026-05-20 "IronGate II"
+
+### Added -- Device Identity System
+- **22-signal device fingerprint** -- expanded from 12: added math FPU precision, emoji rendering hash, speech synthesis voices, media device counts, incognito detection, client hints (UA-CH), plus devicePixelRatio, languages, platform, DNT in composite hash
+- **Device Trust Manager** (`FpsDeviceTrustManager`) -- whitelist/block/watch devices by fingerprint hash independent of client accounts; `mod_fps_device_trust` table with label, session tracking, client linkage
+- **Device trust in pre-checkout** -- trusted devices skip ALL fraud checks; blocked devices get immediate rejection before Turnstile; cross-page persistence via `fps_device_id` cookie (1-year, Secure, SameSite=Lax)
+- **Admin Device Trust UI** -- search, filter, label, and manage device trust status in the Trust Management tab; per-device cross-client linkage detection (fraud indicator)
+- **Client Profile device panel** -- shows all devices used by a client with trust badges, labels, session counts, and one-click trust/block/watch actions
+
+### Added -- Competitive Gap Closure (10 features)
+- **SMS/OTP Verification** (`FpsSmsVerifier`) -- Twilio integration with E.164 formatting, 6-digit OTP, rate limiting, checkout widget
+- **Selftest endpoint** (`selftest.php`) -- 9 health check categories: module load, tables, providers, settings, hooks, data files, extensions
+- **Review queue notes + assignment** -- per-check admin notes (JSON), assignment dropdown, filter by assignee
+- **Post-purchase abuse monitoring** (`FpsPostPurchaseMonitor`) -- email abuse, provisioning velocity, ticket velocity, suspicious login detection via DailyCronJob
+- **Client transparency page** (`templates/client/transparency.tpl`) -- sanitized risk info, trust status, manual review request
+- **MaxMind GeoIP2 provider** (`MaxMindProvider`) -- minFraud Score API + GeoIP2 Insights fallback, 24h caching
+- **Chargeback dispute workflow** -- `mod_fps_chargebacks` table, InvoiceRefunded/InvoiceUnpaid hooks, evidence notes, status workflow
+- **Admin notification bell** -- `mod_fps_notifications` table, unread count badge, dropdown, mark read/all
+- **Cron health dashboard** -- 10 cron task health checks with age-based status badges in Alert Log tab
+- **Performance metrics** -- latency percentiles (P50/P95/P99), provider hit rates, period selector on Dashboard tab
+
+### Added -- Marketing
+- **Competitor comparison chart** on client overview page -- FPS vs FraudLabs Pro vs IPQS vs Sensfrx vs MaxMind across 15 capabilities with high-contrast Yes/No badges
+
+### Fixed
+- **VPN detection** -- was hardcoded `false` in IpIntelProvider; now inferred from ip-api.com `proxy=true + hosting=false` pattern plus 15 known VPN ISP name patterns
+- **IP classification on Turnstile blocks** -- IpIntelProvider now runs even when Turnstile blocks, populating `mod_fps_ip_intel` for VPN/Tor/proxy stats
+- **Duplicate function crash** -- removed `fps_ajaxGetModuleLog` from FpsAjaxBotCleanup.php (was also in main file, caused "Cannot redeclare" fatal)
+- **8 code quality findings** -- silent catch blocks, input validation, GDPR error handling, API key uniqueness, provider weight config UI
+- **Score floor fixes** -- `bot_pattern`, `user_agent`, `abuse_signal`, `missing_fingerprint` now properly trigger floor overrides in FpsRiskEngine
+- **PHPStan + Psalm baselines** regenerated for v5.x codebase
+
+### Changed
+- **Module version** 5.0.0 -> 5.2.0 (codename: IronGate II)
+- **Hooks registered** 21 -> 26
+- **Provider count** 16 -> 17 (added MaxMind)
+- **Fingerprint signals** 12 -> 22 in composite hash, 30+ -> 40+ raw signals collected
+- **Detection engines** 16 -> 18+
+
+---
+
 ## [5.0.0] - 2026-05-14 "IronGate"
 
 ### Added -- Bot Defense (Tier 1-3)
