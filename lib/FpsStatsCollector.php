@@ -101,6 +101,23 @@ class FpsStatsCollector
             }
 
             $this->fps_upsertDayStats($today, $increments);
+
+            // Update avg_risk_score for block events (turnstile=100, pre_checkout varies).
+            // Without this, days with only turnstile_block events show avg=0.0.
+            if ($event === 'turnstile_block' || $event === 'pre_checkout_block') {
+                $riskScore = ($event === 'turnstile_block') ? 100.0 : (float) ($extras['risk_score'] ?? 0);
+                if ($riskScore > 0 && Capsule::schema()->hasColumn('mod_fps_stats', 'avg_risk_score')) {
+                    $row = Capsule::table('mod_fps_stats')->where('date', $today)->first(['checks_total', 'avg_risk_score']);
+                    if ($row && (int) $row->checks_total > 0) {
+                        $oldAvg = (float) ($row->avg_risk_score ?? 0);
+                        $total  = (int) $row->checks_total;
+                        // Rolling average: ((oldAvg * (n-1)) + newScore) / n
+                        $newAvg = (($oldAvg * ($total - 1)) + $riskScore) / $total;
+                        Capsule::table('mod_fps_stats')->where('date', $today)
+                            ->update(['avg_risk_score' => round($newAvg, 2)]);
+                    }
+                }
+            }
         } catch (\Throwable $e) {
             logModuleCall(
                 self::MODULE_NAME,

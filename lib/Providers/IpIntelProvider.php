@@ -309,6 +309,14 @@ class IpIntelProvider implements FpsProviderInterface
                 ->where('ip_address', $ip)
                 ->delete();
 
+            // Cross-reference Tor exit node table: ip-api.com free tier
+            // does not flag Tor, so we check mod_fps_tor_nodes directly.
+            $isTor = (int) ($intel['is_tor'] ?? 0);
+            if (!$isTor && Capsule::schema()->hasTable('mod_fps_tor_nodes')) {
+                $isTor = Capsule::table('mod_fps_tor_nodes')
+                    ->where('ip_address', $ip)->exists() ? 1 : 0;
+            }
+
             Capsule::table(self::CACHE_TABLE)->insert([
                 'ip_address'    => $ip,
                 'asn'           => (int) ($intel['asn'] ?? 0),
@@ -321,7 +329,7 @@ class IpIntelProvider implements FpsProviderInterface
                 'longitude'     => $intel['lng'] ?? 0,
                 'is_proxy'      => (int) ($intel['is_proxy'] ?? 0),
                 'is_vpn'        => (int) ($intel['is_vpn'] ?? 0),
-                'is_tor'        => (int) ($intel['is_tor'] ?? 0),
+                'is_tor'        => $isTor,
                 'is_datacenter' => (int) ($intel['is_datacenter'] ?? 0),
                 'proxy_type'    => $intel['proxy_type'] ?? '',
                 'threat_score'  => $intel['threat_score'] ?? 0,
