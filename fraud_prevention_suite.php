@@ -1301,10 +1301,18 @@ function fraud_prevention_suite_output(array $vars): void
     $modulelink = $vars['modulelink'];
     $tab = isset($_GET['tab']) ? preg_replace('/[^a-z_]/', '', $_GET['tab']) : 'dashboard';
 
-    // Handle AJAX requests
+    // Handle AJAX requests.
+    // fps_handleAjax() ends with exit; for the cases that use `break` (they fall
+    // through to the trailing exit). But several cases use `return;` instead,
+    // which returns control here -- and a plain `return` from _output lets WHMCS
+    // render the full admin page chrome AROUND the JSON the handler already
+    // echoed. The browser's fetch then gets HTML, not JSON, and fails with a
+    // "Network error" (this is exactly what broke Performance Metrics and Cron
+    // Health). Exiting here guarantees a clean JSON body for every AJAX action,
+    // regardless of whether its case used break or return.
     if (isset($_GET['ajax']) || isset($_POST['ajax'])) {
         fps_handleAjax($modulelink);
-        return;
+        exit;
     }
 
     // Load admin CSS/JS. Cache-bust string combines module version with asset
