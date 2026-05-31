@@ -212,57 +212,70 @@ class FpsTurnstileValidator
             return '';
         }
 
-        // Map form names to CSS selectors
-        // WHMCS uses these form IDs/selectors across standard templates
-        $formSelectors = [];
+        // Anchor on the REAL submit button of each protected form. We locate
+        // the button, walk up to its enclosing <form>, and inject the widget
+        // there -- guaranteeing the cf-turnstile-response field posts with the
+        // correct form. Anchoring on the button (not a broad form selector) is
+        // essential because:
+        //   - WHMCS checkout hides #btnCompleteOrder (.hidden) and submits the
+        //     form via a proxy button, so a "visible submit" heuristic misses it
+        //   - The checkout page has MULTIPLE forms posting to cart.php (domain
+        //     search, promo, the order form) and a broad form[action*=cart.php]
+        //     selector matched the wrong one, dropping the token outside #frmCheckout
+        // Each entry is an ordered list of button selectors; the first match
+        // (that is not inside a modal) wins for that form type.
+        $anchorSelectors = [];
         if (in_array('checkout', $protectedForms, true)) {
-            $formSelectors[] = '#frmCheckout';
-            $formSelectors[] = 'form[action*="cart.php"]';
+            $anchorSelectors[] = ['#btnCompleteOrder', '#frmCheckout button[type="submit"]', '#frmCheckout input[type="submit"]'];
         }
         if (in_array('registration', $protectedForms, true)) {
-            $formSelectors[] = '#frmRegister';
-            $formSelectors[] = 'form[action*="register.php"]';
+            $anchorSelectors[] = ['#frmRegister button[type="submit"]', '#frmRegister input[type="submit"]', 'form[action*="register.php"] button[type="submit"]', 'form[action*="register.php"] input[type="submit"]'];
         }
         if (in_array('login', $protectedForms, true)) {
-            $formSelectors[] = '.login-form';
-            $formSelectors[] = 'form[action*="dologin"]';
+            $anchorSelectors[] = ['.login-form button[type="submit"]', 'form[action*="dologin"] button[type="submit"]', 'form[action*="dologin"] input[type="submit"]'];
         }
         if (in_array('contact', $protectedForms, true)) {
-            $formSelectors[] = '#frmContactUs';
-            $formSelectors[] = 'form[action*="contact.php"]';
+            $anchorSelectors[] = ['#frmContactUs button[type="submit"]', 'form[action*="contact.php"] button[type="submit"]', 'form[action*="contact.php"] input[type="submit"]'];
         }
         if (in_array('ticket', $protectedForms, true)) {
-            $formSelectors[] = '#frmTicket';
-            $formSelectors[] = 'form[action*="submitticket.php"]';
+            $anchorSelectors[] = ['#frmTicket button[type="submit"]', 'form[action*="submitticket.php"] button[type="submit"]', 'form[action*="submitticket.php"] input[type="submit"]'];
         }
 
-        $selectorsJs = json_encode($formSelectors);
+        $selectorsJs = json_encode($anchorSelectors);
 
         return <<<JS
 <script>
 (function() {
     var siteKey = '{$siteKey}';
-    var selectors = {$selectorsJs};
-    var injected = false;
+    // Array of anchor-selector GROUPS, one group per protected form type.
+    // Each group is an ordered list of submit-button selectors; the first
+    // non-modal match in a group identifies that form's real submit button.
+    var anchorGroups = {$selectorsJs};
+
+    // Find the real submit button for a group: first match NOT inside a modal.
+    // Visibility is intentionally NOT required -- WHMCS hides #btnCompleteOrder
+    // and submits via a proxy button, but the widget must still go in its form.
+    function findAnchor(group) {
+        for (var i = 0; i < group.length; i++) {
+            var nodes = document.querySelectorAll(group[i]);
+            for (var n = 0; n < nodes.length; n++) {
+                var b = nodes[n];
+                if (b.closest('.modal') || b.closest('[class*="modal"]')) continue;
+                return b;
+            }
+        }
+        return null;
+    }
 
     function injectTurnstile() {
-        if (injected) return;
-        for (var i = 0; i < selectors.length; i++) {
-            var form = document.querySelector(selectors[i]);
+        var any = false;
+        for (var g = 0; g < anchorGroups.length; g++) {
+            var anchor = findAnchor(anchorGroups[g]);
+            if (!anchor) continue;
+            var form = anchor.closest('form');
             if (!form) continue;
-            // Check if already has Turnstile widget
-            if (form.querySelector('.cf-turnstile')) continue;
-            // Find best insertion point:
-            // 1. Try form footer / submit section
-            // 2. Fall back to before submit button
-            var target = form.querySelector('.form-actions, .modal-footer, .order-summary, [class*="submit"], [class*="checkout-submit"]');
-            var insertBefore = true;
-            if (!target) {
-                target = form.querySelector('input[type="submit"], button[type="submit"]');
-                if (!target) target = form.querySelector('.btn-primary, button');
-            }
-            if (!target) continue;
-            // Create Turnstile container with proper sizing
+            // Already injected into this form? done.
+            if (form.querySelector('.cf-turnstile')) { any = true; continue; }
             var wrapper = document.createElement('div');
             wrapper.style.cssText = 'clear:both;width:100%;padding:12px 0;display:flex;justify-content:center;overflow:visible;';
             var div = document.createElement('div');
@@ -271,21 +284,31 @@ class FpsTurnstileValidator
             div.setAttribute('data-theme', 'light');
             div.setAttribute('data-size', 'normal');
             wrapper.appendChild(div);
-            // Insert the wrapper before the target element
-            target.parentNode.insertBefore(wrapper, target);
-            injected = true;
+            // Insert immediately before the real submit button so the widget
+            // (and the cf-turnstile-response field Cloudflare adds) is INSIDE
+            // the posting form -- the token then posts with the order.
+            anchor.parentNode.insertBefore(wrapper, anchor);
+            // Explicit render in case Cloudflare auto-render missed this
+            // dynamically-added node (guard against double render).
+            try {
+                if (window.turnstile && window.turnstile.render && !div.querySelector('iframe')) {
+                    window.turnstile.render(div, { sitekey: siteKey, theme: 'light', size: 'normal' });
+                }
+            } catch (e) {}
+            any = true;
         }
+        return any;
     }
 
-    // Try on DOMContentLoaded and also with a delay for SPA-style WHMCS pages
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', injectTurnstile);
     } else {
         injectTurnstile();
     }
-    // Retry after 500ms for dynamically loaded forms
+    // Retry for dynamically rendered / late-loading checkout forms
     setTimeout(injectTurnstile, 500);
     setTimeout(injectTurnstile, 1500);
+    setTimeout(injectTurnstile, 3000);
 })();
 </script>
 JS;
