@@ -27,17 +27,30 @@ if (!defined('WHMCS')) {
 function fps_sendMail(string $to, string $subject, string $body, array $headers = []): bool
 {
     // Try WHMCS's SendEmail API first (respects admin mail config).
+    // WHMCS SendEmail requires a valid related ID -- id=0 throws
+    // "A related ID is required". So we only use it when the recipient
+    // resolves to a real client; admin/arbitrary addresses fall to mail().
     try {
         if (function_exists('localAPI')) {
-            $result = localAPI('SendEmail', [
-                'customtype'    => 'product',
-                'customsubject' => $subject,
-                'custommessage' => $body,
-                'id'            => 0,
-                'customvars'    => base64_encode(serialize(['to' => $to])),
-            ], 'admin');
-            if (($result['result'] ?? '') === 'success') {
-                return true;
+            $clientId = 0;
+            try {
+                $clientId = (int) \Illuminate\Database\Capsule\Manager::table('tblclients')
+                    ->where('email', $to)
+                    ->value('id');
+            } catch (\Throwable $e) {
+                $clientId = 0;
+            }
+
+            if ($clientId > 0) {
+                $result = localAPI('SendEmail', [
+                    'customtype'    => 'general',
+                    'customsubject' => $subject,
+                    'custommessage' => $body,
+                    'id'            => $clientId,
+                ], 'admin');
+                if (($result['result'] ?? '') === 'success') {
+                    return true;
+                }
             }
         }
     } catch (\Throwable $e) {

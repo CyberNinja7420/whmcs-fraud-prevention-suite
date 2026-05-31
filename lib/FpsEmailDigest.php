@@ -573,36 +573,37 @@ HTML;
     private function fps_sendEmail(string $to, string $subject, string $html): bool
     {
         try {
-            // Try WHMCS localAPI SendEmail (custom type, no template required)
+            // The digest targets an ADMIN. WHMCS's SendEmail API sends to the
+            // client tied to a related ID and rejects id=0 with "A related ID
+            // is required" -- so we use SendAdminEmail, which delivers to admin
+            // users with a custom subject/message and needs no related entity.
             if (function_exists('localAPI')) {
-                $result = localAPI('SendEmail', [
-                    'id'           => 0,
-                    'customtype'   => 'general',
+                $result = localAPI('SendAdminEmail', [
                     'customsubject' => $subject,
                     'custommessage' => $html,
-                    'type'         => 'general',
-                    'email'        => $to,
+                    'type'          => 'system',
+                    'deliverymethod' => 'email',
                 ]);
 
                 if (isset($result['result']) && $result['result'] === 'success') {
                     return true;
                 }
 
-                // localAPI failed -- log and try mail() fallback
+                // SendAdminEmail failed -- log and try mail() fallback
                 logModuleCall(
                     self::MODULE_NAME,
-                    'FpsEmailDigest::localAPI_SendEmail',
+                    'FpsEmailDigest::localAPI_SendAdminEmail',
                     $to,
                     json_encode($result)
                 );
             }
 
-            // Fallback: PHP mail()
+            // Fallback: PHP mail() to the specific configured recipient
             $headers = implode("\r\n", [
                 'MIME-Version: 1.0',
                 'Content-type: text/html; charset=UTF-8',
                 'From: Fraud Prevention Suite <noreply@' . ($_SERVER['SERVER_NAME'] ?? 'localhost') . '>',
-                'X-Mailer: FPS-Digest/4.2.8',
+                'X-Mailer: FPS-Digest/' . (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : '5.2.0'),
             ]);
 
             return @mail($to, $subject, $html, $headers);
