@@ -15,6 +15,8 @@ if (!defined('WHMCS')) {
     die('This file cannot be accessed directly');
 }
 
+use WHMCS\Database\Capsule;
+
 /**
  * Module-safe mail sender wrapper.
  *
@@ -34,7 +36,7 @@ function fps_sendMail(string $to, string $subject, string $body, array $headers 
         if (function_exists('localAPI')) {
             $clientId = 0;
             try {
-                $clientId = (int) \Illuminate\Database\Capsule\Manager::table('tblclients')
+                $clientId = (int) Capsule::table('tblclients')
                     ->where('email', $to)
                     ->value('id');
             } catch (\Throwable $e) {
