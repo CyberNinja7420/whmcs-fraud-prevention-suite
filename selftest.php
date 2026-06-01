@@ -175,11 +175,12 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Cron health (data file freshness)
+// 6. Cron health (data freshness)
 // ---------------------------------------------------------------------------
+// Disposable-domain intelligence is file-based (data/disposable_domains.txt),
+// refreshed by the daily cron hook.
 $dataFiles = [
     'data/disposable_domains.txt' => 7,
-    'data/tor_exit_nodes.txt'     => 3,
 ];
 
 foreach ($dataFiles as $file => $maxDays) {
@@ -197,6 +198,37 @@ foreach ($dataFiles as $file => $maxDays) {
         $checks[] = ['name' => 'Data: ' . $file, 'status' => 'warn', 'detail' => 'File not found'];
         $warn++;
     }
+}
+
+// Tor exit-node intelligence is DB-based: TorDatacenterProvider::refreshTorNodeList()
+// truncates and repopulates mod_fps_tor_nodes (with a last_seen_at timestamp) from
+// the Tor Project bulk exit list on the daily cron. There is no flat file -- check
+// the table's row count and freshness, which is what the detection path actually uses.
+$torMaxDays = 3;
+try {
+    if (!Capsule::schema()->hasTable('mod_fps_tor_nodes')) {
+        $checks[] = ['name' => 'Data: Tor exit nodes', 'status' => 'warn', 'detail' => 'mod_fps_tor_nodes table missing'];
+        $warn++;
+    } else {
+        $torCount  = (int) Capsule::table('mod_fps_tor_nodes')->count();
+        $torLatest = Capsule::table('mod_fps_tor_nodes')->max('last_seen_at');
+        if ($torCount < 1) {
+            $checks[] = ['name' => 'Data: Tor exit nodes', 'status' => 'warn', 'detail' => 'Table empty -- run the Tor refresh cron'];
+            $warn++;
+        } else {
+            $torAge = $torLatest ? (time() - strtotime((string) $torLatest)) / 86400 : 999;
+            $ok = $torAge <= $torMaxDays;
+            $checks[] = [
+                'name'   => 'Data: Tor exit nodes',
+                'status' => $ok ? 'pass' : 'warn',
+                'detail' => number_format($torCount) . ' nodes, ' . round($torAge, 1) . ' days old (max ' . $torMaxDays . ')',
+            ];
+            $ok ? $pass++ : $warn++;
+        }
+    }
+} catch (\Throwable $e) {
+    $checks[] = ['name' => 'Data: Tor exit nodes', 'status' => 'warn', 'detail' => 'Check failed: ' . $e->getMessage()];
+    $warn++;
 }
 
 // ---------------------------------------------------------------------------
