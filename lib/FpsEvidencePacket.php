@@ -126,9 +126,13 @@ final class FpsEvidencePacket
         }
         $d = $res['data'];
         $e = static fn($v): string => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
-        $cb = $d['chargeback'];
-        $c  = $d['client'];
-        $ip = $d['ip_intel'];
+        // Coalesce nullable records to empty objects so property fetches below
+        // are always safe (client/invoice/order can each be null).
+        $cb  = $d['chargeback'] ?: new \stdClass();
+        $c   = $d['client'] ?: new \stdClass();
+        $ip  = $d['ip_intel'] ?: null;
+        $inv = $d['invoice'] ?: new \stdClass();
+        $ord = $d['order'] ?: new \stdClass();
 
         $rows = static function (array $pairs) use ($e): string {
             $h = '<table class="fps-table" style="width:100%;margin-bottom:14px;">';
@@ -164,12 +168,12 @@ final class FpsEvidencePacket
         ]);
 
         $html .= '<h4>2. Disputed Transaction</h4>' . $rows([
-            'Order #'       => $d['order']->ordernum ?? ($cb->order_id ?? ''),
-            'Order date'    => $d['order']->date ?? '',
+            'Order #'       => $ord->ordernum ?? ($cb->order_id ?? ''),
+            'Order date'    => $ord->date ?? '',
             'Invoice #'     => $cb->invoice_id ?? '',
-            'Invoice paid'  => $d['invoice']->datepaid ?? '',
-            'Amount'        => $cb->amount ?? ($d['order']->amount ?? ''),
-            'Gateway'       => $cb->gateway ?? ($d['order']->paymentmethod ?? ''),
+            'Invoice paid'  => $inv->datepaid ?? '',
+            'Amount'        => $cb->amount ?? ($ord->amount ?? ''),
+            'Gateway'       => $cb->gateway ?? ($ord->paymentmethod ?? ''),
             'Order IP'      => $d['order_ip'],
             'Chargeback reason' => $cb->reason ?? '',
             'Chargeback date'   => $cb->chargeback_date ?? '',

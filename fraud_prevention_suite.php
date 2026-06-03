@@ -2959,7 +2959,6 @@ function fps_ajaxLinkAnalysis(): array
 function fps_ajaxRuleRecommendations(): array
 {
     $blockSet = \FraudPreventionSuite\Lib\FpsActionTaken::BLOCK;
-    $inList   = '"' . implode('","', $blockSet) . '"';
     $since    = date('Y-m-d H:i:s', strtotime('-90 days'));
     $minHits  = 3;
 
