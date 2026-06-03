@@ -516,6 +516,25 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                         $tsErrors = implode(', ', $tsResult['error_codes'] ?? []);
                         logActivity("Fraud Prevention: Turnstile FAILED at checkout -- IP: {$ip}, errors: {$tsErrors}");
 
+                        // Classify the IP FIRST (VPN/Tor/proxy + geolocation). We run
+                        // this before recording the block so we can stamp the check with
+                        // the IP's REAL country. The checkout form defaults its country
+                        // dropdown to US for guest visitors, so $country (from the form)
+                        // mislabels every blocked bot as US -- which made the admin
+                        // "Country Breakdown" chart show only US. The IP geolocation from
+                        // IpIntelProvider is the accurate source for fraud attribution.
+                        $geoCountry = '';
+                        try {
+                            if ($ip !== '' && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\IpIntelProvider')) {
+                                $ipProvider = new \FraudPreventionSuite\Lib\Providers\IpIntelProvider();
+                                $ipIntel = $ipProvider->check(['ip' => $ip, 'email' => $email ?? '', 'country' => $country ?? '']);
+                                $geoCountry = strtoupper((string) ($ipIntel['details']['country_code'] ?? ''));
+                            }
+                        } catch (\Throwable $e) { /* non-fatal stats enrichment */ }
+
+                        // Prefer the IP-derived country; fall back to the form/client value.
+                        $recordCountry = $geoCountry !== '' ? $geoCountry : ($country ?: null);
+
                         // Record the block in mod_fps_checks so it appears in
                         // dashboard stats, reports, topology, and global intel.
                         try {
@@ -525,7 +544,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                                 'client_id'         => $clientId,
                                 'email'             => $email ?: null,
                                 'ip_address'        => $ip,
-                                'country'           => $country ?: null,
+                                'country'           => $recordCountry,
                                 'check_type'        => 'turnstile_block',
                                 'risk_score'        => 100.0,
                                 'risk_level'        => 'critical',
@@ -539,6 +558,8 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                                 'check_context'     => json_encode([
                                     'turnstile_errors' => $tsResult['error_codes'] ?? [],
                                     'blocked_at'       => 'checkout',
+                                    'form_country'     => $country ?: null,
+                                    'geo_country'      => $geoCountry ?: null,
                                     'user_agent'       => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
                                 ]),
                                 'is_pre_checkout'   => 1,
@@ -554,16 +575,6 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                         } catch (\Throwable $e) {
                             // Non-fatal -- don't let logging failure unblock the bot
                         }
-
-                        // Classify the IP for VPN/Tor/proxy stats even on Turnstile blocks.
-                        // Without this, all Turnstile-blocked IPs are invisible to the stats
-                        // dashboard because IpIntelProvider never runs.
-                        try {
-                            if ($ip !== '' && class_exists('\\FraudPreventionSuite\\Lib\\Providers\\IpIntelProvider')) {
-                                $ipProvider = new \FraudPreventionSuite\Lib\Providers\IpIntelProvider();
-                                $ipProvider->check(['ip' => $ip, 'email' => $email ?? '', 'country' => $country ?? '']);
-                            }
-                        } catch (\Throwable $e) { /* non-fatal stats enrichment */ }
 
                         return ['Bot protection verification failed. Please refresh the page and try again. Reference: FPS-TS-' . date('ymdHi')];
                     }
@@ -1064,7 +1075,12 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
             'ip_address'        => $ip,
             'email'             => $email,
             'phone'             => $phone,
-            'country'           => $country,
+            // Prefer the IP-derived country (from IpIntelProvider, merged into
+            // $details above) over the checkout form value, which defaults to US
+            // for guest visitors and otherwise mislabels the fraud geo-attribution.
+            'country'           => !empty($details['country_code'])
+                ? strtoupper((string) $details['country_code'])
+                : ($country ?: null),
             'action_taken'      => $score >= $blockThreshold ? 'blocked' : 'allowed',
             'provider_scores'   => json_encode($providerScores),
             'check_context'     => $checkContextJson,
