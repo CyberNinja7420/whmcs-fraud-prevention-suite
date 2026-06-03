@@ -1595,6 +1595,7 @@ function fraud_prevention_suite_output(array $vars): void
         'review_queue'     => ['icon' => 'fa-clipboard-check',  'label' => 'Review Queue'],
         'trust_management' => ['icon' => 'fa-shield-check',     'label' => 'Trust'],
         'client_profile'   => ['icon' => 'fa-user-shield',      'label' => 'Client Profile'],
+        'link_analysis'    => ['icon' => 'fa-diagram-project',  'label' => 'Link Analysis'],
         'mass_scan'        => ['icon' => 'fa-magnifying-glass', 'label' => 'Mass Scan'],
         'rules'            => ['icon' => 'fa-gavel',            'label' => 'Rules'],
         'reports'          => ['icon' => 'fa-flag',             'label' => 'Reports'],
@@ -2461,6 +2462,11 @@ function fps_handleAjax(string $modulelink): void
                 echo json_encode(fps_ajaxPerformanceMetrics());
                 return;
 
+            // v5.3: Link analysis / fraud-ring clustering
+            case 'get_link_analysis':
+                echo json_encode(fps_ajaxLinkAnalysis());
+                return;
+
             // v5.0.1: SMS/OTP verification
             case 'send_otp':
                 try {
@@ -2831,6 +2837,98 @@ function fps_ajaxRecentChecks(): array
     }
 
     return ['success' => true, 'data' => $enriched];
+}
+
+/**
+ * v5.3: Link analysis / fraud-ring clustering.
+ *
+ * Surfaces shared-identity rings the way Kount links transactions by email/IP/
+ * device. Clusters real mod_fps_checks + mod_fps_fingerprints rows by:
+ *   - shared IP address used by 2+ distinct accounts
+ *   - shared device fingerprint used by 2+ distinct accounts
+ *   - shared email seen across 2+ checks with blocks
+ * Each cluster reports distinct-account count, total checks, blocked count, and
+ * peak risk -- all from live data, no synthesis.
+ *
+ * @return array{success:bool,data:array}
+ */
+function fps_ajaxLinkAnalysis(): array
+{
+    $blockSet = \FraudPreventionSuite\Lib\FpsActionTaken::BLOCK;
+    $days = min((int) ($_GET['days'] ?? 90), 365);
+    $since = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+    // --- Shared IPs: one IP, multiple distinct accounts ---
+    $sharedIps = Capsule::table('mod_fps_checks')
+        ->where('created_at', '>=', $since)
+        ->whereNotNull('ip_address')->where('ip_address', '!=', '')
+        ->select(
+            'ip_address',
+            Capsule::raw('COUNT(DISTINCT client_id) as accounts'),
+            Capsule::raw('COUNT(*) as checks'),
+            Capsule::raw('SUM(CASE WHEN action_taken IN ("' . implode('","', $blockSet) . '") THEN 1 ELSE 0 END) as blocks'),
+            Capsule::raw('ROUND(MAX(risk_score),1) as peak_risk'),
+            Capsule::raw('MAX(country) as country')
+        )
+        ->groupBy('ip_address')
+        ->havingRaw('COUNT(DISTINCT client_id) > 1')
+        ->orderByRaw('blocks DESC, accounts DESC')
+        ->limit(50)
+        ->get()->toArray();
+
+    // --- Shared devices: one fingerprint, multiple distinct accounts ---
+    $sharedDevices = [];
+    if (Capsule::schema()->hasTable('mod_fps_fingerprints')) {
+        $sharedDevices = Capsule::table('mod_fps_fingerprints')
+            ->select(
+                'fingerprint_hash',
+                Capsule::raw('COUNT(DISTINCT client_id) as accounts'),
+                Capsule::raw('COUNT(*) as sightings')
+            )
+            ->whereNotNull('fingerprint_hash')->where('fingerprint_hash', '!=', '')
+            ->where('client_id', '>', 0)
+            ->groupBy('fingerprint_hash')
+            ->havingRaw('COUNT(DISTINCT client_id) > 1')
+            ->orderByRaw('accounts DESC')
+            ->limit(50)
+            ->get()->toArray();
+    }
+
+    // --- Shared emails across multiple checks that include blocks ---
+    $sharedEmails = Capsule::table('mod_fps_checks')
+        ->where('created_at', '>=', $since)
+        ->whereNotNull('email')->where('email', '!=', '')
+        ->select(
+            'email',
+            Capsule::raw('COUNT(DISTINCT client_id) as accounts'),
+            Capsule::raw('COUNT(*) as checks'),
+            Capsule::raw('SUM(CASE WHEN action_taken IN ("' . implode('","', $blockSet) . '") THEN 1 ELSE 0 END) as blocks')
+        )
+        ->groupBy('email')
+        ->havingRaw('COUNT(*) > 1 AND SUM(CASE WHEN action_taken IN ("' . implode('","', $blockSet) . '") THEN 1 ELSE 0 END) > 0')
+        ->orderByRaw('blocks DESC, checks DESC')
+        ->limit(50)
+        ->get()->toArray();
+
+    // Headline counts
+    $ringsByIp     = count(array_filter($sharedIps, fn($r) => (int) $r->blocks > 0));
+    $ringsByDevice = count($sharedDevices);
+
+    return [
+        'success' => true,
+        'data' => [
+            'period_days'     => $days,
+            'shared_ips'      => $sharedIps,
+            'shared_devices'  => $sharedDevices,
+            'shared_emails'   => $sharedEmails,
+            'summary' => [
+                'ip_clusters'      => count($sharedIps),
+                'ip_rings_blocked' => $ringsByIp,
+                'device_clusters'  => $ringsByDevice,
+                'email_clusters'   => count($sharedEmails),
+            ],
+        ],
+    ];
 }
 
 function fps_ajaxChartData(): array
