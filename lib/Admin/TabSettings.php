@@ -29,6 +29,7 @@ class TabSettings
         $this->fpsRenderDisplaySettings($config);
         $this->fpsRenderProviderSettings($config);
         $this->fpsRenderProviderWeights($config);
+        $this->fpsRenderAnalyticsSettings($config);
         $this->fpsRenderThresholdSettings($config);
         $this->fpsRenderCaptchaSettings($config);
         $this->fpsRenderPublicApiSettings($config);
@@ -48,6 +49,11 @@ class TabSettings
         echo '</form>';
 
         $this->fpsRenderSaveBar($ajaxUrl);
+
+        // v4.2.6: analytics setup wizard modal (merged from main lineage).
+        // Always rendered so FpsAdmin.openModal('fps-analytics-wizard') can
+        // show it from the "Run setup wizard" link in the Analytics card.
+        echo FpsAnalyticsWizard::render();
     }
 
     /**
@@ -498,6 +504,53 @@ HTML;
         $content .= '</div>';
 
         echo FpsAdminRenderer::renderCard('Provider Settings', 'fa-puzzle-piece', $content);
+    }
+
+    /**
+     * Analytics & Tracking settings card (merged from main lineage v4.2.6).
+     *
+     * GA4 + Microsoft Clarity configuration. All three master toggles default
+     * OFF. The full guided setup lives in the FpsAnalyticsWizard modal that
+     * render() emits; this card mirrors the fields inline and links to it.
+     */
+    private function fpsRenderAnalyticsSettings(FpsConfig $config): void
+    {
+        $fields = [
+            ['type' => 'info', 'text' => '<strong>Google Analytics 4 + Microsoft Clarity tracking.</strong> All three master toggles default OFF. You must sign Google\'s GA4 DPA + Microsoft\'s Clarity DPA separately before enabling for EEA visitors. <a href="#" onclick="FpsAdmin.openModal(\'fps-analytics-wizard\');return false;" style="font-weight:600;">&#x1F9D9; Run setup wizard</a> to be walked through this step-by-step.', 'allow_html' => true],
+            ['type' => 'info', 'text' => '<em>Master toggles</em> &mdash; flip on AFTER entering credentials below.', 'allow_html' => true],
+            ['type' => 'toggle', 'name' => 'enable_client_analytics', 'label' => 'Enable client-side tracking (storefront + cart)'],
+            ['type' => 'toggle', 'name' => 'enable_admin_analytics',  'label' => 'Enable admin-side tracking (FPS admin tabs)'],
+            ['type' => 'toggle', 'name' => 'enable_server_events',    'label' => 'Enable server-side custom events (Measurement Protocol)'],
+            ['type' => 'info', 'text' => '<strong>GA4 measurement ID (client)</strong> &mdash; the data stream ID for your storefront. Find at: <a href="https://analytics.google.com/analytics/web/" target="_blank" rel="noopener">analytics.google.com</a> &rarr; Admin (gear icon) &rarr; Data streams &rarr; (your stream) &rarr; Measurement ID. Format: <code>G-XXXXXXXXXX</code>.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'ga4_measurement_id_client', 'label' => 'GA4 measurement ID (client)', 'placeholder' => 'G-XXXXXXXXXX'],
+            ['type' => 'info', 'text' => '<strong>GA4 measurement ID (admin, optional)</strong> &mdash; separate property to track admin behavior. Leave blank to use the client ID for both.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'ga4_measurement_id_admin',  'label' => 'GA4 measurement ID (admin, optional)', 'placeholder' => 'falls back to client ID if blank'],
+            ['type' => 'info', 'text' => '<strong>GA4 Measurement Protocol secret</strong> &mdash; required for server-side custom events. Find at: <a href="https://analytics.google.com/analytics/web/" target="_blank" rel="noopener">analytics.google.com</a> &rarr; Admin &rarr; Data streams &rarr; (stream) &rarr; <em>Measurement Protocol API secrets</em> &rarr; Create. Treat as a password.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'ga4_api_secret', 'label' => 'GA4 Measurement Protocol secret', 'placeholder' => '(required for server-side events)'],
+            ['type' => 'info', 'text' => '<strong>GA4 numeric property ID</strong> (NOT the G- ID) &mdash; required for the dashboard "yesterday\'s count" widget. Find at: <a href="https://analytics.google.com/analytics/web/" target="_blank" rel="noopener">analytics.google.com</a> &rarr; Admin &rarr; Property settings &rarr; Property details &rarr; PROPERTY ID. Or paste the Service Account JSON below and use the wizard to auto-discover.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'ga4_property_id', 'label' => 'GA4 numeric property ID (Data API)', 'placeholder' => 'numeric, e.g. 123456789'],
+            ['type' => 'info', 'text' => '<strong>GA4 Data API Service Account JSON</strong> (optional) &mdash; powers the dashboard "yesterday\'s count" widget. Create at: <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener">Google Cloud Console</a> &rarr; IAM &amp; Admin &rarr; Service Accounts &rarr; Create &rarr; Keys &rarr; Add Key (JSON). Then grant the service account "Viewer" role on your GA4 property.', 'allow_html' => true],
+            ['type' => 'textarea','name' => 'ga4_service_account_json', 'label' => 'GA4 Data API service account JSON (optional)', 'placeholder' => 'Paste service-account JSON; enables yesterday-count widget'],
+            ['type' => 'info', 'text' => '<strong>Clarity project ID (client)</strong> &mdash; 10-character lowercase ID for your storefront. Find at: <a href="https://clarity.microsoft.com/" target="_blank" rel="noopener">clarity.microsoft.com</a> &rarr; (your project) &rarr; Settings &rarr; Setup &rarr; Project ID.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'clarity_project_id_client', 'label' => 'Clarity project ID (client)', 'placeholder' => '10-char alphanumeric'],
+            ['type' => 'info', 'text' => '<strong>Clarity project ID (admin, optional)</strong> &mdash; separate Clarity project for admin sessions. Leave blank to share the client project.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'clarity_project_id_admin',  'label' => 'Clarity project ID (admin, optional)'],
+            ['type' => 'info', 'text' => '<strong>EEA consent banner</strong> &mdash; when ON (recommended), the consent banner is shown only to visitors whose IP-derived country is in the EEA + UK + Switzerland (27 countries). When OFF, the banner is shown to everyone (broader compliance with non-EEA cookie laws).', 'allow_html' => true],
+            ['type' => 'toggle', 'name' => 'analytics_eea_consent_required', 'label' => 'Show consent banner only to EEA visitors (recommended)'],
+            ['type' => 'info', 'text' => '<strong>Server event sampling rate</strong> &mdash; 1-100. At 100 (default), every server event is sent. At 50, half are dropped at random. Use to throttle high-traffic installs.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'analytics_event_sampling_rate', 'label' => 'Server event sampling rate (1-100)', 'placeholder' => '100'],
+            ['type' => 'info', 'text' => '<strong>High-risk signup analytics threshold</strong> (0-100, default 80) &mdash; FPS risk score above which signups fire the <code>fps_high_risk_signup</code> event. Lower = more events; higher = fewer.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'analytics_high_risk_signup_threshold', 'label' => 'High-risk signup threshold', 'placeholder' => '80'],
+            ['type' => 'info', 'text' => '<strong>Admin email for anomaly alerts</strong> &mdash; receives email when daily event counts spike (3x median, min 50). Leave blank to disable.', 'allow_html' => true],
+            ['type' => 'text',   'name' => 'notification_email',  'label' => 'Admin email for anomaly alerts (optional)',  'placeholder' => 'admin@example.com'],
+        ];
+
+        $content = '';
+        foreach ($fields as $field) {
+            $content .= $this->fpsRenderSettingField($field, $config);
+        }
+
+        echo FpsAdminRenderer::renderCard('Analytics &amp; Tracking', 'fa-chart-line', $content);
     }
 
     /**
@@ -1095,10 +1148,29 @@ HTML;
                 }
                 $safeValue = htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 
+                $ph = isset($field['placeholder'])
+                    ? ' placeholder="' . htmlspecialchars((string) $field['placeholder'], ENT_QUOTES, 'UTF-8') . '"'
+                    : '';
                 $html .= '<div class="fps-form-group">';
                 $html .= '  <label for="fps-setting-' . $name . '">' . $label . '</label>';
                 $html .= '  <input type="text" id="fps-setting-' . $name . '" name="' . $name . '" '
-                    . 'class="fps-input" value="' . $safeValue . '">';
+                    . 'class="fps-input" value="' . $safeValue . '"' . $ph . '>';
+                $html .= '</div>';
+                break;
+
+            case 'textarea':
+                $name  = htmlspecialchars($field['name'], ENT_QUOTES, 'UTF-8');
+                $label = htmlspecialchars($field['label'], ENT_QUOTES, 'UTF-8');
+                $value = (($field['source'] ?? '') === 'module')
+                    ? $config->get($field['name'], '')
+                    : $config->getCustom($field['name'], '');
+                $ph = isset($field['placeholder'])
+                    ? ' placeholder="' . htmlspecialchars((string) $field['placeholder'], ENT_QUOTES, 'UTF-8') . '"'
+                    : '';
+                $html .= '<div class="fps-form-group">';
+                $html .= '  <label for="fps-setting-' . $name . '">' . $label . '</label>';
+                $html .= '  <textarea id="fps-setting-' . $name . '" name="' . $name . '" class="fps-input" rows="5"' . $ph . '>'
+                    . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '</textarea>';
                 $html .= '</div>';
                 break;
 
@@ -1131,8 +1203,11 @@ HTML;
                 break;
 
             case 'info':
+                $infoText = !empty($field['allow_html'])
+                    ? (string) $field['text']
+                    : htmlspecialchars((string) $field['text'], ENT_QUOTES, 'UTF-8');
                 $html .= '<div class="fps-form-info">';
-                $html .= '  <i class="fas fa-info-circle"></i> ' . htmlspecialchars($field['text'], ENT_QUOTES, 'UTF-8');
+                $html .= '  <i class="fas fa-info-circle"></i> ' . $infoText;
                 $html .= '</div>';
                 break;
         }

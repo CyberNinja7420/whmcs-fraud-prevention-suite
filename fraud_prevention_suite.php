@@ -4,6 +4,13 @@ if (!defined("WHMCS")) {
 }
 
 use WHMCS\Database\Capsule;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConfig;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsLog;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsInjector;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsDataApi;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsServerEvents;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsConsentManager;
+use FraudPreventionSuite\Lib\Analytics\FpsAnalyticsAnomalyDetector;
 
 // ---------------------------------------------------------------------------
 // AUTOLOADER
@@ -33,7 +40,7 @@ require_once __DIR__ . '/lib/FpsMailHelper.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '5.3.0');
+    define('FPS_MODULE_VERSION', '5.4.0');
 }
 
 // ---------------------------------------------------------------------------
@@ -772,6 +779,31 @@ function fraud_prevention_suite_activate(): array
             });
         }
 
+        // -- v4.2.5: Analytics tables (merged from main lineage) --
+
+        if (!Capsule::schema()->hasTable('mod_fps_analytics_log')) {
+            Capsule::schema()->create('mod_fps_analytics_log', function ($table) {
+                $table->increments('id');
+                $table->string('event_name', 50)->index();
+                $table->text('payload_json')->nullable();
+                $table->string('destination', 20)->default('ga4_server');
+                $table->string('status', 10)->default('queued');
+                $table->text('error')->nullable();
+                $table->timestamp('created_at')->useCurrent()->index();
+            });
+        }
+
+        if (!Capsule::schema()->hasTable('mod_fps_analytics_anomalies')) {
+            Capsule::schema()->create('mod_fps_analytics_anomalies', function ($table) {
+                $table->increments('id');
+                $table->string('event_name', 50)->index();
+                $table->integer('baseline_count')->default(0);
+                $table->integer('observed_count')->default(0);
+                $table->timestamp('detected_at')->useCurrent();
+                $table->timestamp('notified_at')->nullable();
+            });
+        }
+
         // Seed default settings (wrapped in try/catch for v1.0 compat).
         // module_version seed uses the current FPS_MODULE_VERSION so fresh installs
         // match what the config() metadata advertises; existing installs retain
@@ -815,6 +847,21 @@ function fraud_prevention_suite_activate(): array
             // throws). Set to '0' to roll back to historical inline-first
             // behaviour. See TODO-hardening.md item #1.
             'use_runner_fast_path' => '1',
+            // v4.2.5: Analytics & Tracking settings (all default OFF).
+            // Operators opt in per-side via the Analytics panel in TabSettings.
+            'enable_client_analytics'        => '0',
+            'enable_admin_analytics'         => '0',
+            'enable_server_events'           => '0',
+            'ga4_measurement_id_client'      => '',
+            'ga4_measurement_id_admin'       => '',
+            'ga4_api_secret'                 => '',
+            'ga4_service_account_json'       => '',
+            'ga4_property_id'                => '',
+            'clarity_project_id_client'      => '',
+            'clarity_project_id_admin'       => '',
+            'analytics_eea_consent_required' => '1',
+            'analytics_event_sampling_rate'  => '100',
+            'analytics_high_risk_signup_threshold' => '80',
             // Legacy details JSON column writer: '0' (default as of v4.2.4 PM).
             // Fresh installs no longer double-write the legacy details +
             // raw_response columns; the structured columns
@@ -2683,6 +2730,17 @@ function fps_handleAjax(string $modulelink): void
 
             case 'label_device':
                 echo json_encode(fps_ajaxLabelDevice());
+                break;
+
+            // v4.2.6: analytics setup wizard (merged from main lineage).
+            // These handlers echo their own JSON (void), matching the
+            // wizard JS in assets/js/fps-analytics-wizard.js.
+            case 'fps_ajaxAnalyticsDiscoverProperties':
+                fps_ajaxAnalyticsDiscoverProperties();
+                break;
+
+            case 'fps_ajaxAnalyticsWizardSave':
+                fps_ajaxAnalyticsWizardSave();
                 break;
 
             default:
@@ -6665,3 +6723,134 @@ function fps_ajaxLabelDevice(): array
     }
 }
 
+
+// ---------------------------------------------------------------------------
+// ANALYTICS WIZARD AJAX (merged from main lineage v4.2.6)
+// ---------------------------------------------------------------------------
+
+function fps_ajaxAnalyticsDiscoverProperties(): void
+{
+    try {
+        $saJson = (string) ($_POST['sa_json'] ?? '');
+        // WHMCS htmlspecialchars-escapes POST values; reverse before JSON parsing.
+        $saJson = htmlspecialchars_decode($saJson, ENT_QUOTES);
+        $properties = FpsAnalyticsDataApi::discoverProperties($saJson);
+        echo json_encode([
+            'success' => true,
+            'data'    => ['properties' => $properties],
+        ]);
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'fps_ajaxAnalyticsDiscoverProperties', [], $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error'   => $e->getMessage(),
+        ]);
+    }
+}
+
+/**
+ * v4.2.6: AJAX -- save all wizard fields in one shot.
+ *
+ * Validates each provided value with FpsAnalyticsConfig validators where
+ * applicable, then UPSERTs into mod_fps_settings. Boolean flag fields
+ * (3 enable toggles + EEA) are sent explicitly as '0'/'1' by the wizard JS
+ * so we don't need the absent-means-zero compensation that fps_ajaxSaveSettings
+ * uses for HTML form submissions.
+ */
+function fps_ajaxAnalyticsWizardSave(): void
+{
+    try {
+        // Allowed setting keys (whitelist -- nothing else from POST is written).
+        $allowedKeys = [
+            'enable_client_analytics',
+            'enable_admin_analytics',
+            'enable_server_events',
+            'analytics_eea_consent_required',
+            'ga4_measurement_id_client',
+            'ga4_api_secret',
+            'ga4_property_id',
+            'ga4_service_account_json',
+            'clarity_project_id_client',
+            'notification_email',
+            'analytics_event_sampling_rate',
+            'analytics_high_risk_signup_threshold',
+        ];
+        $booleanKeys = [
+            'enable_client_analytics',
+            'enable_admin_analytics',
+            'enable_server_events',
+            'analytics_eea_consent_required',
+        ];
+
+        $errors = [];
+        $toSave = [];
+
+        foreach ($allowedKeys as $key) {
+            if (!array_key_exists($key, $_POST)) {
+                continue;
+            }
+            $value = (string) $_POST[$key];
+            // Reverse WHMCS htmlspecialchars on values that may contain JSON / quotes.
+            $value = htmlspecialchars_decode($value, ENT_QUOTES);
+
+            if (in_array($key, $booleanKeys, true)) {
+                $value = ($value === '1' || $value === 'true') ? '1' : '0';
+            }
+
+            // Validate per-field where a validator exists.
+            if ($key === 'ga4_measurement_id_client' && $value !== '' && !FpsAnalyticsConfig::isValidGa4Id($value)) {
+                $errors[] = 'GA4 measurement ID is invalid (expected G-XXXXXXXXXX).';
+                continue;
+            }
+            if ($key === 'clarity_project_id_client' && $value !== '' && !FpsAnalyticsConfig::isValidClarityId($value)) {
+                $errors[] = 'Clarity project ID is invalid (expected 8-12 lowercase alphanumerics).';
+                continue;
+            }
+            if ($key === 'ga4_service_account_json' && $value !== '' && !FpsAnalyticsConfig::isValidServiceAccountJson($value)) {
+                $errors[] = 'Service Account JSON is malformed or missing required fields.';
+                continue;
+            }
+            if ($key === 'analytics_event_sampling_rate' && $value !== '') {
+                $n = (int) $value;
+                if ($n < 1 || $n > 100) { $errors[] = 'Sampling rate must be between 1 and 100.'; continue; }
+                $value = (string) $n;
+            }
+            if ($key === 'analytics_high_risk_signup_threshold' && $value !== '') {
+                $n = (int) $value;
+                if ($n < 0 || $n > 100) { $errors[] = 'High-risk threshold must be between 0 and 100.'; continue; }
+                $value = (string) $n;
+            }
+            if ($key === 'notification_email' && $value !== '' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Notification email is not a valid address.';
+                continue;
+            }
+
+            $toSave[$key] = $value;
+        }
+
+        if (!empty($errors)) {
+            echo json_encode(['success' => false, 'error' => implode(' ', $errors)]);
+            return;
+        }
+
+        foreach ($toSave as $key => $value) {
+            \WHMCS\Database\Capsule::table('mod_fps_settings')->updateOrInsert(
+                ['setting_key' => $key],
+                ['setting_value' => $value]
+            );
+        }
+
+        FpsAnalyticsConfig::clearCache();
+
+        echo json_encode([
+            'success' => true,
+            'data'    => ['saved_count' => count($toSave)],
+        ]);
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'fps_ajaxAnalyticsWizardSave', $_POST, $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error'   => $e->getMessage(),
+        ]);
+    }
+}

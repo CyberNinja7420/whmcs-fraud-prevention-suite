@@ -7,6 +7,55 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.4.0] - 2026-06-03 "Sentinel+Analytics"
+
+### Added -- Analytics & Tracking subsystem (merged from the divergent GitLab `main` lineage)
+
+This release reconciles two parallel histories that had diverged with no common
+ancestor: the v5.3.0 "Sentinel" line (GitHub + GitLab `master`) and the v4.2.x
+line on GitLab `main`, which carried an Analytics subsystem absent from Sentinel.
+All of that work is now merged forward into the canonical line, with every
+analytics toggle defaulting OFF (opt-in per side).
+
+- **GA4 + Microsoft Clarity integration** (`lib/Analytics/`): client- and
+  admin-side page tracking via `FpsAnalyticsInjector`, server-side custom events
+  through the GA4 Measurement Protocol (`FpsAnalyticsServerEvents`), GA4 Data API
+  property discovery (`FpsAnalyticsDataApi`), event logging (`FpsAnalyticsLog`),
+  and daily spike anomaly detection with email alerts (`FpsAnalyticsAnomalyDetector`).
+- **EEA consent banner** (`assets/js/fps-consent-banner.js`, `FpsAnalyticsConsentManager`):
+  shown only to EEA/UK/CH visitors by default (IP-country aware), honoring GA4 +
+  Clarity DPA requirements before any tracking fires.
+- **7-step setup wizard** (`FpsAnalyticsWizard` modal + `assets/js/fps-analytics-wizard.js`):
+  guided GA4/Clarity configuration with live validation and service-account
+  auto-discovery; saved atomically via the `fps_ajaxAnalyticsWizardSave` endpoint.
+- **Analytics & Tracking settings card** in the Settings tab (inline mirror of the
+  wizard fields). New settings: `enable_client_analytics`, `enable_admin_analytics`,
+  `enable_server_events`, GA4/Clarity IDs + secret + service-account JSON,
+  `analytics_eea_consent_required`, `analytics_event_sampling_rate`,
+  `analytics_high_risk_signup_threshold`.
+- **New tables**: `mod_fps_analytics_log`, `mod_fps_analytics_anomalies` (idempotent).
+- **Server events** wired into existing flows (OFF by default): `turnstile_fail`
+  on checkout bot-blocks, `high_risk_signup` on risky registrations, and a daily
+  `module_health` heartbeat.
+- **Vendored chart/visualization libraries** (`assets/vendor/apexcharts.min.js`,
+  `globe.gl.min.js`, `three.min.js`): the Sentinel Topology/Statistics tabs already
+  referenced these with a CDN fallback; they are now pinned locally (no runtime
+  third-party CDN dependency).
+- **GitLab CI** (`.gitlab-ci.yml`) restored: php-lint + PHPStan + release-integrity
+  stages, complementing the GitHub Actions QA workflow.
+
+### Changed
+- `TabSettings::fpsRenderSettingField()` now supports `textarea` fields, `allow_html`
+  on info blocks, and `placeholder` attributes (additive; existing fields unchanged).
+- `FpsHookHelpers::fps_lookupCountryByIp()` added (cached IP-intel country lookup
+  for consent-banner EEA detection).
+
+### Notes
+- Static analysis clean across the merged tree: PHP-lint, PHPStan (level 3), and
+  Psalm (errorLevel 6) all pass.
+- The pre-merge GitLab `main` (v4.2.7) is preserved on the `archive/main-v4.2.7-analytics`
+  branch.
+
 ## [5.3.0] - 2026-06-01 "Sentinel"
 
 ### Added -- Account-Takeover & Intelligence

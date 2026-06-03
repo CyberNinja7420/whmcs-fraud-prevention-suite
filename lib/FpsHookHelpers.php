@@ -21,6 +21,25 @@ class FpsHookHelpers
     private static array $fps_loginProcessed = [];
 
     /**
+     * Best-effort IP -> ISO country code lookup from cached IP intelligence
+     * (merged from main lineage v4.2.6). Used by the analytics consent banner
+     * to decide EEA visibility. Returns '' when the IP has no cached intel.
+     */
+    public static function fps_lookupCountryByIp(string $ip): string
+    {
+        if ($ip === '') {
+            return '';
+        }
+        try {
+            $row = \WHMCS\Database\Capsule::table('mod_fps_ip_intel')
+                ->where('ip_address', $ip)->first(['country']);
+            return ($row && $row->country) ? (string) $row->country : '';
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
+    /**
      * Run Account-Takeover / Login Defense for a client login, exactly once per
      * request (ClientLogin and UserLogin can both fire for the same login).
      */
