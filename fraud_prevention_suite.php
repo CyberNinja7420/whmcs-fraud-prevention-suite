@@ -2828,12 +2828,80 @@ function fps_ajaxChartData(): array
         ->get()
         ->toArray();
 
+    // Risk-score histogram: 10 buckets (0-10 .. 90-100). risk_score=100 lands
+    // in bucket 9 via LEAST(...,9). Returned as a dense 10-element array so the
+    // chart never has to guess missing buckets.
+    $histRows = Capsule::table('mod_fps_checks')
+        ->where('created_at', '>=', $from . ' 00:00:00')
+        ->selectRaw('LEAST(FLOOR(risk_score / 10), 9) as bucket, COUNT(*) as cnt')
+        ->groupBy('bucket')
+        ->pluck('cnt', 'bucket')
+        ->toArray();
+    $scoreHistogram = [];
+    for ($b = 0; $b < 10; $b++) {
+        $scoreHistogram[] = (int) ($histRows[$b] ?? 0);
+    }
+
+    // Hourly activity: checks per hour-of-day (0-23), dense 24-element array.
+    $hourRows = Capsule::table('mod_fps_checks')
+        ->where('created_at', '>=', $from . ' 00:00:00')
+        ->selectRaw('HOUR(created_at) as hr, COUNT(*) as cnt')
+        ->groupBy('hr')
+        ->pluck('cnt', 'hr')
+        ->toArray();
+    $hourly = [];
+    for ($h = 0; $h < 24; $h++) {
+        $hourly[] = (int) ($hourRows[$h] ?? 0);
+    }
+
+    // Provider accuracy: from the provider_scores JSON column. total = times the
+    // provider ran; caught = times it returned a non-zero (contributing) score.
+    $providerAccuracy = [];
+    try {
+        $scoreRows = Capsule::table('mod_fps_checks')
+            ->where('created_at', '>=', $from . ' 00:00:00')
+            ->whereNotNull('provider_scores')
+            ->where('provider_scores', '!=', '')
+            ->limit(5000)
+            ->pluck('provider_scores');
+        $agg = [];
+        foreach ($scoreRows as $ps) {
+            $d = json_decode((string) $ps, true);
+            if (!is_array($d)) {
+                continue;
+            }
+            foreach ($d as $prov => $sc) {
+                if (!isset($agg[$prov])) {
+                    $agg[$prov] = ['caught' => 0, 'total' => 0];
+                }
+                $agg[$prov]['total']++;
+                if (is_numeric($sc) && (float) $sc > 0) {
+                    $agg[$prov]['caught']++;
+                }
+            }
+        }
+        foreach ($agg as $prov => $v) {
+            $providerAccuracy[] = [
+                'provider' => (string) $prov,
+                'caught'   => (int) $v['caught'],
+                'total'    => (int) $v['total'],
+            ];
+        }
+        usort($providerAccuracy, static fn(array $a, array $b): int => $b['total'] <=> $a['total']);
+        $providerAccuracy = array_slice($providerAccuracy, 0, 8);
+    } catch (\Throwable $e) {
+        $providerAccuracy = [];
+    }
+
     return [
         'success' => true,
         'data' => [
             'daily' => $stats,
             'distribution' => $distribution,
             'countries' => $countries,
+            'score_histogram' => $scoreHistogram,
+            'hourly' => $hourly,
+            'provider_accuracy' => $providerAccuracy,
         ],
     ];
 }
@@ -5737,10 +5805,18 @@ function fps_ajaxPerformanceMetrics(): array
         $baseQuery = Capsule::table('mod_fps_checks')
             ->where('created_at', '>=', $since);
 
+        // action_taken is written with several values across the module's write
+        // paths -- the Turnstile path uses 'block', the inline pipeline 'blocked',
+        // the API path 'blocked', and FpsCheckRunner 'cancelled'/'held'. Counting
+        // only the exact string 'blocked' under-reports massively (it misses the
+        // Turnstile 'block' rows that make up almost all blocks), which is why this
+        // card previously showed 0 blocked / 0% block rate. Count the full block set.
+        $blockActions  = ['blocked', 'block', 'cancelled', 'denied', 'locked'];
+        $flagActions   = ['flagged', 'held', 'review'];
         $totalChecks    = (clone $baseQuery)->count();
-        $blockedCount   = (clone $baseQuery)->where('action_taken', 'blocked')->count();
-        $flaggedCount   = (clone $baseQuery)->where('action_taken', 'flagged')->count();
-        $approvedCount  = (clone $baseQuery)->where('action_taken', 'approved')->count();
+        $blockedCount   = (clone $baseQuery)->whereIn('action_taken', $blockActions)->count();
+        $flaggedCount   = (clone $baseQuery)->whereIn('action_taken', $flagActions)->count();
+        $approvedCount  = (clone $baseQuery)->whereIn('action_taken', ['approved', 'allowed', 'allow'])->count();
 
         // Latency stats (only rows with check_duration_ms)
         $latencyQuery = (clone $baseQuery)->whereNotNull('check_duration_ms');

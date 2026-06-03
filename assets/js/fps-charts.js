@@ -622,8 +622,15 @@
         } : null;
         riskDistribution('fps-chart-risk-distribution', riskData);
 
-        // 3. Provider Accuracy -- no per-provider data in this endpoint, use defaults
-        providerAccuracy('fps-chart-provider-accuracy', null);
+        // 3. Provider Accuracy -- real per-provider catch rates from the endpoint
+        var providerData = (data.provider_accuracy || []).map(function (row) {
+          return {
+            provider: row.provider || 'unknown',
+            caught: parseInt(row.caught) || 0,
+            total: parseInt(row.total) || 0,
+          };
+        });
+        providerAccuracy('fps-chart-provider-accuracy', providerData.length > 0 ? providerData : null);
 
         // 4. Country Breakdown
         var countryData = (data.countries || []).map(function (row) {
@@ -631,11 +638,17 @@
         });
         countryHeatmap('fps-chart-country-breakdown', countryData.length > 0 ? countryData : null);
 
-        // 5. Hourly Activity -- aggregate from daily stats or use defaults
-        hourlyActivity('fps-chart-hourly-activity', null);
+        // 5. Hourly Activity -- real checks-per-hour-of-day (24 buckets) from endpoint
+        var hourlyData = Array.isArray(data.hourly) && data.hourly.length === 24
+          ? data.hourly.map(function (n) { return parseInt(n) || 0; })
+          : null;
+        hourlyActivity('fps-chart-hourly-activity', hourlyData);
 
-        // 6. Risk Score Histogram -- build from checks if available
-        riskScoreHistogram('fps-chart-score-histogram', null);
+        // 6. Risk Score Histogram -- real risk_score bucket counts (10 buckets) from endpoint
+        var histData = Array.isArray(data.score_histogram) && data.score_histogram.length === 10
+          ? data.score_histogram.map(function (n) { return parseInt(n) || 0; })
+          : null;
+        riskScoreHistogram('fps-chart-score-histogram', histData);
       })
       .catch(function (err) {
         console.error('[FpsCharts] Failed to load chart data:', err);

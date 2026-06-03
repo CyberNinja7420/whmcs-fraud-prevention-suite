@@ -921,9 +921,9 @@
         var rows = json.data.map(function (c) {
           var clientDisplay = c.client_name ? _esc(c.client_name) :
             (c.client_id > 0 ? '#' + c.client_id : '<span style="opacity:0.5;" title="' + _esc(c.check_type || 'pre_checkout') + '">' + _esc(c.ip_address || 'Guest') + '</span>');
-          var actionClass = (c.action_taken === 'approved') ? 'fps-badge-low' :
-            (c.action_taken === 'denied' || c.action_taken === 'blocked' || c.action_taken === 'block') ? 'fps-badge-critical' :
-            (c.action_taken === 'held' || c.action_taken === 'flagged') ? 'fps-badge-medium' : '';
+          var actionClass = (c.action_taken === 'approved' || c.action_taken === 'allowed') ? 'fps-badge-low' :
+            (c.action_taken === 'denied' || c.action_taken === 'blocked' || c.action_taken === 'block' || c.action_taken === 'cancelled' || c.action_taken === 'locked') ? 'fps-badge-critical' :
+            (c.action_taken === 'held' || c.action_taken === 'flagged' || c.action_taken === 'review') ? 'fps-badge-medium' : '';
           var actionLabel = _esc(c.action_taken || 'pending');
 
           // Build block reason tooltip from check_context

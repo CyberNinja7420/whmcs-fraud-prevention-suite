@@ -198,7 +198,10 @@ HTML;
                         COALESCE(SUM(checks_blocked), 0) as total_blocked,
                         COALESCE(SUM(pre_checkout_blocks), 0) as total_pre_blocks,
                         COALESCE(SUM(api_requests), 0) as total_api,
-                        COALESCE(AVG(avg_risk_score), 0) as period_avg_score
+                        -- Volume-weighted mean, not an average of per-day averages.
+                        -- A plain AVG(avg_risk_score) weights a 1-check day the same
+                        -- as a 500-check day, skewing the period figure.
+                        COALESCE(SUM(avg_risk_score * checks_total) / NULLIF(SUM(checks_total), 0), 0) as period_avg_score
                     ')
                     ->first();
                 $data[$label] = $aggRow;

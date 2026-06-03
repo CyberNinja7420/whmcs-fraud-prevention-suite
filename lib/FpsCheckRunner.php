@@ -1572,7 +1572,13 @@ class FpsCheckRunner
                 'ip_address'        => $context->ip ?: null,
                 'email'             => $context->email ?: null,
                 'phone'             => $context->phone ?: null,
-                'country'           => $context->country ?: null,
+                // Prefer the IP-geolocation country (merged into the risk details
+                // by IpIntelProvider) over $context->country, which is the
+                // checkout/billing form value and defaults to the store country
+                // for guests -- otherwise the admin geo charts mis-attribute.
+                'country'           => !empty($risk->details['country_code'])
+                    ? strtoupper((string) $risk->details['country_code'])
+                    : ($context->country ?: null),
                 'fraudrecord_id'    => ($risk->providerScores['fraudrecord'] ?? 0) > 0
                     ? 'checked'
                     : null,
