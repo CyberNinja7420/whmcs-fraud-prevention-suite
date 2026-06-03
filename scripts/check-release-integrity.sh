@@ -73,7 +73,10 @@ cd "$REPO_ROOT" || exit 2
 say "Repo root: $REPO_ROOT"
 
 # 1. Extract canonical version from fraud_prevention_suite.php
-php_version="$(grep -oE 'define\("FPS_MODULE_VERSION", "[0-9]+\.[0-9]+\.[0-9]+"\)' fraud_prevention_suite.php \
+#    Accept both single- and double-quote define() styles, with optional spacing,
+#    so the check is agnostic to the source formatting (the Sentinel line uses
+#    single quotes: define('FPS_MODULE_VERSION', '5.4.0')).
+php_version="$(grep -oE "define\([\"']FPS_MODULE_VERSION[\"'], *[\"'][0-9]+\.[0-9]+\.[0-9]+[\"']\)" fraud_prevention_suite.php \
     | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
 if [ -z "$php_version" ]; then
     warn "could not extract FPS_MODULE_VERSION from fraud_prevention_suite.php"
@@ -108,18 +111,25 @@ else
     warn "README.md does not mention version $php_version"
 fi
 
-# 5. Server module file must live at the documented WHMCS path
-if [ -f modules/servers/fps_api/fps_api.php ]; then
-    ok "modules/servers/fps_api/fps_api.php exists"
+# 5. fps_api server-module SOURCE must be present.
+#    Canonical (Sentinel) architecture: the source of truth lives at
+#    install/fps_api.php and is auto-installed to modules/servers/fps_api/
+#    at module activation, so the runtime copy is intentionally NOT committed.
+#    A committed modules/servers/ copy is also accepted for back-compat.
+if [ -f install/fps_api.php ] && grep -qE "ServerCreateAccount|fps_api_ConfigOptions|fps_api_MetaData" install/fps_api.php; then
+    ok "fps_api server-module source present (install/fps_api.php)"
+elif [ -f modules/servers/fps_api/fps_api.php ]; then
+    ok "modules/servers/fps_api/fps_api.php exists (committed copy)"
 else
-    warn "modules/servers/fps_api/fps_api.php is MISSING (docs claim this path)"
+    warn "fps_api server-module source MISSING (expected install/fps_api.php or modules/servers/fps_api/fps_api.php)"
 fi
 
-# 6. install/fps_api.php must NOT contain the old server-module body
-if [ -f install/fps_api.php ] && grep -q "ServerCreateAccount\|ServerSuspendAccount\|fps_api_ConfigOptions" install/fps_api.php; then
-    warn "install/fps_api.php still appears to contain server-module logic; should be a stub or removed"
+# 6. Auto-install wiring must be present so the runtime server module is
+#    created from the install/ source during _activate.
+if grep -q "modules/servers/fps_api" fraud_prevention_suite.php; then
+    ok "fps_api auto-install wiring present in main module"
 else
-    ok "install/fps_api.php is clean (stub or absent)"
+    warn "fps_api auto-install wiring missing from fraud_prevention_suite.php"
 fi
 
 # 7. Stale version strings in source/docs (not in CHANGELOG history)
@@ -129,6 +139,7 @@ stale="$(grep -REn '4\.2\.[0-4]([^0-9]|$)' \
     --exclude-dir=vendor --exclude-dir=.git --exclude-dir=node_modules \
     . 2>/dev/null \
     | grep -vE '(CHANGELOG\.md|\.bak\.|legacy|historical|migration|comment|//)' \
+    | grep -vE ':[0-9]+:[[:space:]]*\*' \
     | grep -vE 'pre-v4\.2\.|legacy installs|earlier \(v4\.2\.|Items-?12?4|Pass-2|originally landed in|landed in the v4\.2\.|in the v4\.2\. release|since v4\.2\.|reader migration' \
     || true)"
 if [ -n "$stale" ]; then

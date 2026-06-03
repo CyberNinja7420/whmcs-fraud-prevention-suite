@@ -211,9 +211,9 @@ class FpsApiController
     /**
      * GET /v1/lookup/ip-basic -- Basic IP intelligence
      */
-    public function lookupIpBasic(): array
+    public function lookupIpBasic(?string $ipOverride = null): array
     {
-        $ip = trim($_GET['ip'] ?? '');
+        $ip = trim($ipOverride ?? ($_GET['ip'] ?? ''));
         if (empty($ip) || !filter_var($ip, FILTER_VALIDATE_IP)) {
             return ['code' => 400, 'error' => 'Valid IP address required'];
         }
@@ -292,9 +292,9 @@ class FpsApiController
     /**
      * GET /v1/lookup/email-basic -- Basic email intelligence
      */
-    public function lookupEmailBasic(): array
+    public function lookupEmailBasic(?string $emailOverride = null): array
     {
-        $email = strtolower(trim($_GET['email'] ?? ''));
+        $email = strtolower(trim($emailOverride ?? ($_GET['email'] ?? '')));
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return ['code' => 400, 'error' => 'Valid email address required'];
         }
@@ -380,11 +380,9 @@ class FpsApiController
             $value = $item['value'] ?? '';
 
             if ($type === 'ip' && filter_var($value, FILTER_VALIDATE_IP)) {
-                $_GET['ip'] = $value;
-                $results[] = array_merge(['type' => 'ip', 'value' => $value], $this->lookupIpBasic()['data'] ?? []);
+                $results[] = array_merge(['type' => 'ip', 'value' => $value], $this->lookupIpBasic($value)['data'] ?? []);
             } elseif ($type === 'email' && filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                $_GET['email'] = $value;
-                $results[] = array_merge(['type' => 'email', 'value' => $value], $this->lookupEmailBasic()['data'] ?? []);
+                $results[] = array_merge(['type' => 'email', 'value' => $value], $this->lookupEmailBasic($value)['data'] ?? []);
             } else {
                 $results[] = ['type' => $type, 'value' => $value, 'error' => 'Invalid type or value'];
             }
