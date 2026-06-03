@@ -2291,9 +2291,14 @@
             r.results.forEach(function(res) {
               window._fpsScanResults.push(res);
               if (res.success && res.data) {
-                var score = res.data.risk_score || res.data.score || 0;
-                if (score >= 70) window._fpsScanBlocked++;
-                else if (score >= 40) window._fpsScanFlagged++;
+                // Classify by what the engine ACTUALLY did (action_taken),
+                // not by hardcoded score cutoffs (70/40) that don't match the
+                // configured block/flag thresholds. Canonical action sets:
+                var act = String(res.data.action_taken || '').toLowerCase();
+                var BLOCK = ['blocked', 'block', 'cancelled', 'denied', 'locked'];
+                var FLAG = ['flagged', 'held', 'review'];
+                if (BLOCK.indexOf(act) !== -1) window._fpsScanBlocked++;
+                else if (FLAG.indexOf(act) !== -1) window._fpsScanFlagged++;
               }
             });
           }

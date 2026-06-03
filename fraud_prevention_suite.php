@@ -2668,9 +2668,13 @@ function fps_ajaxDashboardStats(): array
         ->where('created_at', '>=', $today . ' 00:00:00')
         ->avg('risk_score') ?? 0;
 
+    // Active threats = unreviewed critical-risk checks. The old `locked=1`
+    // condition missed nearly all of them: the inline/API/Turnstile block
+    // paths set risk_level='critical' but never set locked=1 (only the
+    // admin-deny path does), so this card read near-zero despite many
+    // unreviewed critical blocks.
     $activeThreats = Capsule::table('mod_fps_checks')
         ->where('risk_level', 'critical')
-        ->where('locked', 1)
         ->whereNull('reviewed_by')
         ->count();
 
@@ -3093,7 +3097,11 @@ function fps_ajaxClientProfile(): array
                 'total_checks' => count($checks),
                 'avg_score' => count($checks) > 0 ? round(array_sum(array_column($checks, 'risk_score')) / count($checks), 1) : 0,
                 'highest_score' => count($checks) > 0 ? max(array_column($checks, 'risk_score')) : 0,
-                'times_blocked' => count(array_filter($checks, fn($c) => $c->locked)),
+                // Count real blocks by the canonical action_taken set -- the
+                // `locked` flag is only set by the admin-deny + one Turnstile
+                // path, so most blocks (inline/API/Turnstile 'block') have
+                // locked=0 and were being missed.
+                'times_blocked' => count(array_filter($checks, fn($c) => in_array((string) ($c->action_taken ?? ''), \FraudPreventionSuite\Lib\FpsActionTaken::BLOCK, true))),
             ],
         ],
     ];
@@ -3464,6 +3472,11 @@ function fps_ajaxTopologyData(): array
     $totalBlocks     = $withSince(Capsule::table('mod_fps_geo_events'))
         ->whereIn('risk_level', ['high', 'critical'])->count();
 
+    // Return an explicit block_rate so the map overlay and the AJAX refresh
+    // agree on one definition (high+critical geo events / total geo events),
+    // instead of the JS recomputing it differently from first paint.
+    $blockRate = $totalChecks > 0 ? round(($totalBlocks / $totalChecks) * 100, 1) : 0.0;
+
     return [
         'success' => true,
         'data' => [
@@ -3473,6 +3486,7 @@ function fps_ajaxTopologyData(): array
             'total_checks'     => $totalChecks,
             'active_countries' => $activeCountries,
             'total_blocks'     => $totalBlocks,
+            'block_rate'       => $blockRate,
             'range_label'      => $allTime ? 'All Time' : ($hours . 'h'),
         ],
     ];
