@@ -116,7 +116,8 @@ final class FpsReasonCodes
         foreach (array_slice($reasons, 0, $limit) as $r) {
             // Whole numbers as ints (100, not 100.0 or a zero-stripped "1").
             $p = (float) $r['points'];
-            $disp = ($p == (int) $p) ? (string) (int) $p : (string) $p;
+            $pInt = (int) $p;
+            $disp = ($p === (float) $pInt) ? (string) $pInt : (string) $p;
             $parts[] = $r['reason'] . ' (+' . $disp . ')';
         }
         $extra = count($reasons) - $limit;

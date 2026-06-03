@@ -111,7 +111,7 @@ class FpsPostPurchaseMonitor
      * this client in the last EMAIL_WINDOW_HOURS hours.
      *
      * @param int $clientId
-     * @return array{flagged: bool, score: float, details: string}
+     * @return array{flagged: bool, score: float, details: string, type?: string}
      */
     public function fps_checkEmailAbuse(int $clientId): array
     {
@@ -151,7 +151,7 @@ class FpsPostPurchaseMonitor
      * (indicates automated bulk ordering, reseller abuse, or stolen card).
      *
      * @param int $clientId
-     * @return array{flagged: bool, score: float, details: string}
+     * @return array{flagged: bool, score: float, details: string, type?: string}
      */
     public function fps_checkProvisioningAbuse(int $clientId): array
     {
@@ -172,6 +172,7 @@ class FpsPostPurchaseMonitor
 
             // Check if they were created in rapid succession
             // Group by date and check if many fall within the same day
+            /** @var array<string,int> $dateGroups */
             $dateGroups = [];
             foreach ($recentServices as $svc) {
                 $day = $svc->regdate ?? '';
@@ -204,7 +205,7 @@ class FpsPostPurchaseMonitor
      * stolen credentials, social engineering, or automated abuse.
      *
      * @param int $clientId
-     * @return array{flagged: bool, score: float, details: string}
+     * @return array{flagged: bool, score: float, details: string, type?: string}
      */
     public function fps_checkTicketVelocity(int $clientId): array
     {
@@ -240,7 +241,7 @@ class FpsPostPurchaseMonitor
      * takeover, or a compromised account.
      *
      * @param int $clientId
-     * @return array{flagged: bool, score: float, details: string}
+     * @return array{flagged: bool, score: float, details: string, type?: string}
      */
     public function fps_checkSuspiciousLogins(int $clientId): array
     {

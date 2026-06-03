@@ -236,7 +236,7 @@ final class FpsLoginDefense
     private function clientIp(): string
     {
         foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $k) {
-            $v = $_SERVER[$k] ?? '';
+            $v = (string) ($_SERVER[$k] ?? '');
             if ($v !== '') {
                 $ip = trim(explode(',', $v)[0]);
                 if (filter_var($ip, FILTER_VALIDATE_IP)) {
