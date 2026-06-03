@@ -550,7 +550,7 @@ HTML;
             $content .= $this->fpsRenderSettingField($field, $config);
         }
 
-        echo FpsAdminRenderer::renderCard('Analytics &amp; Tracking', 'fa-chart-line', $content);
+        echo FpsAdminRenderer::renderCard('Analytics & Tracking', 'fa-chart-line', $content);
     }
 
     /**
