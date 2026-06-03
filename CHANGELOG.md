@@ -7,6 +7,51 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.3.0] - 2026-06-01 "Sentinel"
+
+### Added -- Account-Takeover & Intelligence
+- **Account-Takeover (ATO) / Login Defense** (`FpsLoginDefense`, UserLogin/ClientLogin
+  hooks): on each client login, detects new-device, new-country, impossible-travel
+  (>900 km/h implied between consecutive logins), and login velocity. Records a
+  `check_type='login'` row, stores history in the new `mod_fps_login_events` table,
+  emails the client on a new-device sign-in and alerts admins on suspicious logins.
+  Closes the returning-customer gap (signup/checkout were already protected).
+- **Link Analysis / Fraud-Ring clustering** (new Link Analysis admin tab,
+  `fps_ajaxLinkAnalysis`): clusters accounts by shared IP, device fingerprint, and
+  email, with per-cluster block counts -- surfaces fraud rings (Kount-style identity
+  linking).
+- **Explainable reason codes** (`FpsReasonCodes`): ranks a check's `provider_scores`
+  into a plain-English "why" (e.g. "Failed Turnstile (+100); Tor exit node (+20)").
+  Surfaced in the dashboard recent-activity and client risk timeline.
+- **Chargeback evidence auto-compiler** (`FpsEvidencePacket`): one-click Visa-CE-3.0-style
+  dispute packet from stored data (cardholder, transaction, network/device evidence,
+  fraud assessment, account-activity timeline). New button in the Reports chargeback table.
+- **Whitebox rule recommendations** (`fps_ajaxRuleRecommendations`): mines recent blocks
+  for recurring countries/email-domains/IPs and offers one-click rule creation, deduped
+  against existing rules. New Suggested Rules card in the Rules tab.
+
+### Changed -- Data correctness
+- Single source of truth for `action_taken` outcomes (`FpsActionTaken`): every block/flag
+  query now uses the canonical sets, fixing under-counts in Performance Metrics, Home
+  Widget, email digest, PDF report, ClientProfile, Dashboard active-threats, and the
+  persistent `checks_blocked` aggregate (which feeds the public "Threats Blocked" stat
+  and the API `total_blocks`).
+- Statistics tab now serves real Risk Histogram, Hourly Activity, and Provider Accuracy
+  data (previously mock); Country Breakdown now uses IP-geolocation country.
+- Period Summary "Avg Risk Score" is now volume-weighted.
+
+### Fixed
+- Admin AJAX `return`-style cases (Performance Metrics, Cron Health) wrapped JSON in the
+  WHMCS admin page chrome -> "Network error"; `_output` now exits cleanly.
+- Email digest used `SendEmail` with `id=0` ("A related ID is required" for 14 days) ->
+  switched to `SendAdminEmail`.
+- Turnstile widget injected into the wrong form (token never posted, blocking all
+  checkouts) -> anchored on the real submit button inside `#frmCheckout`.
+- Selftest checks Tor exit nodes in the DB (not a non-existent flat file).
+- Removed orphan templates (`api-docs.tpl`, `api-keys.tpl`); de-hardcoded engine counts.
+
+---
+
 ## [5.2.0] - 2026-05-20 "IronGate II"
 
 ### Added -- Device Identity System
