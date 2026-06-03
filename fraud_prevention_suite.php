@@ -2467,6 +2467,11 @@ function fps_handleAjax(string $modulelink): void
                 echo json_encode(fps_ajaxLinkAnalysis());
                 return;
 
+            // v5.3: Whitebox rule recommendations mined from recent blocks
+            case 'get_rule_recommendations':
+                echo json_encode(fps_ajaxRuleRecommendations());
+                return;
+
             // v5.0.1: SMS/OTP verification
             case 'send_otp':
                 try {
@@ -2936,6 +2941,106 @@ function fps_ajaxLinkAnalysis(): array
                 'device_clusters'  => $ringsByDevice,
                 'email_clusters'   => count($sharedEmails),
             ],
+        ],
+    ];
+}
+
+/**
+ * v5.3: Whitebox rule recommendations.
+ *
+ * Mines recent BLOCKED checks for recurring patterns and suggests new rules
+ * (the way SEON recommends rules from observed patterns) -- top offending
+ * countries, email domains, and IPs that an admin can one-click turn into a
+ * mod_fps_rules entry via save_rule. Deduped against existing rules so it never
+ * re-suggests something already configured. All counts are real.
+ *
+ * @return array{success:bool,data:array}
+ */
+function fps_ajaxRuleRecommendations(): array
+{
+    $blockSet = \FraudPreventionSuite\Lib\FpsActionTaken::BLOCK;
+    $inList   = '"' . implode('","', $blockSet) . '"';
+    $since    = date('Y-m-d H:i:s', strtotime('-90 days'));
+    $minHits  = 3;
+
+    // Dedupe set: existing rules keyed by type|value (lowercased).
+    $have = [];
+    foreach (Capsule::table('mod_fps_rules')->get(['rule_type', 'rule_value']) as $r) {
+        $have[strtolower(trim($r->rule_type) . '|' . trim($r->rule_value))] = true;
+    }
+    $seen = static fn(string $type, string $val): bool => isset($have[strtolower($type . '|' . $val)]);
+
+    $suggestions = [];
+
+    // 1. Top offending countries (skip US -- legitimate-heavy -- and already-blocked).
+    $countries = Capsule::table('mod_fps_checks')
+        ->where('created_at', '>=', $since)->whereIn('action_taken', $blockSet)
+        ->whereNotNull('country')->where('country', '!=', '')->where('country', '!=', 'US')
+        ->select('country', Capsule::raw('COUNT(*) as hits'))
+        ->groupBy('country')->havingRaw('COUNT(*) >= ' . $minHits)
+        ->orderByRaw('hits DESC')->limit(8)->get();
+    foreach ($countries as $c) {
+        if ($seen('country_block', $c->country)) {
+            continue;
+        }
+        $suggestions[] = [
+            'type' => 'country_block', 'value' => $c->country, 'hits' => (int) $c->hits,
+            'label' => 'Block country ' . $c->country . ' (' . (int) $c->hits . ' recent blocks)',
+            'action' => 'block', 'priority' => 5, 'weight' => 5.0,
+        ];
+    }
+
+    // 2. Top offending email domains -> email_pattern '@domain'.
+    $domains = Capsule::table('mod_fps_checks')
+        ->where('created_at', '>=', $since)->whereIn('action_taken', $blockSet)
+        ->whereNotNull('email')->where('email', 'like', '%@%')
+        ->select(Capsule::raw("SUBSTRING_INDEX(email,'@',-1) as dom"), Capsule::raw('COUNT(*) as hits'))
+        ->groupBy('dom')->havingRaw('COUNT(*) >= ' . $minHits)
+        ->orderByRaw('hits DESC')->limit(8)->get();
+    foreach ($domains as $d) {
+        $dom = strtolower(trim((string) $d->dom));
+        // Skip the big mailbox providers -- blocking them would hit real customers.
+        if ($dom === '' || in_array($dom, ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com', 'protonmail.com'], true)) {
+            continue;
+        }
+        $val = '@' . $dom;
+        if ($seen('email_pattern', $val)) {
+            continue;
+        }
+        $suggestions[] = [
+            'type' => 'email_pattern', 'value' => $val, 'hits' => (int) $d->hits,
+            'label' => 'Flag email domain ' . $val . ' (' . (int) $d->hits . ' recent blocks)',
+            'action' => 'flag', 'priority' => 6, 'weight' => 4.0,
+        ];
+    }
+
+    // 3. Repeat-offender IPs -> ip_block (high recurrence only).
+    $ips = Capsule::table('mod_fps_checks')
+        ->where('created_at', '>=', $since)->whereIn('action_taken', $blockSet)
+        ->whereNotNull('ip_address')->where('ip_address', '!=', '')
+        ->select('ip_address', Capsule::raw('COUNT(*) as hits'))
+        ->groupBy('ip_address')->havingRaw('COUNT(*) >= 5')
+        ->orderByRaw('hits DESC')->limit(8)->get();
+    foreach ($ips as $ipRow) {
+        if ($seen('ip_block', $ipRow->ip_address)) {
+            continue;
+        }
+        $suggestions[] = [
+            'type' => 'ip_block', 'value' => $ipRow->ip_address, 'hits' => (int) $ipRow->hits,
+            'label' => 'Block IP ' . $ipRow->ip_address . ' (' . (int) $ipRow->hits . ' recent blocks)',
+            'action' => 'block', 'priority' => 4, 'weight' => 6.0,
+        ];
+    }
+
+    // Most impactful first.
+    usort($suggestions, static fn(array $a, array $b): int => $b['hits'] <=> $a['hits']);
+
+    return [
+        'success' => true,
+        'data' => [
+            'window_days' => 90,
+            'count'       => count($suggestions),
+            'suggestions' => $suggestions,
         ],
     ];
 }

@@ -31,10 +31,71 @@ class TabRules
         $ajaxUrl = htmlspecialchars($modulelink . '&ajax=1', ENT_QUOTES, 'UTF-8');
 
         $this->fpsRenderAddButton($ajaxUrl);
+        $this->fpsRenderRecommendations($ajaxUrl);
         $this->fpsRenderRulesTable($ajaxUrl);
         $this->fpsRenderGeoBlockingUI($ajaxUrl);
         $this->fpsRenderRuleTypeLegend();
         $this->fpsRenderRuleModal($ajaxUrl);
+    }
+
+    /**
+     * Suggested-rules card: mines recent blocks (get_rule_recommendations) and
+     * offers one-click creation of country/email/IP rules. DOM-rendered.
+     */
+    private function fpsRenderRecommendations(string $ajaxUrl): void
+    {
+        $token = function_exists('generate_token') ? generate_token('plain') : ($_SESSION['token'] ?? '');
+        $urlJs   = json_encode(html_entity_decode($ajaxUrl, ENT_QUOTES));
+        $tokenJs = json_encode($token);
+
+        echo '<div class="fps-card"><div class="fps-card-header"><i class="fas fa-wand-magic-sparkles"></i> '
+            . 'Suggested Rules <span class="fps-text-muted" style="font-size:0.75rem;font-weight:400;">'
+            . '(mined from blocks in the last 90 days)</span></div>'
+            . '<div class="fps-card-body"><div id="fps-rule-recs">Loading recommendations&hellip;</div></div></div>';
+
+        echo '<script>(function(){var recUrl=' . $urlJs . ';var recToken=' . $tokenJs . ';';
+        echo <<<'JS'
+function fpsRecText(tag,txt,css){var e=document.createElement(tag);e.textContent=(txt==null?'':String(txt));if(css)e.style.cssText=css;return e;}
+window.fpsCreateRule=function(btn,type,value,action,priority,weight){
+  btn.disabled=true;btn.textContent='Creating…';
+  var body='token='+encodeURIComponent(recToken)
+    +'&rule_name='+encodeURIComponent('Auto: '+type+' '+value)
+    +'&rule_type='+encodeURIComponent(type)
+    +'&rule_value='+encodeURIComponent(value)
+    +'&rule_action='+encodeURIComponent(action)
+    +'&priority='+encodeURIComponent(priority)
+    +'&score_weight='+encodeURIComponent(weight)
+    +'&description='+encodeURIComponent('Auto-suggested from recent block patterns');
+  fetch(recUrl+'&a=save_rule',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},credentials:'same-origin',body:body})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d && (d.success||d.rule_id)){btn.textContent='Created ✓';btn.className='fps-btn fps-btn-xs fps-btn-success';
+        if(typeof FpsAdmin!=='undefined'&&FpsAdmin.showToast)FpsAdmin.showToast('Rule created','success');}
+      else{btn.disabled=false;btn.textContent='Create';if(typeof FpsAdmin!=='undefined'&&FpsAdmin.showToast)FpsAdmin.showToast((d&&d.error)||'Failed','error');}
+    }).catch(function(){btn.disabled=false;btn.textContent='Create';});
+};
+function fpsLoadRecs(){
+  var box=document.getElementById('fps-rule-recs');
+  fetch(recUrl+'&a=get_rule_recommendations&token='+encodeURIComponent(recToken),{credentials:'same-origin'})
+    .then(function(r){return r.json();}).then(function(j){
+      box.textContent='';
+      if(!j.success){box.appendChild(fpsRecText('p',j.error||'Failed to load','color:#ef4444;'));return;}
+      var list=(j.data&&j.data.suggestions)||[];
+      if(list.length===0){box.appendChild(fpsRecText('p','No new rule suggestions — recent blocks are already covered by existing rules.','color:#6a7195;'));return;}
+      list.forEach(function(s){
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid rgba(102,126,234,0.12);border-radius:8px;margin-bottom:6px;';
+        var left=document.createElement('div');
+        left.appendChild(fpsRecText('span',s.label,'font-weight:600;'));
+        left.appendChild(fpsRecText('span',' ['+s.type+' → '+s.action+']','font-size:0.75rem;color:#6a7195;margin-left:6px;'));
+        var btn=document.createElement('button');btn.className='fps-btn fps-btn-xs fps-btn-primary';btn.textContent='Create';
+        btn.onclick=function(){fpsCreateRule(btn,s.type,s.value,s.action,s.priority,s.weight);};
+        row.appendChild(left);row.appendChild(btn);box.appendChild(row);
+      });
+    }).catch(function(){var box=document.getElementById('fps-rule-recs');box.textContent='';box.appendChild(fpsRecText('p','Network error loading recommendations','color:#ef4444;'));});
+}
+fpsLoadRecs();
+JS;
+        echo '})();</script>';
     }
 
     /**
