@@ -21,7 +21,7 @@ class TabClientProfile
 {
     public function render(array $vars, string $modulelink): void
     {
-        $input = trim($_GET['client_id'] ?? '');
+        $input = trim((string) ($_GET['client_id'] ?? ''));
         $clientId = 0;
 
         if ($input !== '') {
