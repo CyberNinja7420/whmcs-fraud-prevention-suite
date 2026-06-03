@@ -16,12 +16,21 @@ class FpsHomeWidget extends \WHMCS\Module\AbstractWidget
     public function getData()
     {
         try {
+            // Canonical action_taken sets (single source of truth). Required
+            // explicitly: WHMCS loads dashboard widgets outside the module's
+            // _output path, so the PSR-4 autoloader may not be registered here.
+            if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsActionTaken')) {
+                require_once __DIR__ . '/../FpsActionTaken.php';
+            }
+
             $today = date('Y-m-d');
             $checksToday = Capsule::table('mod_fps_checks')
                 ->where('created_at', '>=', $today . ' 00:00:00')->count();
+            // 'blocked' alone missed the Turnstile 'block' rows (almost all
+            // blocks) -- count the full canonical block set.
             $blockedToday = Capsule::table('mod_fps_checks')
                 ->where('created_at', '>=', $today . ' 00:00:00')
-                ->where('action_taken', 'blocked')->count();
+                ->whereIn('action_taken', \FraudPreventionSuite\Lib\FpsActionTaken::BLOCK)->count();
             $reviewQueue = Capsule::table('mod_fps_checks')
                 ->whereNull('reviewed_by')
                 ->whereIn('risk_level', ['high', 'critical'])->count();

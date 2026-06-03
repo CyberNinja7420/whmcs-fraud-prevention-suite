@@ -214,14 +214,12 @@ class FpsEmailDigest
                 return $stats;
             }
 
-            // Blocked / allowed counts
+            // Blocked / allowed counts. Use the canonical block set -- 'block'
+            // OR 'blocked' alone missed cancelled/denied/locked outcomes.
             $stats['blocked_count'] = (int) Capsule::table('mod_fps_checks')
                 ->where('created_at', '>=', $periodStart)
                 ->where('created_at', '<=', $periodEnd)
-                ->where(function ($q) {
-                    $q->where('action_taken', 'block')
-                      ->orWhere('action_taken', 'blocked');
-                })
+                ->whereIn('action_taken', FpsActionTaken::BLOCK)
                 ->count();
 
             $stats['allowed_count'] = $stats['total_checks'] - $stats['blocked_count'];

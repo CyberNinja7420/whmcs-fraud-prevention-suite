@@ -40,10 +40,21 @@ class FpsStatsCollector
             $today = date('Y-m-d');
             $level = $result->getLevel();
 
+            // A check is "blocked" when its action_taken is in the canonical
+            // block set -- NOT merely when risk_level is critical. The rule
+            // engine returns 'cancelled' (a real block) at high/medium/low
+            // levels too, so the old `$level === 'critical'` test under-counted
+            // checks_blocked. That aggregate feeds the PUBLIC "Threats Blocked"
+            // stat and the API total_blocks, and must match the admin
+            // Performance Metrics live count (which uses the same block set).
+            $action = strtolower(trim((string) $result->actionTaken));
+            $isBlocked = in_array($action, FpsActionTaken::BLOCK, true)
+                || ($action === '' && $level === 'critical');
+
             $increments = [
                 'checks_total'  => 1,
                 'checks_flagged' => in_array($level, ['medium', 'high', 'critical'], true) ? 1 : 0,
-                'checks_blocked' => $level === 'critical' ? 1 : 0,
+                'checks_blocked' => $isBlocked ? 1 : 0,
                 'orders_locked'  => $result->locked ? 1 : 0,
             ];
 

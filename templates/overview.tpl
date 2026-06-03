@@ -415,7 +415,7 @@ body.cb-mode .fps-pub-hero .fps-pub-version{background:rgba(37,99,235,0.2)!impor
                 <tbody>
                     <tr style="background:#f8fafc;">
                         <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#1e293b;">Detection Engines</td>
-                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;font-weight:700;color:#16a34a;background:#f0fdf4;">18+</td>
+                        <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;font-weight:700;color:#16a34a;background:#f0fdf4;">{$stats.provider_count}+</td>
                         <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">6</td>
                         <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">4</td>
                         <td style="padding:10px 16px;text-align:center;border-bottom:1px solid #f1f5f9;color:#475569;">3</td>

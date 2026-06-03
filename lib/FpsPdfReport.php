@@ -130,7 +130,7 @@ class FpsPdfReport
 
             // Blocked = action_taken IN (block, blocked) OR risk_level = critical with locked
             $data['blocked_count'] = (int) (clone $baseQuery)->where(function ($q) {
-                $q->whereIn('action_taken', ['block', 'blocked'])
+                $q->whereIn('action_taken', FpsActionTaken::BLOCK)
                   ->orWhere(function ($q2) {
                       $q2->where('risk_level', 'critical')->where('locked', 1);
                   });
@@ -160,7 +160,7 @@ class FpsPdfReport
                 ->where('created_at', '>=', $startDate)
                 ->where('created_at', '<=', $endDate)
                 ->where(function ($q) {
-                    $q->whereIn('action_taken', ['block', 'blocked'])
+                    $q->whereIn('action_taken', FpsActionTaken::BLOCK)
                       ->orWhere('risk_level', 'critical');
                 })
                 ->whereNotNull('ip_address')
@@ -182,7 +182,7 @@ class FpsPdfReport
                 ->where('created_at', '>=', $startDate)
                 ->where('created_at', '<=', $endDate)
                 ->where(function ($q) {
-                    $q->whereIn('action_taken', ['block', 'blocked'])
+                    $q->whereIn('action_taken', FpsActionTaken::BLOCK)
                       ->orWhere('risk_level', 'critical');
                 })
                 ->whereNotNull('email')

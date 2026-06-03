@@ -5811,12 +5811,10 @@ function fps_ajaxPerformanceMetrics(): array
         // only the exact string 'blocked' under-reports massively (it misses the
         // Turnstile 'block' rows that make up almost all blocks), which is why this
         // card previously showed 0 blocked / 0% block rate. Count the full block set.
-        $blockActions  = ['blocked', 'block', 'cancelled', 'denied', 'locked'];
-        $flagActions   = ['flagged', 'held', 'review'];
         $totalChecks    = (clone $baseQuery)->count();
-        $blockedCount   = (clone $baseQuery)->whereIn('action_taken', $blockActions)->count();
-        $flaggedCount   = (clone $baseQuery)->whereIn('action_taken', $flagActions)->count();
-        $approvedCount  = (clone $baseQuery)->whereIn('action_taken', ['approved', 'allowed', 'allow'])->count();
+        $blockedCount   = (clone $baseQuery)->whereIn('action_taken', \FraudPreventionSuite\Lib\FpsActionTaken::BLOCK)->count();
+        $flaggedCount   = (clone $baseQuery)->whereIn('action_taken', \FraudPreventionSuite\Lib\FpsActionTaken::FLAG)->count();
+        $approvedCount  = (clone $baseQuery)->whereIn('action_taken', \FraudPreventionSuite\Lib\FpsActionTaken::ALLOW)->count();
 
         // Latency stats (only rows with check_duration_ms)
         $latencyQuery = (clone $baseQuery)->whereNotNull('check_duration_ms');
