@@ -549,6 +549,26 @@ function fraud_prevention_suite_activate(): array
             });
         }
 
+        // -- v5.3: Login-defense (ATO) event history --
+        if (!Capsule::schema()->hasTable('mod_fps_login_events')) {
+            Capsule::schema()->create('mod_fps_login_events', function ($table) {
+                $table->increments('id');
+                $table->integer('client_id')->index();
+                $table->string('ip_address', 45)->nullable();
+                $table->string('country_code', 5)->nullable();
+                $table->double('latitude')->nullable();
+                $table->double('longitude')->nullable();
+                $table->string('device_hash', 191)->nullable()->index();
+                $table->string('user_agent', 255)->nullable();
+                $table->tinyInteger('is_new_device')->default(0);
+                $table->tinyInteger('is_new_country')->default(0);
+                $table->tinyInteger('is_impossible_travel')->default(0);
+                $table->tinyInteger('is_velocity')->default(0);
+                $table->double('risk_score')->default(0);
+                $table->dateTime('created_at')->nullable()->index();
+            });
+        }
+
         // -- v5.2: Device trust table --
         if (!Capsule::schema()->hasTable('mod_fps_device_trust')) {
             Capsule::schema()->create('mod_fps_device_trust', function ($table) {
@@ -2097,7 +2117,7 @@ function fps_handleAjax(string $modulelink): void
                     $checks = Capsule::table('mod_fps_checks')
                         ->where('client_id', $clientId)
                         ->orderBy('created_at', 'asc')
-                        ->get(['risk_score', 'risk_level', 'check_type', 'created_at', 'action_taken']);
+                        ->get(['risk_score', 'risk_level', 'check_type', 'created_at', 'action_taken', 'provider_scores', 'check_context']);
                     $data = [];
                     foreach ($checks as $c) {
                         $data[] = [
@@ -2106,6 +2126,11 @@ function fps_handleAjax(string $modulelink): void
                             'level' => $c->risk_level,
                             'type' => $c->check_type,
                             'action' => $c->action_taken,
+                            'reasons' => \FraudPreventionSuite\Lib\FpsReasonCodes::summary(
+                                $c->provider_scores ?? '',
+                                json_decode($c->check_context ?? '{}', true) ?: [],
+                                3
+                            ),
                         ];
                     }
                     echo json_encode(['success' => true, 'data' => $data]);
@@ -2776,6 +2801,12 @@ function fps_ajaxRecentChecks(): array
         $row = (array)$check;
         $row['client_name'] = '';
         $row['client_company'] = '';
+        // Plain-English "why" from the stored provider_scores (+ context).
+        $row['reason_summary'] = \FraudPreventionSuite\Lib\FpsReasonCodes::summary(
+            $check->provider_scores ?? '',
+            json_decode($check->check_context ?? '{}', true) ?: [],
+            3
+        );
         if (!empty($check->client_id)) {
             $client = Capsule::table('tblclients')
                 ->where('id', $check->client_id)

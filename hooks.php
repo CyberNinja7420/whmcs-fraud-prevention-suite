@@ -2013,6 +2013,35 @@ add_hook('ClientAreaFooterOutput', 3, function ($vars) {
 // ---------------------------------------------------------------------------
 // 8. ClientAdd -- Check new client registrations
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Account-Takeover / Login Defense -- fires on successful client login.
+// WHMCS 8.x uses UserLogin (tblusers); legacy/contact logins use ClientLogin.
+// We hook both and dedupe within the request so a login is processed once.
+// ---------------------------------------------------------------------------
+add_hook('ClientLogin', 1, function ($vars) {
+    try {
+        $clientId = (int) ($vars['userid'] ?? $vars['user_id'] ?? 0);
+        \FraudPreventionSuite\Lib\FpsHookHelpers::fps_runLoginDefense($clientId);
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'ClientLogin', '', $e->getMessage());
+    }
+});
+
+add_hook('UserLogin', 1, function ($vars) {
+    try {
+        // UserLogin provides a user id (tblusers); map to the owning client.
+        $clientId = (int) ($vars['userid'] ?? 0);
+        if ($clientId < 1 && !empty($vars['user_id'])) {
+            $clientId = (int) (Capsule::table('tblusers_clients')
+                ->where('auth_user_id', (int) $vars['user_id'])
+                ->orderBy('id')->value('auth_client_id') ?? 0);
+        }
+        \FraudPreventionSuite\Lib\FpsHookHelpers::fps_runLoginDefense($clientId);
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'UserLogin', '', $e->getMessage());
+    }
+});
+
 add_hook('ClientAdd', 1, function ($vars) {
     try {
         $clientId = (int)($vars['userid'] ?? 0);

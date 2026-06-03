@@ -17,6 +17,28 @@ class FpsHookHelpers
      */
     private static ?int $fps_defaultCurrencyId = null;
 
+    /** Client ids whose login has already been processed this request. */
+    private static array $fps_loginProcessed = [];
+
+    /**
+     * Run Account-Takeover / Login Defense for a client login, exactly once per
+     * request (ClientLogin and UserLogin can both fire for the same login).
+     */
+    public static function fps_runLoginDefense(int $clientId): void
+    {
+        if ($clientId < 1 || isset(self::$fps_loginProcessed[$clientId])) {
+            return;
+        }
+        self::$fps_loginProcessed[$clientId] = true;
+        try {
+            if (class_exists('\\FraudPreventionSuite\\Lib\\FpsLoginDefense')) {
+                (new FpsLoginDefense())->handleLogin($clientId);
+            }
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'FpsHookHelpers::fps_runLoginDefense', (string) $clientId, $e->getMessage());
+        }
+    }
+
     /**
      * Resolve the WHMCS default currency id without hardcoding to 1.
      *

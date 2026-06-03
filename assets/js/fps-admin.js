@@ -930,6 +930,8 @@
           var ctx = {};
           try { ctx = typeof c.check_context === 'string' ? JSON.parse(c.check_context || '{}') : (c.check_context || {}); } catch(e){}
           var reasonParts = [];
+          // Lead with the server-computed plain-English reason summary.
+          if (c.reason_summary) reasonParts.push(c.reason_summary);
           if (c.check_type === 'turnstile_block') {
             reasonParts.push('Turnstile: ' + ((ctx.turnstile_errors || []).join(', ') || 'failed'));
             if (ctx.user_agent) reasonParts.push('UA: ' + ctx.user_agent.substring(0, 60));
