@@ -2637,6 +2637,15 @@ function fps_handleAjax(string $modulelink): void
                 echo json_encode(fps_ajaxAddChargebackEvidence());
                 break;
 
+            // v5.3: Auto-compiled chargeback evidence packet (Visa CE 3.0 style)
+            case 'get_chargeback_evidence':
+                $cbId = (int) ($_GET['chargeback_id'] ?? $_POST['chargeback_id'] ?? 0);
+                echo json_encode([
+                    'success' => true,
+                    'html'    => \FraudPreventionSuite\Lib\FpsEvidencePacket::renderHtml($cbId),
+                ]);
+                break;
+
             // ---------------------------------------------------------------
             // v5.1: Admin Notification Bell
             // ---------------------------------------------------------------

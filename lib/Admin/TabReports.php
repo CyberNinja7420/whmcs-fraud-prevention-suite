@@ -127,8 +127,11 @@ class TabReports
                 . 'onchange="FpsChargebacks.updateStatus(' . $cbId . ',this.value,\'' . $ajaxUrl . '\')">'
                 . $statusOptions . '</select>';
             $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-outline" '
-                . 'onclick="FpsChargebacks.showEvidence(' . $cbId . ',\'' . $ajaxUrl . '\')" title="Add Evidence">'
+                . 'onclick="FpsChargebacks.showEvidence(' . $cbId . ',\'' . $ajaxUrl . '\')" title="Add Evidence Notes">'
                 . '<i class="fas fa-file-pen"></i></button>';
+            $actions .= '<button type="button" class="fps-btn fps-btn-xs fps-btn-primary" '
+                . 'onclick="FpsChargebacks.autoCompile(' . $cbId . ',\'' . $ajaxUrl . '\')" title="Auto-Compile Evidence Packet">'
+                . '<i class="fas fa-file-shield"></i></button>';
             $actions .= '</div>';
 
             $invoiceLink = $invoiceId > 0 ? '<a href="invoices.php?action=edit&id=' . $invoiceId . '">#' . $invoiceId . '</a>' : '--';
@@ -161,6 +164,16 @@ HTML;
 
         $evidenceModal = FpsAdminRenderer::renderModal('fps-cb-evidence-modal', 'Chargeback Evidence', $modalContent, $modalFooter);
 
+        // Auto-compiled evidence packet modal (filled by FpsChargebacks.autoCompile).
+        $packetFooter = '<button type="button" class="fps-btn fps-btn-md fps-btn-outline" '
+            . 'onclick="FpsAdmin.closeModal(\'fps-cb-packet-modal\')">Close</button>';
+        $packetModal = FpsAdminRenderer::renderModal(
+            'fps-cb-packet-modal',
+            'Auto-Compiled Evidence Packet',
+            '<div id="fps-cb-packet-content">Compiling...</div>',
+            $packetFooter
+        );
+
         // JavaScript for chargeback management
         $js = <<<JS
 <script>
@@ -185,6 +198,19 @@ var FpsChargebacks = {
     .catch(function(err) {
       if (typeof FpsAdmin !== 'undefined' && FpsAdmin.showToast) FpsAdmin.showToast('Network error', 'error');
     });
+  },
+
+  autoCompile: function(id, ajaxUrl) {
+    var box = document.getElementById('fps-cb-packet-content');
+    if (box) box.textContent = 'Compiling evidence packet...';
+    if (typeof FpsAdmin !== 'undefined' && FpsAdmin.openModal) FpsAdmin.openModal('fps-cb-packet-modal');
+    fetch(ajaxUrl + '&a=get_chargeback_evidence&chargeback_id=' + id, { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        // data.html is server-built from escaped DB values (see FpsEvidencePacket).
+        if (box) box.innerHTML = (data && data.html) ? data.html : '<p class="text-danger">Failed to compile.</p>';
+      })
+      .catch(function() { if (box) box.textContent = 'Network error compiling packet.'; });
   },
 
   showEvidence: function(id, ajaxUrl) {
@@ -249,7 +275,7 @@ JS;
         echo FpsAdminRenderer::renderCard(
             'Chargeback Disputes (' . $totalCount . ')',
             'fa-credit-card',
-            $tableHtml . $evidenceModal . $js
+            $tableHtml . $evidenceModal . $packetModal . $js
         );
     }
 
