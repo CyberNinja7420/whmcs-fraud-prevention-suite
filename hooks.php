@@ -670,6 +670,7 @@ add_hook('ShoppingCartValidateCheckout', 1, function ($vars) {
                     domain:          $context['domain'] ?? '',
                     fingerprintHash: $fingerprintData,
                     checkType:       'pre_checkout',
+                    cardFirst6:      \FraudPreventionSuite\Lib\FpsHookHelpers::fps_extractCardBin($_POST),
                 );
                 $runnerResult = (new \FraudPreventionSuite\Lib\FpsCheckRunner())->runPreCheckoutFast($runnerCtx);
 

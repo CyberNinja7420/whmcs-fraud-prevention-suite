@@ -26,6 +26,8 @@ class FpsCheckContext
     public readonly string $domain;
     public readonly string $fingerprintHash;
     public readonly string $checkType;
+    /** First 6-8 digits of the payment card (BIN only -- never the full PAN). */
+    public readonly string $cardFirst6;
     public readonly array $meta;
 
     public function __construct(
@@ -39,7 +41,8 @@ class FpsCheckContext
         string $domain = '',
         string $fingerprintHash = '',
         string $checkType = 'auto',
-        array $meta = []
+        array $meta = [],
+        string $cardFirst6 = ''
     ) {
         $this->email           = strtolower(trim($email));
         $this->ip              = trim($ip);
@@ -52,6 +55,7 @@ class FpsCheckContext
         $this->fingerprintHash = trim($fingerprintHash);
         $this->checkType       = $checkType;
         $this->meta            = $meta;
+        $this->cardFirst6      = preg_replace('/\D/', '', $cardFirst6) ?? '';
     }
 
     /**
@@ -151,6 +155,7 @@ class FpsCheckContext
             'domain'           => $this->domain,
             'fingerprint_hash' => $this->fingerprintHash,
             'check_type'       => $this->checkType,
+            'card_first6'      => $this->cardFirst6,
         ];
     }
 }

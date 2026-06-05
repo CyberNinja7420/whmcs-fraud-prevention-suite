@@ -40,6 +40,69 @@ class FpsHookHelpers
     }
 
     /**
+     * PCI-safe extraction of a card BIN (first 6-8 digits) from a request
+     * payload (typically $_POST at checkout for direct/local card gateways).
+     *
+     * Scans for a card-number-shaped value (13-19 digits, Luhn-valid or in a
+     * card-named field) and returns ONLY the first 8 digits. The full PAN is
+     * never returned, logged, or stored -- it exists only as a local variable
+     * here and is discarded. Tokenised/iframe gateways (Stripe.js etc.) never
+     * post the PAN, so this simply returns '' for them.
+     *
+     * @param array<array-key,mixed> $post
+     */
+    public static function fps_extractCardBin(array $post): string
+    {
+        $hints = ['ccnumber', 'cardnum', 'card_number', 'cardnumber', 'cc_number', 'ccnum', 'cardno'];
+        $hinted = [];
+        $luhn   = [];
+        foreach ($post as $name => $val) {
+            if (!is_scalar($val)) {
+                continue;
+            }
+            $digits = preg_replace('/\D/', '', (string) $val) ?? '';
+            $len = strlen($digits);
+            if ($len < 13 || $len > 19) {
+                continue;
+            }
+            $nl = strtolower((string) $name);
+            $isHinted = false;
+            foreach ($hints as $h) {
+                if (strpos($nl, $h) !== false) {
+                    $isHinted = true;
+                    break;
+                }
+            }
+            if ($isHinted) {
+                $hinted[] = $digits;
+            } elseif (self::fps_luhnValid($digits)) {
+                $luhn[] = $digits;
+            }
+        }
+        $first = $hinted[0] ?? $luhn[0] ?? '';
+        return $first === '' ? '' : substr($first, 0, 8);
+    }
+
+    /** Luhn (mod-10) check for a digit string. */
+    private static function fps_luhnValid(string $n): bool
+    {
+        $sum = 0;
+        $alt = false;
+        for ($i = strlen($n) - 1; $i >= 0; $i--) {
+            $d = (int) $n[$i];
+            if ($alt) {
+                $d *= 2;
+                if ($d > 9) {
+                    $d -= 9;
+                }
+            }
+            $sum += $d;
+            $alt = !$alt;
+        }
+        return $sum % 10 === 0;
+    }
+
+    /**
      * Run Account-Takeover / Login Defense for a client login, exactly once per
      * request (ClientLogin and UserLogin can both fire for the same login).
      */

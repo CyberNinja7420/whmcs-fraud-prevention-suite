@@ -7,6 +7,44 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.5.0] - 2026-06-04 "CardIntel"
+
+### Added -- Full card / BIN intelligence (commercial / corporate / datacenter cards)
+
+Ranked the #1 competitive gap for a hosting business (see
+`docs/COMPETITIVE-GAP-ANALYSIS.md`). Previously the BIN provider was 6-digit,
+single-source (binlist.net, ~5/hr), captured no card level/commercial/reloadable
+flags, and -- critically -- was never invoked by the pipeline and never received
+a BIN (`card_first6` was defined but unpopulated). This release makes card
+intelligence real and complete.
+
+- **Rewritten `BinLookupProvider`**: 8-digit BIN support; multi-source with
+  graceful fallback (Neutrino API → HandyAPI → binlist.net); captures the FULL
+  attribute set for ALL card types -- scheme/brand, type (credit/debit/charge/
+  prepaid), level/category (Classic..Business/Corporate), `is_prepaid`,
+  `is_commercial`/`is_corporate`, `is_reloadable`, issuer bank (name/url/phone),
+  issuer country + currency, and the BIN length used.
+- **Hosting-tuned derived signals**: prepaid → +risk, reloadable → +risk,
+  issuer-country ≠ billing → +risk, issuer-country ≠ IP → +risk, card-testing
+  velocity (distinct BINs per client in a window) → +risk, and verified
+  commercial/corporate card → trust (risk *reduced*) so legit business buyers
+  get less friction. All weights configurable.
+- **PCI-safe BIN capture**: `FpsHookHelpers::fps_extractCardBin()` extracts only
+  the first 6-8 digits from the checkout POST (Luhn- or card-field-matched); the
+  full PAN is never returned, logged, or stored. Tokenised/iframe gateways that
+  never post the PAN simply yield no BIN.
+- **Wiring**: `card_first6` added to `FpsCheckContext` + `toArray()`; injected at
+  checkout; the BIN provider now runs in BOTH the full check and the pre-checkout
+  fast path (shared `fps_runBinLookup()`); `card_bin` persisted to each check's
+  context to power velocity; a rich analyst-readable card summary surfaces in the
+  Review Queue / Client Profile provider breakdown.
+- **Settings**: new "Card / BIN Intelligence" card in the Settings tab -- source
+  selector, HandyAPI / Neutrino credentials, and per-signal weights. 13 new
+  settings (defaults seeded in `_activate`).
+
+### Notes
+- Static analysis clean across the tree: php-lint, PHPStan (L3), Psalm (L6).
+
 ## [5.4.0] - 2026-06-03 "Sentinel+Analytics"
 
 ### Added -- Analytics & Tracking subsystem (merged from the divergent GitLab `main` lineage)

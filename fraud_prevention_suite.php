@@ -40,7 +40,7 @@ require_once __DIR__ . '/lib/FpsMailHelper.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '5.4.0');
+    define('FPS_MODULE_VERSION', '5.5.0');
 }
 
 // ---------------------------------------------------------------------------
@@ -815,6 +815,19 @@ function fraud_prevention_suite_activate(): array
             'email_validation_enabled' => '1',
             'phone_validation_enabled' => '1',
             'bin_lookup_enabled' => '1',
+            // v5.4: full card/BIN intelligence (datacenter/commercial cards).
+            'bin_source'                  => 'auto',  // auto|neutrino|handyapi|binlist
+            'neutrino_user_id'            => '',
+            'neutrino_api_key'            => '',
+            'handyapi_key'                => '',
+            'bin_weight_prepaid'          => '12',
+            'bin_weight_reloadable'       => '8',
+            'bin_weight_country_mismatch' => '22',
+            'bin_weight_ip_mismatch'      => '12',
+            'bin_weight_velocity'         => '20',
+            'bin_commercial_trust'        => '10',
+            'bin_velocity_threshold'      => '3',
+            'bin_velocity_window_hours'   => '24',
             'breach_check_enabled' => '1',
             'social_presence_enabled' => '0',
             'public_api_enabled' => '1',

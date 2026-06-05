@@ -412,6 +412,14 @@ class FpsCheckRunner
                 $providerResults[] = $botProviderResult;
             }
 
+            // Provider: BIN / Card Intelligence (only when the card BIN was
+            // posted; cached lookups are instant, first-seen BINs hit the API
+            // once then cache). Shared with the full-check pipeline.
+            $binEntry = $this->fps_runBinLookup($context);
+            if ($binEntry !== []) {
+                $providerResults[] = $binEntry;
+            }
+
             // Provider 5: global intel cross-reference (local DB only)
             $globalProviderResult = $this->fps_runGlobalIntelCheck($context);
             if (($globalProviderResult['score'] ?? 0) > 0) {
@@ -824,6 +832,12 @@ class FpsCheckRunner
                 ];
             }
         } catch (\Throwable $e) { /* non-fatal */ }
+
+        // v5.4 Provider: BIN / Card Intelligence (shared with the fast path).
+        $binEntry = $this->fps_runBinLookup($context);
+        if ($binEntry !== []) {
+            $results[] = $binEntry;
+        }
 
         // v4.0 Provider: Abuse Signals (StopForumSpam + SpamHaus ZEN -- free, no key)
         try {
@@ -1381,6 +1395,54 @@ class FpsCheckRunner
         }
     }
 
+    /**
+     * BIN / Card Intelligence provider invocation, shared by the full check
+     * and the pre-checkout fast path. Returns a $results-shaped entry with a
+     * rich, analyst-readable card summary, or [] when no BIN is present /
+     * lookup yields nothing.
+     *
+     * @return array<string,mixed>
+     */
+    private function fps_runBinLookup(FpsCheckContext $context): array
+    {
+        try {
+            $binCtx = $context->toArray();
+            if (((string) ($binCtx['card_first6'] ?? '')) === ''
+                || !class_exists('\\FraudPreventionSuite\\Lib\\Providers\\BinLookupProvider')) {
+                return [];
+            }
+            $binProvider = new \FraudPreventionSuite\Lib\Providers\BinLookupProvider();
+            if (!$binProvider->isEnabled()) {
+                return [];
+            }
+            $binResult = $binProvider->check($binCtx);
+            $bd = is_array($binResult['details'] ?? null) ? $binResult['details'] : [];
+            if ($bd === [] || ((string) ($bd['scheme'] ?? '')) === '') {
+                return [];
+            }
+            $summary = trim(sprintf(
+                '%s %s%s%s, %s (%s)%s',
+                (string) ($bd['scheme'] ?? ''),
+                strtoupper((string) ($bd['type'] ?? '')),
+                ((string) ($bd['level'] ?? '')) !== '' ? ' ' . $bd['level'] : '',
+                !empty($bd['is_prepaid']) ? ' PREPAID' : '',
+                (string) ($bd['bank_name'] ?? 'unknown bank'),
+                (string) ($bd['card_country'] ?? '??'),
+                !empty($bd['is_commercial']) ? ' [commercial]' : ''
+            ));
+            $binReasons = is_array($bd['reasons'] ?? null) ? $bd['reasons'] : [];
+            return [
+                'provider' => 'bin_lookup',
+                'score'    => (float) ($binResult['score'] ?? 0),
+                'details'  => $summary . ($binReasons !== [] ? ' -- ' . implode('; ', $binReasons) : ''),
+                'factors'  => [['factor' => 'card_bin', 'score' => (float) ($binResult['score'] ?? 0)]],
+                'success'  => true,
+            ];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Action determination and order manipulation
     // -----------------------------------------------------------------------
@@ -1539,6 +1601,8 @@ class FpsCheckRunner
                     'matched' => count($rules->matchedRules ?? []),
                     'action'  => $rules->action ?? 'none',
                 ],
+                // BIN only (never the full PAN) -- powers card-testing velocity.
+                'card_bin'    => $context->cardFirst6,
             ];
 
             $isPreCheckout = ($context->checkType === 'pre_checkout') ? 1 : 0;

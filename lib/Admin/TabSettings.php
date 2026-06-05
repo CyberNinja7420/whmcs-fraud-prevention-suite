@@ -30,6 +30,7 @@ class TabSettings
         $this->fpsRenderProviderSettings($config);
         $this->fpsRenderProviderWeights($config);
         $this->fpsRenderAnalyticsSettings($config);
+        $this->fpsRenderBinSettings($config);
         $this->fpsRenderThresholdSettings($config);
         $this->fpsRenderCaptchaSettings($config);
         $this->fpsRenderPublicApiSettings($config);
@@ -551,6 +552,45 @@ HTML;
         }
 
         echo FpsAdminRenderer::renderCard('Analytics & Tracking', 'fa-chart-line', $content);
+    }
+
+    /**
+     * Card / BIN Intelligence settings (v5.4) -- full card-detail extraction
+     * for all card types incl. commercial/corporate/prepaid/datacenter cards.
+     */
+    private function fpsRenderBinSettings(FpsConfig $config): void
+    {
+        $fields = [
+            ['type' => 'info', 'text' => '<strong>Full card / BIN intelligence.</strong> Extracts every card attribute (brand, type, level, prepaid, <em>commercial/corporate</em>, reloadable, issuer bank + country, currency) for all card types and turns prepaid / issuer-country-mismatch / card-testing velocity into fraud signals, while treating verified commercial/corporate cards as a trust signal. PCI-safe: only the BIN (first 6-8 digits) is ever handled. Works for direct/local card gateways that POST the card; tokenised gateways (Stripe.js etc.) never expose the PAN server-side.', 'allow_html' => true],
+            ['type' => 'toggle', 'name' => 'bin_lookup_enabled', 'label' => 'Enable card / BIN intelligence'],
+            ['type' => 'select', 'name' => 'bin_source', 'label' => 'BIN data source (priority)', 'options' => [
+                'auto'     => 'Auto (Neutrino → HandyAPI → binlist.net)',
+                'neutrino' => 'Neutrino API (paid — fullest commercial/prepaid flags, 8-digit)',
+                'handyapi' => 'HandyAPI (free key — scheme/type/tier/issuer)',
+                'binlist'  => 'binlist.net only (free, ~5/hr — spot checks)',
+            ]],
+            ['type' => 'info', 'text' => '<strong>HandyAPI key</strong> (free, recommended) &mdash; full BIN/IIN lookup with better limits than binlist.net. Get one at <a href="https://www.handyapi.com/" target="_blank" rel="noopener">handyapi.com</a>.', 'allow_html' => true],
+            ['type' => 'text', 'name' => 'handyapi_key', 'label' => 'HandyAPI key', 'placeholder' => 'optional'],
+            ['type' => 'info', 'text' => '<strong>Neutrino API</strong> (paid) &mdash; richest commercial/corporate/prepaid/reloadable flags + native 8-digit BINs and IP-to-BIN matching. <a href="https://www.neutrinoapi.com/api/bin-lookup/" target="_blank" rel="noopener">neutrinoapi.com</a>.', 'allow_html' => true],
+            ['type' => 'text', 'name' => 'neutrino_user_id', 'label' => 'Neutrino User ID', 'placeholder' => 'optional'],
+            ['type' => 'text', 'name' => 'neutrino_api_key', 'label' => 'Neutrino API Key', 'placeholder' => 'optional'],
+            ['type' => 'info', 'text' => '<strong>Signal weights</strong> &mdash; points added to the card risk score (commercial-card trust is subtracted). Tune for your gateway mix.', 'allow_html' => true],
+            ['type' => 'text', 'name' => 'bin_weight_prepaid', 'label' => 'Prepaid card weight', 'placeholder' => '12'],
+            ['type' => 'text', 'name' => 'bin_weight_reloadable', 'label' => 'Reloadable prepaid weight', 'placeholder' => '8'],
+            ['type' => 'text', 'name' => 'bin_weight_country_mismatch', 'label' => 'Issuer-country != billing weight', 'placeholder' => '22'],
+            ['type' => 'text', 'name' => 'bin_weight_ip_mismatch', 'label' => 'Issuer-country != IP weight', 'placeholder' => '12'],
+            ['type' => 'text', 'name' => 'bin_weight_velocity', 'label' => 'Card-testing velocity weight', 'placeholder' => '20'],
+            ['type' => 'text', 'name' => 'bin_velocity_threshold', 'label' => 'Velocity threshold (distinct BINs)', 'placeholder' => '3'],
+            ['type' => 'text', 'name' => 'bin_velocity_window_hours', 'label' => 'Velocity window (hours)', 'placeholder' => '24'],
+            ['type' => 'text', 'name' => 'bin_commercial_trust', 'label' => 'Commercial-card trust (subtracted)', 'placeholder' => '10'],
+        ];
+
+        $content = '';
+        foreach ($fields as $field) {
+            $content .= $this->fpsRenderSettingField($field, $config);
+        }
+
+        echo FpsAdminRenderer::renderCard('Card / BIN Intelligence', 'fa-credit-card', $content);
     }
 
     /**
