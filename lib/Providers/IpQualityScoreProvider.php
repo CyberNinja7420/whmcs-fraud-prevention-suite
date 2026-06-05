@@ -101,12 +101,20 @@ class IpQualityScoreProvider implements FpsProviderInterface
             $isMobile       = (bool) ($data['mobile'] ?? false);
             $recentAbuse    = (bool) ($data['recent_abuse'] ?? false);
             $isCrawler      = (bool) ($data['is_crawler'] ?? false);
+            // v5.6: IPQS connection_type refines residential-vs-datacenter
+            // classification (Residential/Corporate/Education/Mobile/Data Center).
+            // A Residential/Mobile connection that is ALSO flagged proxy/vpn is a
+            // residential proxy -- the class that defeats datacenter/ASN checks.
+            $connectionType = (string) ($data['connection_type'] ?? '');
+            $isResidentialProxy = ($isProxy || $isVpn)
+                && in_array(strtolower($connectionType), ['residential', 'mobile'], true);
 
             // Score calculation
             $score = $fraudScore * 0.6; // 0-60 base range
             if ($isProxy) $score += 15;
             if ($isVpn) $score += 20;
             if ($isTor) $score += 25;
+            if ($isResidentialProxy) $score += (float) FpsConfig::getInstance()->getCustom('residential_proxy_weight', '15');
             if ($botStatus) $score += 10;
             if ($abuseVelocity === 'high') $score += 10;
             elseif ($abuseVelocity === 'medium') $score += 5;
@@ -124,8 +132,12 @@ class IpQualityScoreProvider implements FpsProviderInterface
             if ($botStatus) $flags[] = 'bot';
             if ($recentAbuse) $flags[] = 'recent abuse';
             if ($isCrawler) $flags[] = 'crawler';
+            if ($isResidentialProxy) $flags[] = 'residential proxy';
             if (!empty($flags)) {
                 $details[] = 'Flags: ' . implode(', ', $flags);
+            }
+            if ($connectionType !== '') {
+                $details[] = "Connection: {$connectionType}";
             }
             if ($abuseVelocity !== 'none') {
                 $details[] = "Abuse velocity: {$abuseVelocity}";

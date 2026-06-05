@@ -31,6 +31,7 @@ class TabSettings
         $this->fpsRenderProviderWeights($config);
         $this->fpsRenderAnalyticsSettings($config);
         $this->fpsRenderBinSettings($config);
+        $this->fpsRenderAutomationSettings($config);
         $this->fpsRenderThresholdSettings($config);
         $this->fpsRenderCaptchaSettings($config);
         $this->fpsRenderPublicApiSettings($config);
@@ -591,6 +592,29 @@ HTML;
         }
 
         echo FpsAdminRenderer::renderCard('Card / BIN Intelligence', 'fa-credit-card', $content);
+    }
+
+    /**
+     * AI-agent / headless-bot detection + residential-proxy settings (v5.6).
+     */
+    private function fpsRenderAutomationSettings(FpsConfig $config): void
+    {
+        $fields = [
+            ['type' => 'info', 'text' => '<strong>AI-agent / headless-browser / automation detection.</strong> Scores signals that betray a non-human client: <code>navigator.webdriver</code>, automation-framework globals (Selenium/Puppeteer/Playwright/PhantomJS + ChromeDriver leaks), headless user-agents, software/VM WebGL renderers, and Headless-Chrome leaks (no plugins/languages). Collected by the checkout fingerprint script and scored server-side.', 'allow_html' => true],
+            ['type' => 'toggle', 'name' => 'automation_detection_enabled', 'label' => 'Enable AI-agent / automation detection'],
+            ['type' => 'text', 'name' => 'auto_weight_webdriver', 'label' => 'navigator.webdriver weight', 'placeholder' => '35'],
+            ['type' => 'text', 'name' => 'auto_weight_globals', 'label' => 'Automation-framework globals weight', 'placeholder' => '40'],
+            ['type' => 'text', 'name' => 'auto_weight_ua', 'label' => 'Headless/scripted UA weight', 'placeholder' => '30'],
+            ['type' => 'text', 'name' => 'auto_weight_renderer', 'label' => 'Software/VM GPU renderer weight', 'placeholder' => '18'],
+            ['type' => 'text', 'name' => 'auto_weight_headless_leak', 'label' => 'Headless-Chrome leak weight', 'placeholder' => '15'],
+            ['type' => 'info', 'text' => '<strong>Residential-proxy detection.</strong> Residential/mobile proxies defeat datacenter/VPN/Tor checks. ip-api flags <code>proxy</code> on non-hosting IPs as residential proxies (active now); IPQS <code>connection_type</code> refines this (Residential/Mobile/Corporate/Data Center) once IPQS credits are available.', 'allow_html' => true],
+            ['type' => 'text', 'name' => 'residential_proxy_weight', 'label' => 'Residential-proxy weight (IPQS)', 'placeholder' => '15'],
+        ];
+        $content = '';
+        foreach ($fields as $field) {
+            $content .= $this->fpsRenderSettingField($field, $config);
+        }
+        echo FpsAdminRenderer::renderCard('Bot / Automation & Proxy Detection', 'fa-robot', $content);
     }
 
     /**

@@ -379,6 +379,29 @@
       mimeTypes:     _safe(function () { return navigator.mimeTypes ? navigator.mimeTypes.length : 0; }),
       webdriver:     _safe(function () { return navigator.webdriver; }),
       window_size:   _safe(function () { return window.innerWidth + 'x' + window.innerHeight; }),
+      // v5.6: automation / headless / AI-agent markers (scored server-side by
+      // FpsAutomationDetector). Each is a strong tell of a non-human client.
+      automation:    _safe(function () {
+        var m = [];
+        try { if (navigator.webdriver === true) m.push('webdriver'); } catch (e) {}
+        // Known automation-framework globals.
+        var g = ['_phantom', 'callPhantom', '__nightmare', '_selenium', 'callSelenium',
+                 '_Selenium_IDE_Recorder', '__webdriver_evaluate', '__driver_evaluate',
+                 '__webdriver_script_fn', '__fxdriver_evaluate', '__selenium_unwrapped',
+                 'domAutomation', 'domAutomationController', 'webdriver', '__playwright',
+                 '__puppeteer_evaluation_script__', 'spawn', 'emit', 'Buffer'];
+        for (var i = 0; i < g.length; i++) { try { if (window[g[i]]) m.push(g[i]); } catch (e) {} }
+        try { for (var k in window.document) { if (k.indexOf('$cdc_') === 0 || k.indexOf('$chrome_asyncScriptInfo') === 0) { m.push('cdc'); break; } } } catch (e) {}
+        // Headless Chrome leaks: no plugins + no languages + chrome object missing.
+        try { if ((!navigator.plugins || navigator.plugins.length === 0) && /Chrome/.test(navigator.userAgent) && !window.chrome) m.push('no_chrome_obj'); } catch (e) {}
+        try { if (!navigator.languages || navigator.languages.length === 0) m.push('no_languages'); } catch (e) {}
+        try { if (navigator.permissions && navigator.permissions.query) {
+          navigator.permissions.query({ name: 'notifications' }).then(function (p) {
+            if (Notification && Notification.permission === 'denied' && p.state === 'prompt') { /* headless tell, async */ }
+          }).catch(function () {});
+        } } catch (e) {}
+        return m.join(',');
+      }),
     };
   }
 

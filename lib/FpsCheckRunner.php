@@ -420,6 +420,12 @@ class FpsCheckRunner
                 $providerResults[] = $binEntry;
             }
 
+            // Provider: AI-agent / headless / automation detection (instant).
+            $autoEntry = $this->fps_runAutomationCheck($context);
+            if ($autoEntry !== []) {
+                $providerResults[] = $autoEntry;
+            }
+
             // Provider 5: global intel cross-reference (local DB only)
             $globalProviderResult = $this->fps_runGlobalIntelCheck($context);
             if (($globalProviderResult['score'] ?? 0) > 0) {
@@ -837,6 +843,12 @@ class FpsCheckRunner
         $binEntry = $this->fps_runBinLookup($context);
         if ($binEntry !== []) {
             $results[] = $binEntry;
+        }
+
+        // v5.6 Provider: AI-agent / headless / automation detection.
+        $autoEntry = $this->fps_runAutomationCheck($context);
+        if ($autoEntry !== []) {
+            $results[] = $autoEntry;
         }
 
         // v4.0 Provider: Abuse Signals (StopForumSpam + SpamHaus ZEN -- free, no key)
@@ -1436,6 +1448,43 @@ class FpsCheckRunner
                 'score'    => (float) ($binResult['score'] ?? 0),
                 'details'  => $summary . ($binReasons !== [] ? ' -- ' . implode('; ', $binReasons) : ''),
                 'factors'  => [['factor' => 'card_bin', 'score' => (float) ($binResult['score'] ?? 0)]],
+                'success'  => true,
+            ];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * AI-agent / headless-browser / automation detection (shared by the full
+     * check and the pre-checkout fast path). Reads the posted fingerprint blob
+     * + request User-Agent. Returns a $results-shaped entry, or [].
+     *
+     * @return array<string,mixed>
+     */
+    private function fps_runAutomationCheck(FpsCheckContext $context): array
+    {
+        try {
+            if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsAutomationDetector')) {
+                return [];
+            }
+            $detector = new \FraudPreventionSuite\Lib\FpsAutomationDetector();
+            if (!$detector->isEnabled()) {
+                return [];
+            }
+            $r = $detector->detect();
+            if ((float) ($r['score'] ?? 0) <= 0.0) {
+                return [];
+            }
+            $factors = [];
+            foreach ((is_array($r['factors'] ?? null) ? $r['factors'] : []) as $f) {
+                $factors[] = ['factor' => (string) ($f['factor'] ?? 'automation'), 'score' => (float) ($f['score'] ?? 0)];
+            }
+            return [
+                'provider' => 'automation_detection',
+                'score'    => (float) ($r['score'] ?? 0),
+                'details'  => (string) ($r['details'] ?? ''),
+                'factors'  => $factors,
                 'success'  => true,
             ];
         } catch (\Throwable $e) {

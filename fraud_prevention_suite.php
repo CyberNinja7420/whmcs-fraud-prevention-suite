@@ -40,7 +40,7 @@ require_once __DIR__ . '/lib/FpsMailHelper.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '5.5.0');
+    define('FPS_MODULE_VERSION', '5.6.0');
 }
 
 // ---------------------------------------------------------------------------
@@ -828,6 +828,16 @@ function fraud_prevention_suite_activate(): array
             'bin_commercial_trust'        => '10',
             'bin_velocity_threshold'      => '3',
             'bin_velocity_window_hours'   => '24',
+            // v5.6: AI-agent / headless / automation detection + residential proxy.
+            'automation_detection_enabled' => '1',
+            'auto_weight_webdriver'        => '35',
+            'auto_weight_globals'          => '40',
+            'auto_weight_ua'               => '30',
+            'auto_weight_empty_ua'         => '20',
+            'auto_weight_renderer'         => '18',
+            'auto_weight_headless_leak'    => '15',
+            'auto_weight_no_mime'          => '8',
+            'residential_proxy_weight'     => '15',
             'breach_check_enabled' => '1',
             'social_presence_enabled' => '0',
             'public_api_enabled' => '1',

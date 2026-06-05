@@ -7,6 +7,35 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.6.0] - 2026-06-04 "BotShield"
+
+### Added -- AI-agent / headless-bot detection + residential-proxy classification
+
+Competitive gaps #2 (residential proxy) and #5 (AI-agent/headless bots).
+
+- **`FpsAutomationDetector`**: scores non-human clients from signals the
+  checkout fingerprint already collects + the request UA -- `navigator.webdriver`,
+  automation-framework globals (Selenium/Puppeteer/Playwright/PhantomJS/Nightmare
+  + ChromeDriver `$cdc_` leaks), headless/scripted user-agents, software/VM WebGL
+  renderers (SwiftShader/llvmpipe/Mesa), and Headless-Chrome leaks (no plugins/
+  languages/MIME, missing `window.chrome`). Runs in both the full check and the
+  pre-checkout fast path; all weights configurable.
+- **Fingerprint JS** (`fps-fingerprint.js`): added a compact `features.automation`
+  collector (webdriver + framework globals + CDC + headless leaks). The signal
+  was already partly collected (`navigator.webdriver`) but never scored.
+- **Residential-proxy classification**: `IpIntelProvider` now emits an explicit
+  `connection_type` (datacenter / mobile / residential_proxy / residential) and
+  `is_residential_proxy` from ip-api `proxy`+`hosting` -- active now, no key.
+  `IpQualityScoreProvider` extracts IPQS `connection_type` and flags a
+  residential proxy when a Residential/Mobile connection is also proxy/VPN
+  (refinement, active once IPQS query credits are restored).
+- **Settings**: new "Bot / Automation & Proxy Detection" card; 9 new settings.
+
+### Notes
+- Static analysis clean: php-lint, PHPStan (L3), Psalm (L6).
+- Residential-proxy precision via IPQS is wired but inert until the IPQS account
+  has query credits (the IPQS key is valid; the account balance is depleted).
+
 ## [5.5.0] - 2026-06-04 "CardIntel"
 
 ### Added -- Full card / BIN intelligence (commercial / corporate / datacenter cards)

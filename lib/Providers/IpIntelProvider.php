@@ -156,22 +156,36 @@ class IpIntelProvider implements FpsProviderInterface
             }
         }
 
+        // v5.6: explicit connection-type classification. ip-api distinguishes
+        // datacenter (hosting) from access networks; proxy=true on a non-hosting
+        // IP indicates a residential/mobile proxy -- the class that defeats plain
+        // datacenter/ASN checks. IPQS's connection_type (when configured) refines
+        // this further (Residential/Corporate/Education/Mobile/Data Center).
+        $isMobile = (bool) ($data['mobile'] ?? false);
+        $isResidentialProxy = $isProxy && !$isHosting;
+        $connectionType = $isHosting ? 'datacenter'
+            : ($isMobile ? 'mobile'
+            : ($isResidentialProxy ? 'residential_proxy' : 'residential'));
+
         return [
-            'asn'           => $this->fps_extractAsn($data['as'] ?? ''),
-            'asn_org'       => $data['asname'] ?? ($data['org'] ?? ''),
-            'isp'           => $data['isp'] ?? '',
-            'country_code'  => strtoupper($data['countryCode'] ?? ''),
-            'region'        => $data['regionName'] ?? ($data['region'] ?? ''),
-            'city'          => $data['city'] ?? '',
-            'lat'           => (float) ($data['lat'] ?? 0),
-            'lng'           => (float) ($data['lon'] ?? 0),
-            'is_proxy'      => $isProxy,
-            'is_vpn'        => $isVpn,
-            'is_tor'        => false, // Tor detection via mod_fps_tor_nodes table lookup
-            'is_datacenter' => $isHosting,
-            'proxy_type'    => $isVpn ? 'vpn' : ($isProxy ? 'proxy' : ''),
-            'threat_score'  => 0,
-            'source'        => 'ip-api.com',
+            'asn'              => $this->fps_extractAsn($data['as'] ?? ''),
+            'asn_org'          => $data['asname'] ?? ($data['org'] ?? ''),
+            'isp'              => $data['isp'] ?? '',
+            'country_code'     => strtoupper($data['countryCode'] ?? ''),
+            'region'           => $data['regionName'] ?? ($data['region'] ?? ''),
+            'city'             => $data['city'] ?? '',
+            'lat'              => (float) ($data['lat'] ?? 0),
+            'lng'              => (float) ($data['lon'] ?? 0),
+            'is_proxy'         => $isProxy,
+            'is_vpn'           => $isVpn,
+            'is_tor'           => false, // Tor detection via mod_fps_tor_nodes table lookup
+            'is_datacenter'    => $isHosting,
+            'is_mobile'        => $isMobile,
+            'is_residential_proxy' => $isResidentialProxy,
+            'connection_type'  => $connectionType,
+            'proxy_type'       => $isVpn ? 'vpn' : ($isProxy ? 'proxy' : ''),
+            'threat_score'     => 0,
+            'source'           => 'ip-api.com',
         ];
     }
 
