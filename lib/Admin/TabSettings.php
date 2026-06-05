@@ -32,6 +32,7 @@ class TabSettings
         $this->fpsRenderAnalyticsSettings($config);
         $this->fpsRenderBinSettings($config);
         $this->fpsRenderAutomationSettings($config);
+        $this->fpsRenderStepUpSettings($config);
         $this->fpsRenderThresholdSettings($config);
         $this->fpsRenderCaptchaSettings($config);
         $this->fpsRenderPublicApiSettings($config);
@@ -615,6 +616,23 @@ HTML;
             $content .= $this->fpsRenderSettingField($field, $config);
         }
         echo FpsAdminRenderer::renderCard('Bot / Automation & Proxy Detection', 'fa-robot', $content);
+    }
+
+    /**
+     * 3DS2 / SCA step-up orchestration settings (v5.7).
+     */
+    private function fpsRenderStepUpSettings(FpsConfig $config): void
+    {
+        $fields = [
+            ['type' => 'info', 'text' => '<strong>3DS2 / SCA step-up orchestration.</strong> Instead of a binary block/allow, medium-risk orders (score in the step-up band, below the block threshold) are flagged to <em>request 3D Secure</em> so the issuer carries chargeback liability. This is <strong>non-blocking</strong> and gateway-assisted: your payment gateway integration triggers the SCA challenge by calling <code>\\FraudPreventionSuite\\Lib\\FpsHookHelpers::fps_requires3ds($email, $clientId)</code> in a <code>ShoppingCartValidateCheckout</code> hook (or a custom gateway adapter). FPS makes the risk decision and exposes the signal; the gateway performs the 3DS step-up (e.g. Stripe PaymentIntents with <code>request_three_d_secure</code>).', 'allow_html' => true],
+            ['type' => 'toggle', 'name' => 'step_up_enabled', 'label' => 'Enable 3DS / SCA step-up recommendation'],
+            ['type' => 'text', 'name' => 'step_up_threshold', 'label' => 'Step-up threshold (score, below block)', 'placeholder' => '50'],
+        ];
+        $content = '';
+        foreach ($fields as $field) {
+            $content .= $this->fpsRenderSettingField($field, $config);
+        }
+        echo FpsAdminRenderer::renderCard('3DS2 / SCA Step-Up', 'fa-shield-halved', $content);
     }
 
     /**

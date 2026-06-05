@@ -83,6 +83,40 @@ class FpsHookHelpers
         return $first === '' ? '' : substr($first, 0, 8);
     }
 
+    /**
+     * 3DS2 / SCA step-up signal (v5.7). Returns true when the most recent fraud
+     * check for this client/email (within the last hour) recommended a 3D Secure
+     * step-up (medium risk). Gateway modules / a ShoppingCartValidateCheckout
+     * integration call this to request SCA and shift chargeback liability to the
+     * issuer, instead of a binary block/allow.
+     */
+    public static function fps_requires3ds(string $email = '', int $clientId = 0): bool
+    {
+        try {
+            if (!Capsule::schema()->hasTable('mod_fps_checks')) {
+                return false;
+            }
+            $q = Capsule::table('mod_fps_checks')
+                ->where('created_at', '>=', date('Y-m-d H:i:s', time() - 3600))
+                ->orderByDesc('id');
+            if ($clientId > 0) {
+                $q->where('client_id', $clientId);
+            } elseif ($email !== '') {
+                $q->where('email', strtolower(trim($email)));
+            } else {
+                return false;
+            }
+            $row = $q->first(['check_context']);
+            if ($row === null) {
+                return false;
+            }
+            $ctx = json_decode((string) $row->check_context, true);
+            return is_array($ctx) && !empty($ctx['requires_3ds']);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     /** Luhn (mod-10) check for a digit string. */
     private static function fps_luhnValid(string $n): bool
     {

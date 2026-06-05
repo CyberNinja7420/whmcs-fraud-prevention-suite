@@ -40,7 +40,7 @@ require_once __DIR__ . '/lib/FpsMailHelper.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '5.6.0');
+    define('FPS_MODULE_VERSION', '5.7.0');
 }
 
 // ---------------------------------------------------------------------------
@@ -838,6 +838,9 @@ function fraud_prevention_suite_activate(): array
             'auto_weight_headless_leak'    => '15',
             'auto_weight_no_mime'          => '8',
             'residential_proxy_weight'     => '15',
+            // v5.7: 3DS2 / SCA step-up orchestration (non-blocking; opt-in).
+            'step_up_enabled'              => '0',
+            'step_up_threshold'            => '50',
             'breach_check_enabled' => '1',
             'social_presence_enabled' => '0',
             'public_api_enabled' => '1',

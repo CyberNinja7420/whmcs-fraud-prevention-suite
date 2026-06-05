@@ -7,6 +7,29 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.7.0] - 2026-06-04 "StepUp"
+
+### Added -- 3DS2 / SCA step-up orchestration (competitive gap #3)
+
+Moves beyond binary block/allow: medium-risk orders are flagged to request
+3D Secure so the issuer carries chargeback liability. Non-blocking and
+gateway-assisted (WHMCS has no generic force-3DS mechanism, so FPS makes the
+risk decision and exposes the signal; the gateway performs the SCA challenge).
+
+- **`FpsCheckRunner::fps_resolveStepUp()`**: when `step_up_enabled` and the risk
+  score is in the step-up band (>= `step_up_threshold`, below the block
+  threshold), the check is flagged `requires_3ds` in its persisted context.
+- **`FpsHookHelpers::fps_requires3ds($email, $clientId)`**: gateway adapters /
+  a `ShoppingCartValidateCheckout` hook call this to decide whether to trigger
+  SCA (e.g. Stripe PaymentIntents `request_three_d_secure`), shifting chargeback
+  liability to the issuer.
+- **Settings**: new "3DS2 / SCA Step-Up" card (opt-in; threshold) documenting the
+  gateway integration point.
+
+### Notes
+- Non-blocking by design -- does not alter the existing block/allow decision,
+  only adds a 3DS recommendation signal. Static analysis clean (lint/PHPStan/Psalm).
+
 ## [5.6.0] - 2026-06-04 "BotShield"
 
 ### Added -- AI-agent / headless-bot detection + residential-proxy classification

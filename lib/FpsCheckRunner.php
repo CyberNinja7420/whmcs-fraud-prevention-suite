@@ -1501,6 +1501,26 @@ class FpsCheckRunner
      *
      * @return string approved|held|cancelled
      */
+    /**
+     * 3DS2 / SCA step-up decision (v5.7). Non-blocking: when enabled and the
+     * risk score sits in the step-up band (>= step_up_threshold but below the
+     * block threshold), the order is flagged as "request 3D Secure" so a
+     * gateway integration can trigger SCA step-up and shift chargeback liability
+     * to the issuer -- instead of a binary block/allow. Returns true if 3DS
+     * step-up is recommended for this score.
+     */
+    private function fps_resolveStepUp(float $score): bool
+    {
+        if (!$this->config->isEnabled('step_up_enabled')) {
+            return false;
+        }
+        $stepUp = $this->config->getFloat('step_up_threshold', 50.0, 0.0, 100.0);
+        $critical = $this->config->getFloat('risk_critical_threshold', 80.0, 0.0, 100.0);
+        $blockOverride = $this->config->getFloat('block_threshold', 0.0, 0.0, 100.0);
+        $block = $blockOverride > 0 ? $blockOverride : $critical;
+        return $score >= $stepUp && $score < $block;
+    }
+
     private function fps_determineAction(FpsRiskResult $risk, FpsRuleResult $rules): string
     {
         // Rule engine block overrides everything
@@ -1652,6 +1672,9 @@ class FpsCheckRunner
                 ],
                 // BIN only (never the full PAN) -- powers card-testing velocity.
                 'card_bin'    => $context->cardFirst6,
+                // 3DS2/SCA step-up recommendation (non-blocking) -- gateways read
+                // this via FpsHookHelpers::fps_requires3ds() to trigger SCA.
+                'requires_3ds' => $this->fps_resolveStepUp($risk->score),
             ];
 
             $isPreCheckout = ($context->checkType === 'pre_checkout') ? 1 : 0;
