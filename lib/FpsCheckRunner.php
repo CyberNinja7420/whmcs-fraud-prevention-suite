@@ -1675,6 +1675,9 @@ class FpsCheckRunner
                 // 3DS2/SCA step-up recommendation (non-blocking) -- gateways read
                 // this via FpsHookHelpers::fps_requires3ds() to trigger SCA.
                 'requires_3ds' => $this->fps_resolveStepUp($risk->score),
+                // minFraud Score transaction id (UUID) -- enables the MaxMind
+                // transaction/chargeback feedback loop (fps_reportTransaction).
+                'minfraud_id'  => \FraudPreventionSuite\Lib\Providers\MaxMindProvider::getLastMinfraudId(),
             ];
 
             $isPreCheckout = ($context->checkType === 'pre_checkout') ? 1 : 0;

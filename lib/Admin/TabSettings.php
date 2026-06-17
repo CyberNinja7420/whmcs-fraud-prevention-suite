@@ -450,6 +450,18 @@ HTML;
                 ],
             ],
             [
+                'key'     => 'login_bruteforce',
+                'title'   => 'Login Brute-Force Protection',
+                'icon'    => 'fa-user-lock',
+                'fields'  => [
+                    ['type' => 'info', 'text' => 'Detects repeated FAILED logins (client and admin) per IP/email in a sliding window and temporarily locks out the source. When Cloudflare Turnstile is enabled, locked-out visitors get a captcha gate on the login page to prove they are human and clear the lock immediately. Lockouts auto-expire.'],
+                    ['type' => 'toggle', 'name' => 'login_bruteforce_enabled', 'label' => 'Enable brute-force lockout (default on)'],
+                    ['type' => 'text', 'name' => 'login_bruteforce_threshold', 'label' => 'Failed attempts before lockout', 'placeholder' => '5'],
+                    ['type' => 'text', 'name' => 'login_bruteforce_window_min', 'label' => 'Sliding window (minutes)', 'placeholder' => '15'],
+                    ['type' => 'text', 'name' => 'login_bruteforce_lockout_min', 'label' => 'Lockout duration (minutes)', 'placeholder' => '30'],
+                ],
+            ],
+            [
                 'key'     => 'maxmind',
                 'title'   => 'MaxMind GeoIP2 / minFraud',
                 'icon'    => 'fa-earth-americas',
@@ -458,6 +470,7 @@ HTML;
                     ['type' => 'toggle', 'name' => 'maxmind_enabled', 'label' => 'Enable MaxMind Provider'],
                     ['type' => 'text', 'name' => 'maxmind_account_id', 'label' => 'Account ID'],
                     ['type' => 'text', 'name' => 'maxmind_license_key', 'label' => 'License Key'],
+                    ['type' => 'toggle', 'name' => 'maxmind_report_transactions', 'label' => 'Report transaction outcomes back to MaxMind (chargebacks, manual approve/deny) to train the minFraud model'],
                 ],
             ],
             [

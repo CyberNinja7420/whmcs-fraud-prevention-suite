@@ -691,4 +691,54 @@ class FpsHookHelpers
             logModuleCall('fraud_prevention_suite', 'fps_createNotification::ERROR', $type, $e->getMessage());
         }
     }
+    /**
+     * Report a recorded check's outcome to MaxMind's transaction/chargeback
+     * feedback loop. Reads the minfraud_id captured at Score time from the
+     * check's check_context, then calls MaxMindProvider::fps_reportTransaction.
+     *
+     * Safe to call from a hook or an AJAX handler -- never throws. No-ops
+     * silently when the feature is off, the check has no minfraud_id, or the
+     * MaxMind provider class is unavailable.
+     *
+     * @param int    $checkId  mod_fps_checks.id to report on (0 = use $forcedId)
+     * @param string $tag      chargeback|not_fraud|spam_or_abuse|suspected_fraud
+     * @param array  $extraCtx Optional ['ip','chargeback_code','notes'] enrichment.
+     * @param string $forcedId Optional explicit minfraud_id (when $checkId is 0).
+     * @return array{success: bool, message: string, http_code: int}
+     */
+    public static function fps_reportMaxMindForCheck(int $checkId, string $tag, array $extraCtx = [], string $forcedId = ''): array
+    {
+        try {
+            if (!class_exists('\FraudPreventionSuite\Lib\Providers\MaxMindProvider')) {
+                return ['success' => false, 'message' => 'MaxMindProvider unavailable', 'http_code' => 0];
+            }
+
+            $minfraudId = trim($forcedId);
+            $ctx        = $extraCtx;
+
+            if ($checkId > 0 && Capsule::schema()->hasTable('mod_fps_checks')) {
+                $row = Capsule::table('mod_fps_checks')->where('id', $checkId)->first();
+                if ($row) {
+                    $decoded = self::fps_readCheckContext($row);
+                    if ($minfraudId === '' && !empty($decoded['minfraud_id'])) {
+                        $minfraudId = (string) $decoded['minfraud_id'];
+                    }
+                    if (empty($ctx['ip']) && !empty($row->ip_address)) {
+                        $ctx['ip'] = (string) $row->ip_address;
+                    }
+                }
+            }
+
+            if ($minfraudId === '') {
+                // Nothing to report -- the original check did not carry a
+                // minFraud Score id (provider was disabled / used GeoIP only).
+                return ['success' => false, 'message' => 'No minfraud_id on check', 'http_code' => 0];
+            }
+
+            return \FraudPreventionSuite\Lib\Providers\MaxMindProvider::fps_reportTransaction($minfraudId, $tag, $ctx);
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'fps_reportMaxMindForCheck::ERROR', $tag, $e->getMessage());
+            return ['success' => false, 'message' => 'Exception', 'http_code' => 0];
+        }
+    }
 }

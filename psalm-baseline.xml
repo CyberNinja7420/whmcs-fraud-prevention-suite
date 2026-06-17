@@ -24,6 +24,26 @@
       <code><![CDATA[!defined("WHMCS")]]></code>
     </ParadoxicalCondition>
   </file>
+  <file src="lib/Analytics/FpsAnalyticsConfig.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
+  <file src="lib/Analytics/FpsAnalyticsConsentManager.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
+  <file src="lib/Analytics/FpsAnalyticsInjector.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
+  <file src="lib/Analytics/FpsAnalyticsLog.php">
+    <ParadoxicalCondition>
+      <code><![CDATA[!defined('WHMCS')]]></code>
+    </ParadoxicalCondition>
+  </file>
   <file src="lib/FpsBotDetector.php">
     <InvalidReturnStatement>
       <code><![CDATA[[
@@ -82,43 +102,6 @@
     </InvalidReturnStatement>
     <InvalidReturnType>
       <code><![CDATA[array{harvested: bool, email_hash: string, risk_score: float, evidence: array}]]></code>
-    </InvalidReturnType>
-  </file>
-  <file src="lib/FpsPostPurchaseMonitor.php">
-    <InvalidCast>
-      <code><![CDATA[$maxInDay]]></code>
-    </InvalidCast>
-    <InvalidReturnStatement>
-      <code><![CDATA[[
-                    'flagged' => true,
-                    'score'   => round($severity, 1),
-                    'details' => "Email spike: {$count} email-related events in last " . self::EMAIL_WINDOW_HOURS . "h (threshold: " . self::EMAIL_THRESHOLD . ")",
-                    'type'    => 'email_abuse',
-                ]]]></code>
-      <code><![CDATA[[
-                    'flagged' => true,
-                    'score'   => round($severity, 1),
-                    'details' => "Rapid provisioning: {$maxInDay} services created in a single day (threshold: " . self::PROVISION_THRESHOLD . ")",
-                    'type'    => 'provisioning_abuse',
-                ]]]></code>
-      <code><![CDATA[[
-                    'flagged' => true,
-                    'score'   => round($severity, 1),
-                    'details' => "Suspicious logins: {$newIpCount} new IPs in last " . self::LOGIN_WINDOW_DAYS . " days (threshold: " . self::NEW_IP_THRESHOLD . ", original IP: " . ($orderIp ?: 'unknown') . ")",
-                    'type'    => 'suspicious_logins',
-                ]]]></code>
-      <code><![CDATA[[
-                    'flagged' => true,
-                    'score'   => round($severity, 1),
-                    'details' => "Ticket flood: {$ticketCount} tickets in last " . self::TICKET_WINDOW_HOURS . "h (threshold: " . self::TICKET_THRESHOLD . ")",
-                    'type'    => 'ticket_velocity',
-                ]]]></code>
-    </InvalidReturnStatement>
-    <InvalidReturnType>
-      <code><![CDATA[array{flagged: bool, score: float, details: string}]]></code>
-      <code><![CDATA[array{flagged: bool, score: float, details: string}]]></code>
-      <code><![CDATA[array{flagged: bool, score: float, details: string}]]></code>
-      <code><![CDATA[array{flagged: bool, score: float, details: string}]]></code>
     </InvalidReturnType>
   </file>
   <file src="lib/FpsRiskEngine.php">

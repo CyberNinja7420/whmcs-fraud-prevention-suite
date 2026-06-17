@@ -40,7 +40,7 @@ require_once __DIR__ . '/lib/FpsMailHelper.php';
 // derive from this constant. Bump it here when releasing a new version.
 
 if (!defined('FPS_MODULE_VERSION')) {
-    define('FPS_MODULE_VERSION', '5.7.0');
+    define('FPS_MODULE_VERSION', '5.7.1');
 }
 
 // ---------------------------------------------------------------------------
@@ -574,6 +574,11 @@ function fraud_prevention_suite_activate(): array
                 $table->double('risk_score')->default(0);
                 $table->dateTime('created_at')->nullable()->index();
             });
+        }
+
+        // -- FEATURE 2: brute-force login attempts + lockouts (idempotent) --
+        if (class_exists('\FraudPreventionSuite\Lib\FpsBruteForceDefense')) {
+            \FraudPreventionSuite\Lib\FpsBruteForceDefense::ensureSchema();
         }
 
         // -- v5.2: Device trust table --
@@ -3316,6 +3321,18 @@ function fps_ajaxApproveCheck(): array
     }
 
     logActivity("Fraud Prevention: Check #{$checkId} approved by admin #{$_SESSION['adminid']}");
+    // MaxMind feedback loop (FEATURE 1): an admin approving a flagged check is
+    // ground-truth 'not_fraud'. Report it so MaxMind learns. Gated + non-fatal.
+    try {
+        if (class_exists('\FraudPreventionSuite\Lib\FpsHookHelpers')) {
+            \FraudPreventionSuite\Lib\FpsHookHelpers::fps_reportMaxMindForCheck(
+                $checkId, 'not_fraud', ['notes' => 'Manually approved in FPS review queue']
+            );
+        }
+    } catch (\Throwable $mmEx) {
+        logModuleCall('fraud_prevention_suite', 'ajaxApproveCheck::maxmindReport', (string) $checkId, $mmEx->getMessage());
+    }
+
     return ['success' => true];
 }
 
@@ -3341,6 +3358,18 @@ function fps_ajaxDenyCheck(): array
     }
 
     logActivity("Fraud Prevention: Check #{$checkId} denied by admin #{$_SESSION['adminid']}");
+    // MaxMind feedback loop (FEATURE 1): an admin denying a flagged check is
+    // ground-truth 'suspected_fraud'. Report it so MaxMind learns. Gated + non-fatal.
+    try {
+        if (class_exists('\FraudPreventionSuite\Lib\FpsHookHelpers')) {
+            \FraudPreventionSuite\Lib\FpsHookHelpers::fps_reportMaxMindForCheck(
+                $checkId, 'suspected_fraud', ['notes' => 'Manually denied in FPS review queue']
+            );
+        }
+    } catch (\Throwable $mmEx) {
+        logModuleCall('fraud_prevention_suite', 'ajaxDenyCheck::maxmindReport', (string) $checkId, $mmEx->getMessage());
+    }
+
     return ['success' => true];
 }
 
@@ -3665,6 +3694,8 @@ function fps_ajaxSaveSettings(): array
         'email_digest_enabled',
         'scheduled_reports_enabled',
         'sms_verification_enabled',
+        'maxmind_report_transactions',
+        'login_bruteforce_enabled',
     ];
     foreach ($booleanFlagKeys as $bk) {
         if (!array_key_exists($bk, $settings)) {

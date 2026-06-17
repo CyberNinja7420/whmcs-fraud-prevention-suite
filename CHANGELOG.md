@@ -7,6 +7,23 @@ This project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [5.7.1] - 2026-06-17
+
+### Added -- MaxMind feedback loop, brute-force defense & check context
+
+- **`lib/Providers/MaxMindProvider.php` `fps_reportTransaction()`**: closes the
+  minFraud feedback loop by reporting confirmed-fraud / confirmed-legit outcomes
+  back to MaxMind, improving future score accuracy.
+- **`FpsBruteForceDefense`**: login brute-force protection backed by new
+  `mod_fps_login_attempts` and `mod_fps_lockouts` tables, wired through a
+  `LogActivity` hook to observe failed admin/client logins.
+- **`ajax-bruteforce.php`**: AJAX endpoint for the brute-force UI, including the
+  Content-Type re-assert fix so JSON responses are not mangled by upstream
+  output handlers.
+- **`mod_fps_checks.check_context`**: new column recording the context in which
+  each fraud check ran (checkout, login, manual, API) for better attribution
+  and reporting.
+
 ## [5.7.0] - 2026-06-04 "StepUp"
 
 ### Added -- 3DS2 / SCA step-up orchestration (competitive gap #3)

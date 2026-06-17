@@ -2412,6 +2412,26 @@ add_hook('InvoiceUnpaid', 1, function ($vars) {
 
         logActivity("Fraud Prevention: Chargeback recorded for client #{$clientId}, invoice #{$invoiceId}, amount \${$invoice->total}");
 
+        // MaxMind minFraud transaction/chargeback feedback loop (FEATURE 1).
+        // Report the chargeback back to MaxMind so the model learns from this
+        // real-world fraud outcome. Gated behind maxmind_report_transactions
+        // (default OFF) inside the helper; never breaks the hook on failure.
+        try {
+            if ($originalCheck && class_exists('\FraudPreventionSuite\Lib\FpsHookHelpers')) {
+                \FraudPreventionSuite\Lib\FpsHookHelpers::fps_reportMaxMindForCheck(
+                    (int) ($originalCheck->id ?? 0),
+                    'chargeback',
+                    [
+                        'chargeback_code' => 'general',
+                        'notes'           => 'WHMCS invoice #' . $invoiceId . ' marked unpaid (chargeback/dispute)',
+                    ]
+                );
+            }
+        } catch (\Throwable $mmEx) {
+            // MaxMind report failure is non-fatal -- chargeback is already recorded.
+            logModuleCall('fraud_prevention_suite', 'InvoiceUnpaid::maxmindReport', (string) $invoiceId, $mmEx->getMessage());
+        }
+
         // v3.0: Send webhook notification for chargeback event
         if (class_exists('\\FraudPreventionSuite\\Lib\\FpsWebhookNotifier')) {
             try {
@@ -2992,5 +3012,157 @@ add_hook('DailyCronJob', 5, function ($vars) {
                                           ->where('created_at', '>=', date('Y-m-d H:i:s', time() - 86400))->count(),
             ]);
         } catch (\Throwable $e) { /* non-fatal */ }
+    }
+});
+
+// ---------------------------------------------------------------------------
+// FEATURE 2: Failed-login brute-force detection (pre-auth).
+//
+// WHMCS fires LogActivity for every activity-log write, including failed
+// client logins ("Failed Login...") and failed admin logins ("Failed Admin
+// Login Attempt - ..."). We pattern-match those, extract the IP + email, and
+// feed them to FpsBruteForceDefense which tallies attempts per (ip,email) in a
+// sliding window and writes a lockout row once the threshold is crossed.
+// Entirely defensive; never throws into the activity-logger.
+// ---------------------------------------------------------------------------
+add_hook('LogActivity', 1, function ($vars) {
+    try {
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsBruteForceDefense')) {
+            return;
+        }
+
+        // The activity description is the reliable signal across WHMCS layers.
+        $desc = (string) ($vars['description'] ?? ($vars['message'] ?? ''));
+        if ($desc === '') {
+            return;
+        }
+
+        // Match BOTH client and admin failed-login phrasings, case-insensitive.
+        //   client: "Failed Login Attempt for user@x"  /  "Failed Client Login ..."
+        //   admin:  "Failed Admin Login Attempt - IP: x" / "... - Username: y"
+        $isFail = (stripos($desc, 'failed') !== false && stripos($desc, 'login') !== false);
+        if (!$isFail) {
+            return;
+        }
+        $scope = (stripos($desc, 'admin') !== false) ? 'admin' : 'client';
+
+        // --- Extract IP ---
+        // Prefer an explicit hook-provided ipaddr; else parse "IP: x.x.x.x" from
+        // the description; else fall back to the request IP.
+        $ip = trim((string) ($vars['ipaddr'] ?? $vars['ip'] ?? ''));
+        if ($ip === '' && preg_match('/IP:\s*([0-9a-fA-F:.]+)/', $desc, $m)) {
+            $ip = $m[1];
+        }
+        if ($ip === '') {
+            foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $k) {
+                $v = (string) ($_SERVER[$k] ?? '');
+                if ($v !== '') {
+                    $cand = trim(explode(',', $v)[0]);
+                    if (filter_var($cand, FILTER_VALIDATE_IP)) { $ip = $cand; break; }
+                }
+            }
+        }
+
+        // --- Extract email / username ---
+        // Prefer a real email anywhere in the description; else the
+        // "Username: x" capture; else the submitted login field; else hook user.
+        $email = '';
+        if (preg_match('/[\w.+\-]+@[\w\-]+\.[\w.\-]+/', $desc, $em)) {
+            $email = $em[0];
+        } elseif (preg_match('/Username:\s*([^\s,]+)/i', $desc, $um)) {
+            $email = $um[1];
+        } elseif (!empty($_POST['username'])) {
+            $email = (string) $_POST['username'];
+        } elseif (!empty($_POST['email'])) {
+            $email = (string) $_POST['email'];
+        } elseif (!empty($vars['user'])) {
+            $email = (string) $vars['user'];
+        }
+        // Ignore the literal "System" actor that WHMCS uses for some admin rows.
+        if (strcasecmp(trim($email), 'System') === 0) {
+            $email = '';
+        }
+
+        (new \FraudPreventionSuite\Lib\FpsBruteForceDefense())->recordFailure($ip, $email, $scope);
+    } catch (\Throwable $e) {
+        // Never let brute-force tallying break activity logging.
+        logModuleCall('fraud_prevention_suite', 'LogActivity::bruteforce', '', $e->getMessage());
+    }
+});
+
+// ---------------------------------------------------------------------------
+// FEATURE 2: Inject the lockout hard-block + Turnstile gate on the login page.
+//
+// High priority (runs early) ClientAreaPage hook. When the visitor is locked
+// out and is on the login page, append the block HTML to the page output
+// (ClientAreaPage may return an array that WHMCS merges into the template
+// vars; we add an extra '<key> => html' via the 'fps_bruteforce_block' var
+// AND, more reliably across themes, register a footer-output injection).
+// ---------------------------------------------------------------------------
+add_hook('ClientAreaPage', 5, function ($vars) {
+    try {
+        if (!class_exists('\\FraudPreventionSuite\\Lib\\FpsBruteForceDefense')) {
+            return [];
+        }
+
+        // Only act on the login page (filename-based; robust across themes).
+        $script = (string) ($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '');
+        $isLogin = (stripos($script, 'login.php') !== false)
+            || (isset($vars['templatefile']) && stripos((string) $vars['templatefile'], 'login') !== false)
+            || (isset($vars['filename']) && stripos((string) $vars['filename'], 'login') !== false);
+        if (!$isLogin) {
+            return [];
+        }
+
+        // Resolve caller IP + any submitted email.
+        $ip = '';
+        foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $k) {
+            $v = (string) ($_SERVER[$k] ?? '');
+            if ($v !== '') {
+                $cand = trim(explode(',', $v)[0]);
+                if (filter_var($cand, FILTER_VALIDATE_IP)) { $ip = $cand; break; }
+            }
+        }
+        $email = (string) ($_POST['username'] ?? $_POST['email'] ?? '');
+
+        $defense = new \FraudPreventionSuite\Lib\FpsBruteForceDefense();
+        if (!$defense->isLockedOut($ip, $email)) {
+            return [];
+        }
+
+        // Stash the block HTML for the footer-output hook to emit reliably.
+        $ajaxUrl = '/modules/addons/fraud_prevention_suite/ajax-bruteforce.php';
+        $GLOBALS['fps_bruteforce_block_html'] = $defense->getBlockHtml($ip, $email, $ajaxUrl);
+        return [];
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'ClientAreaPage::bruteforce', '', $e->getMessage());
+        return [];
+    }
+});
+
+// Emit the stashed lockout block at footer output (runs for the login page).
+add_hook('ClientAreaFooterOutput', 6, function ($vars) {
+    try {
+        $html = $GLOBALS['fps_bruteforce_block_html'] ?? '';
+        if (is_string($html) && $html !== '') {
+            unset($GLOBALS['fps_bruteforce_block_html']);
+            return $html;
+        }
+    } catch (\Throwable $e) {
+        // Non-fatal.
+    }
+    return '';
+});
+
+// ---------------------------------------------------------------------------
+// FEATURE 2: Daily purge of stale brute-force attempt rows.
+// ---------------------------------------------------------------------------
+add_hook('DailyCronJob', 6, function ($vars) {
+    try {
+        if (class_exists('\\FraudPreventionSuite\\Lib\\FpsBruteForceDefense')) {
+            (new \FraudPreventionSuite\Lib\FpsBruteForceDefense())->purgeOldAttempts();
+        }
+    } catch (\Throwable $e) {
+        logModuleCall('fraud_prevention_suite', 'DailyCron::bruteforcePurge', '', $e->getMessage());
     }
 });

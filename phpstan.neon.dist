@@ -60,8 +60,6 @@ parameters:
     # parses every .php file under it without analysing them.
     scanDirectories:
         - phpstan-stubs
-    scanFiles:
-        - phpstan-stubs/whmcs-widget.php
 
     # ignoreErrors: empty for now -- the FpsConfig::getCustom rule no longer
     # matches once stub files are loaded. Add specific patterns here only

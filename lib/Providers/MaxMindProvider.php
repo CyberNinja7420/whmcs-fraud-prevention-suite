@@ -28,6 +28,17 @@ class MaxMindProvider implements FpsProviderInterface
     private const CACHE_HOURS = 24;
     private const MINFRAUD_URL = 'https://minfraud.maxmind.com/minfraud/v2.0/score';
     private const GEOIP_URL = 'https://geoip.maxmind.com/geoip/v2.1/insights/';
+    private const REPORT_URL = 'https://minfraud.maxmind.com/minfraud/v2.0/transactions/report';
+
+    /**
+     * Request-scoped cache of the most recent minFraud Score `id` (UUID).
+     * The check runner reads this in fps_persistCheck() to store the
+     * minfraud_id in mod_fps_checks.check_context so a later chargeback /
+     * review-queue decision can be reported back to MaxMind.
+     *
+     * @var string
+     */
+    private static string $fps_lastMinfraudId = '';
 
     public function getName(): string
     {
@@ -210,6 +221,14 @@ class MaxMindProvider implements FpsProviderInterface
 
             // risk_score from minFraud is 0.01-99.0
             $riskScore = (float) ($data['risk_score'] ?? 0);
+
+            // Capture the minFraud transaction id (UUID) for the report
+            // feedback loop. Stored request-scoped so the check runner can
+            // persist it into mod_fps_checks.check_context.
+            $minfraudId = (string) ($data['id'] ?? '');
+            if ($minfraudId !== '') {
+                self::$fps_lastMinfraudId = $minfraudId;
+            }
             $ipRisk = (float) ($data['ip_address']['risk'] ?? 0);
 
             // Map directly to our 0-100 scale (minFraud uses same scale)
@@ -411,6 +430,111 @@ class MaxMindProvider implements FpsProviderInterface
             }
         } catch (\Throwable $e) {
             // Non-fatal caching failure
+        }
+    }
+    // -----------------------------------------------------------------------
+    // minFraud transaction / chargeback feedback loop
+    // -----------------------------------------------------------------------
+
+    /**
+     * Return the most recent minFraud Score transaction id seen this request.
+     */
+    public static function getLastMinfraudId(): string
+    {
+        return self::$fps_lastMinfraudId;
+    }
+
+    /**
+     * Report a transaction outcome to MaxMind minFraud Transaction Report.
+     * Gated behind maxmind_report_transactions (default OFF). Never throws,
+     * never echoes the license key. 204 = success.
+     *
+     * @return array{success: bool, message: string, http_code: int}
+     */
+    public static function fps_reportTransaction(string $minfraudId, string $tag, array $ctx = []): array
+    {
+        $validTags = ['chargeback', 'not_fraud', 'spam_or_abuse', 'suspected_fraud'];
+        if (!in_array($tag, $validTags, true)) {
+            return ['success' => false, 'message' => 'Invalid tag: ' . $tag, 'http_code' => 0];
+        }
+
+        $minfraudId = trim($minfraudId);
+        if ($minfraudId === '' || !preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $minfraudId)) {
+            return ['success' => false, 'message' => 'Missing or malformed minfraud_id', 'http_code' => 0];
+        }
+
+        try {
+            $config = FpsConfig::getInstance();
+            if (!$config->isEnabled('maxmind_report_transactions')) {
+                return ['success' => false, 'message' => 'maxmind_report_transactions disabled', 'http_code' => 0];
+            }
+
+            $accountId  = trim((string) $config->getCustom('maxmind_account_id', ''));
+            $licenseKey = trim((string) $config->getCustom('maxmind_license_key', ''));
+            if ($accountId === '' || $licenseKey === '') {
+                return ['success' => false, 'message' => 'MaxMind credentials not configured', 'http_code' => 0];
+            }
+
+            $body = ['minfraud_id' => $minfraudId, 'tag' => $tag];
+            $ip = trim((string) ($ctx['ip'] ?? ''));
+            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+                $body['ip_address'] = $ip;
+            }
+            if ($tag === 'chargeback' && !empty($ctx['chargeback_code'])) {
+                $body['chargeback_code'] = substr((string) $ctx['chargeback_code'], 0, 50);
+            }
+            if (!empty($ctx['notes'])) {
+                $body['notes'] = substr((string) $ctx['notes'], 0, 255);
+            }
+
+            $ch = curl_init(self::REPORT_URL);
+            curl_setopt_array($ch, [
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => json_encode($body),
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 8,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_HTTPHEADER     => [
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                    'Authorization: Basic ' . base64_encode($accountId . ':' . $licenseKey),
+                ],
+                CURLOPT_USERAGENT => 'EVPS-WHMCS/1.0 (FPS ' . (defined('FPS_MODULE_VERSION') ? FPS_MODULE_VERSION : '5.0') . ')',
+            ]);
+
+            $response  = curl_exec($ch);
+            $httpCode  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            logModuleCall(
+                'fraud_prevention_suite',
+                'MaxMind::reportTransaction',
+                json_encode(['tag' => $tag, 'minfraud_id' => $minfraudId, 'ip' => $ip]),
+                json_encode(['http_code' => $httpCode, 'curl_error' => $curlError, 'body' => is_string($response) ? substr($response, 0, 300) : '']),
+                '',
+                [$licenseKey, base64_encode($accountId . ':' . $licenseKey)]
+            );
+
+            if ($curlError !== '') {
+                return ['success' => false, 'message' => 'Connection error', 'http_code' => $httpCode];
+            }
+            if ($httpCode === 204 || $httpCode === 200) {
+                return ['success' => true, 'message' => 'Reported ' . $tag . ' to MaxMind', 'http_code' => $httpCode];
+            }
+            if ($httpCode === 401) {
+                return ['success' => false, 'message' => 'MaxMind auth failed', 'http_code' => 401];
+            }
+            $errMsg = 'HTTP ' . $httpCode;
+            $decoded = is_string($response) ? json_decode($response, true) : null;
+            if (is_array($decoded) && !empty($decoded['error'])) {
+                $errMsg = (string) $decoded['error'];
+            }
+            return ['success' => false, 'message' => 'MaxMind report rejected: ' . $errMsg, 'http_code' => $httpCode];
+        } catch (\Throwable $e) {
+            logModuleCall('fraud_prevention_suite', 'MaxMind::reportTransaction::ERROR', $tag, $e->getMessage());
+            return ['success' => false, 'message' => 'Exception: ' . $e->getMessage(), 'http_code' => 0];
         }
     }
 }
