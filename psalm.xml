@@ -45,6 +45,7 @@
          file in load order. -->
     <stubs>
         <file name="phpstan-stubs/whmcs.php"/>
+        <file name="phpstan-stubs/whmcs-widget.php"/>
         <file name="phpstan-stubs/capsule.php"/>
         <file name="phpstan-stubs/illuminate-query.php"/>
         <file name="phpstan-stubs/illuminate-schema.php"/>
